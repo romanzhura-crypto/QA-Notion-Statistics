@@ -1,0 +1,13 @@
+# Secrets — never commit
+config/notion.json
+config/gitlab.env
+*.pem
+*.key
+
+# Local Python
+__pycache__/
+*.pyc
+.venv/
+
+# CI staging (snapshot job writes this)
+frontend/public/

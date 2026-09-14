@@ -1,0 +1,97 @@
+{
+  "release": "TEST",
+  "note": "QA fixture rows merged into the table snapshot only. Not Notion pages. Widget must read them via DATA.tasks.",
+  "tasks": [
+    {
+      "id": "table-test-1",
+      "r": ["TEST"],
+      "d": "Vasil Shakavets",
+      "s": "Done",
+      "e": 8.0,
+      "t": 9.5,
+      "n": "Карточка запчасти: применяемость",
+      "start": "2026-08-12T09:00:00.000+03:00",
+      "created": "2026-08-12T08:00:00.000Z",
+      "edited": "2026-08-20T15:10:00.000Z",
+      "history": [
+        {"s": "New", "days": 1.2},
+        {"s": "Analysis/Design", "days": 2.0},
+        {"s": "Development", "days": 4.5},
+        {"s": "Testing", "days": 1.8},
+        {"s": "Done", "at": "2026-08-20T18:10:00+03:00"}
+      ]
+    },
+    {
+      "id": "table-test-2",
+      "r": ["TEST"],
+      "d": "Сергей Дехтеренок",
+      "s": "Done",
+      "e": 8.0,
+      "t": 8.3,
+      "n": "Интеграция Notion ↔ GitLab",
+      "start": "2026-08-14T10:00:00.000+03:00",
+      "created": "2026-08-14T07:00:00.000Z",
+      "edited": "2026-08-22T08:05:00.000Z",
+      "history": [
+        {"s": "New", "days": 0.5},
+        {"s": "Ready For Dev", "days": 1.0},
+        {"s": "Development", "days": 6.0},
+        {"s": "Code Review", "days": 0.8},
+        {"s": "Done", "at": "2026-08-22T11:05:00+03:00"}
+      ]
+    },
+    {
+      "id": "table-test-3",
+      "r": ["TEST"],
+      "d": "Сергей Дехтеренок",
+      "s": "Development",
+      "e": 3.0,
+      "t": 4.1,
+      "n": "Видимость спецификаций",
+      "start": "2026-08-25T09:00:00.000+03:00",
+      "created": "2026-08-25T06:00:00.000Z",
+      "edited": "2026-09-01T12:00:00.000Z",
+      "history": [
+        {"s": "Investigate", "days": 2.4},
+        {"s": "Failed", "days": 0.6},
+        {"s": "Development", "days": 3.1}
+      ]
+    },
+    {
+      "id": "table-test-4",
+      "r": ["TEST"],
+      "d": "Oleg Valahanovich",
+      "s": "Done",
+      "e": 1.6,
+      "t": 1.5,
+      "n": "Быстрый hotfix",
+      "start": "2026-09-01T08:00:00.000+03:00",
+      "created": "2026-09-01T05:00:00.000Z",
+      "edited": "2026-09-01T06:30:00.000Z",
+      "history": [
+        {"s": "New", "days": 0.2},
+        {"s": "Development", "days": 0.4},
+        {"s": "Testing", "days": 0.3},
+        {"s": "Done", "at": "2026-09-01T09:30:00+03:00"}
+      ]
+    },
+    {
+      "id": "table-test-5",
+      "r": ["TEST"],
+      "d": "Vasil Shakavets",
+      "s": "Ready For Release",
+      "e": 16.0,
+      "t": 14.0,
+      "n": "Готовность к релизу без Done",
+      "start": "2026-08-28T09:00:00.000+03:00",
+      "created": "2026-08-28T06:00:00.000Z",
+      "edited": "2026-09-03T10:00:00.000Z",
+      "history": [
+        {"s": "New", "days": 0.8},
+        {"s": "Development", "days": 2.2},
+        {"s": "Testing", "days": 3.4},
+        {"s": "Ready For Release", "days": 0.9}
+      ]
+    }
+  ]
+}

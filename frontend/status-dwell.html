@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Задачи — время в статусе</title>
+  <meta name="widget-build" content="20260907-split-static">
+  <!-- Static-only: iframe loads HTML + public JSON. No OpenClaw sync endpoint, no Notion token. -->
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --subtle: #f7f6f3;
+      --ink: #37352f;
+      --muted: rgba(55,53,47,.65);
+      --border: rgba(55,53,47,.16);
+      --blue: #2383e2;
+      --red: #eb5757;
+      --hover: rgba(55,53,47,.08);
+      --focus: #2383e2;
+      --shadow: rgba(15,15,15,.05) 0 0 0 1px, rgba(15,15,15,.05) 0 3px 6px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --radius: 10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #191919; --panel: #202020; --subtle: #2f2f2f;
+        --ink: rgba(255,255,255,.81); --muted: rgba(255,255,255,.46);
+        --border: rgba(255,255,255,.13); --blue: #529cca;
+        --red: #e03e3e; --hover: rgba(255,255,255,.08); --focus: #529cca;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; max-width: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+    main { width: 100%; max-width: none; margin: 0; padding: 12px; display: grid; gap: 12px; }
+    h2 { font-size: 1rem; font-weight: 650; margin: 0 0 8px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .err { color: var(--red); font-size: 13px; font-weight: 600; margin: 8px 0 0; min-height: 1.2em; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+    .callout {
+      background: var(--subtle);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      gap: 8px 16px;
+      align-items: start;
+    }
+    .field { min-width: 0; display: flex; flex-direction: column; }
+    .field-control { min-height: 36px; display: flex; align-items: stretch; }
+    .sync-actions { justify-self: end; }
+    .sync-status {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+      white-space: pre-line;
+      min-height: 1.2em;
+    }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], button {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    input[type="text"] { width: 100%; min-height: 36px; padding: 6px 10px; }
+    button { min-height: 36px; padding: 6px 14px; cursor: pointer; background: var(--bg); }
+    button:hover { background: var(--hover); }
+    button.primary { background: var(--blue); color: #fff; border-color: transparent; white-space: nowrap; padding: 6px 16px; }
+    button:disabled { opacity: .55; cursor: wait; }
+    input:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink); }
+    .swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 10px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .kpis div { background: var(--subtle); border-radius: 8px; padding: 10px 12px; }
+    .kpis dt { font-size: 11px; color: var(--muted); }
+    .kpis dd { margin: 3px 0 0; font-size: 1.2rem; font-weight: 700; }
+    .scroll { overflow: auto; width: 100%; max-height: 560px; }
+    .chart-wrap { position: relative; width: 100%; overflow: visible; }
+    .scroll.chart-scroll { overflow-x: auto; overflow-y: visible; max-height: none; }
+    svg { display: block; width: 100%; height: auto; max-width: 100%; }
+    .tip {
+      position: absolute;
+      z-index: 8;
+      display: none;
+      transform: translate(-50%, calc(-100% - 8px));
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 5px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: var(--shadow);
+    }
+    .tip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -5px;
+      width: 8px;
+      height: 8px;
+      margin-left: -4px;
+      background: var(--ink);
+      transform: rotate(45deg);
+    }
+    .tip.show { display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 550;
+    }
+    .seg-list { display: flex; flex-wrap: wrap; gap: 4px; }
+    @media (max-width: 768px) {
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      main { padding: 10px; }
+      .sync-actions { justify-self: stretch; }
+      button.primary { width: 100%; }
+    }
+    .combo { position: relative; width: 100%; }
+    .combo-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--subtle);
+      overflow: hidden;
+    }
+    .combo-control:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .combo-control input[type="text"] { border: 0; border-radius: 0; min-height: 36px; background: transparent; }
+    .combo-toggle {
+      min-height: 36px; min-width: 36px; padding: 0; border: 0; border-left: 1px solid var(--border);
+      border-radius: 0; background: transparent; color: var(--ink); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .combo-toggle:hover { background: var(--hover); }
+    .combo-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .combo-toggle svg { width: 12px; height: 12px; fill: currentColor; transition: transform .15s; }
+    .combo-menu {
+      display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+      max-height: calc(10 * 32px + 8px); overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow);
+    }
+    .combo-menu.open { display: block; }
+    .combo-menu li { margin: 0; }
+    .combo-option {
+      width: 100%; text-align: left; min-height: 32px; padding: 6px 10px; border: 0; border-radius: 6px;
+      background: transparent; color: var(--ink); cursor: pointer;
+    }
+    .combo-option:hover, .combo-option.active { background: var(--hover); }
+    .combo-empty { padding: 8px 10px; color: var(--muted); font-size: 12px; }
+    @media (prefers-reduced-motion: reduce) { .combo-toggle svg { transition: none; } }
+    @media (max-width: 320px) { .kpis { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="toolbar">
+        <div class="field">
+          <label for="release">Релиз</label>
+          <div class="combo" id="release-combo">
+            <div class="combo-control">
+              <input id="release" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="release-menu" autocomplete="off" placeholder="Начните ввод, например 28.2026">
+              <button type="button" class="combo-toggle" id="release-toggle" aria-label="Открыть список релизов" aria-expanded="false" aria-controls="release-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="release-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="release-err" hidden>Такого релиза не существует.</p>
+        </div>
+        <div class="field sync-actions">
+          <label for="sync">Снимок JSON</label>
+          <div class="field-control">
+            <button type="button" class="primary" id="sync">Обновить данные</button>
+          </div>
+        </div>
+        <p class="sync-status" id="sync-msg" aria-live="polite"></p>
+      </div>
+    </section>
+    <p class="callout" id="note"></p>
+    <section class="kpis" aria-label="Сводка релиза">
+      <div><dt>Задач</dt><dd id="k-n">—</dd></div>
+      <div><dt>Статусов</dt><dd id="k-s">—</dd></div>
+      <div><dt>Медиана, дн</dt><dd id="k-m">—</dd></div>
+      <div><dt>Макс, дн</dt><dd id="k-x">—</dd></div>
+    </section>
+    <section class="card">
+      <h2>Время в каждом Status</h2>
+      <p class="muted">Источник — таблица задач выбранного релиза (снимок Notion). Полоса = текущий Status из таблицы. Done — только момент получения статуса, без длительности. Наведите на отрезок: время сверху.</p>
+      <div class="legend" id="legend"></div>
+      <div class="scroll chart-scroll">
+        <div class="chart-wrap">
+          <svg id="chart" role="img" aria-labelledby="chart-title">
+            <title id="chart-title">Время задач релиза в каждом статусе</title>
+          </svg>
+          <div class="tip" id="tip" role="tooltip"></div>
+        </div>
+      </div>
+      <p class="muted" id="empty" hidden>В этом релизе нет задач.</p>
+      <div class="scroll" style="margin-top:12px; max-height: none;">
+        <table>
+          <thead>
+            <tr><th>Задача</th><th>Status</th><th>Дней / момент</th><th>DEV</th><th>Старт</th></tr>
+          </thead>
+          <tbody id="tbl"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script>
+    let DATA = { releases: [], tasks: [], generated_at: "", task_count: 0, status_meta: [], status_dwell_note: "" };
+    const NOTION_STATUS = {
+      default: "#787774", gray: "#9b9a97", brown: "#64473a", orange: "#d9730d",
+      yellow: "#dfab01", green: "#0f7b6c", blue: "#2383e2", purple: "#6940a5",
+      pink: "#ad1a72", red: "#e03e3e"
+    };
+    const releaseEl = document.getElementById("release");
+    const menuEl = document.getElementById("release-menu");
+    const toggleEl = document.getElementById("release-toggle");
+    const errEl = document.getElementById("release-err");
+    const syncBtn = document.getElementById("sync");
+    const syncMsg = document.getElementById("sync-msg");
+    const tipEl = document.getElementById("tip");
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function css(name, fb) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
+    }
+    function statusColor(name) {
+      const meta = (DATA.status_meta || []).find(s => s.name === name);
+      return NOTION_STATUS[(meta && meta.color) || "default"] || NOTION_STATUS.default;
+    }
+    function isDoneName(name) {
+      return String(name || "").toLowerCase() === "done";
+    }
+    const PUBLIC_BASE = "";
+    function assetUrl(name) {
+      const n = String(name || "").replace(/^\/+/, "");
+      if (PUBLIC_BASE) return String(PUBLIC_BASE).replace(/\/+$/, "") + "/" + n;
+      try { return new URL(n, window.location.href).toString(); }
+      catch (e) { return n; }
+    }
+    function dataUrl() { return assetUrl("release-data.json"); }
+    function parseTs(v) {
+      if (!v) return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    function daysInStatus(t) {
+      const start = parseTs(t.start) || parseTs(t.created);
+      if (!start) return 0;
+      const done = isDoneName(t.s);
+      const end = done ? (parseTs(t.edited) || new Date()) : new Date();
+      const ms = Math.max(0, end.getTime() - start.getTime());
+      return Math.round((ms / 86400000) * 10) / 10;
+    }
+    function fmtDate(v) {
+      const d = v instanceof Date ? v : parseTs(v);
+      if (!d) return "—";
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric"
+      }).formatToParts(d);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year");
+    }
+    function fmtDateTime(v) {
+      const d = v instanceof Date ? v : parseTs(v);
+      if (!d) return "—";
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: false
+      }).formatToParts(d);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    function fmtDur(days) {
+      const n = Number(days) || 0;
+      if (n > 0 && n < 1) {
+        const h = Math.round(n * 24 * 10) / 10;
+        return h + " ч";
+      }
+      return (Math.round(n * 10) / 10) + " дн";
+    }
+    function historyOf(t) {
+      return (t && (t.history || t.segments)) || [];
+    }
+    function segmentsFor(t) {
+      const raw = historyOf(t);
+      if (raw.length) {
+        return raw.map(h => {
+          if (isDoneName(h.s)) {
+            return { s: h.s || "Done", kind: "done", days: 0, at: h.at || h.start || h.end || null };
+          }
+          return { s: h.s || "Unknown", kind: "dwell", days: Number(h.days) || 0, at: null };
+        });
+      }
+      if (isDoneName(t.s)) {
+        return [{ s: t.s || "Done", kind: "done", days: 0, at: t.edited || t.start || t.created || null }];
+      }
+      return [{ s: t.s || "Unknown", kind: "dwell", days: daysInStatus(t), at: null }];
+    }
+    function dwellTotal(segs) {
+      return segs.filter(s => s.kind === "dwell").reduce((sum, s) => sum + (s.days || 0), 0);
+    }
+    function doneAt(segs) {
+      const d = segs.find(s => s.kind === "done");
+      return d ? d.at : null;
+    }
+
+    let activeIdx = -1;
+    let filterOnType = false;
+    function listReleases() {
+      const all = DATA.releases || [];
+      const q = (releaseEl.value || "").trim().toLowerCase();
+      if (!filterOnType || !q) return all.slice();
+      const exact = all.some(r => r.toLowerCase() === q);
+      if (exact) return all.slice();
+      return all.filter(r => r.toLowerCase().indexOf(q) !== -1);
+    }
+    function fillList() {
+      const items = listReleases();
+      if (!items.length) {
+        menuEl.innerHTML = "<li class=\"combo-empty\">Нет совпадений</li>";
+        activeIdx = -1;
+        return;
+      }
+      menuEl.innerHTML = items.map((r, i) =>
+        "<li><button type=\"button\" class=\"combo-option" + (i === activeIdx ? " active" : "") + "\" role=\"option\" data-value=\"" + esc(r) + "\">" + esc(r) + "</button></li>"
+      ).join("");
+    }
+    function setExpanded(open, fromType) {
+      if (open && !fromType) filterOnType = false;
+      menuEl.classList.toggle("open", open);
+      menuEl.hidden = !open;
+      releaseEl.setAttribute("aria-expanded", open ? "true" : "false");
+      toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        const cur = (releaseEl.value || "").trim().toLowerCase();
+        const items = listReleases();
+        activeIdx = Math.max(0, items.findIndex(r => r.toLowerCase() === cur));
+        fillList();
+        highlight();
+      }
+    }
+    function highlight() {
+      const opts = menuEl.querySelectorAll(".combo-option");
+      opts.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+      if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+    }
+    function pickRelease(val) {
+      releaseEl.value = val;
+      setExpanded(false);
+      render();
+    }
+    function matchRelease(raw) {
+      const v = (raw || "").trim();
+      if (!v) return { ok: false, empty: true };
+      const exact = (DATA.releases || []).find(r => r.toLowerCase() === v.toLowerCase());
+      if (exact) return { ok: true, value: exact };
+      return { ok: false, empty: false };
+    }
+    function selected() {
+      const m = matchRelease(releaseEl.value);
+      if (!m.ok) return [];
+      return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.value) !== -1);
+    }
+
+    function hideTip() {
+      tipEl.classList.remove("show");
+    }
+    function showTip(evt, text) {
+      const wrap = tipEl.parentElement;
+      if (!wrap) return;
+      const box = wrap.getBoundingClientRect();
+      const t = evt.currentTarget;
+      const r = t.getBoundingClientRect();
+      tipEl.textContent = text;
+      let left = r.left - box.left + r.width / 2;
+      let top = r.top - box.top;
+      tipEl.classList.add("show");
+      const tw = tipEl.offsetWidth || 0;
+      const th = tipEl.offsetHeight || 0;
+      const minX = tw / 2 + 4;
+      const maxX = Math.max(minX, box.width - tw / 2 - 4);
+      left = Math.min(maxX, Math.max(minX, left));
+      if (top - th - 10 < 0) top = th + 10;
+      tipEl.style.left = left + "px";
+      tipEl.style.top = top + "px";
+    }
+    function bindTips(svg) {
+      svg.querySelectorAll("[data-tip]").forEach(el => {
+        const text = el.getAttribute("data-tip") || "";
+        el.addEventListener("mouseenter", (evt) => showTip(evt, text));
+        el.addEventListener("mousemove", (evt) => showTip(evt, text));
+        el.addEventListener("mouseleave", hideTip);
+        el.addEventListener("focus", (evt) => showTip(evt, text));
+        el.addEventListener("blur", hideTip);
+      });
+    }
+
+    function draw(rows) {
+      const svg = document.getElementById("chart");
+      const empty = document.getElementById("empty");
+      hideTip();
+      empty.hidden = rows.length > 0;
+      if (!rows.length) {
+        svg.removeAttribute("viewBox");
+        svg.innerHTML = "";
+        document.getElementById("tbl").innerHTML = "";
+        document.getElementById("legend").innerHTML = "";
+        return;
+      }
+      const host = svg.parentElement || svg;
+      const hostW = Math.floor(host.getBoundingClientRect().width || host.clientWidth || 0);
+      const rowH = 32;
+      const pad = { l: 220, r: 72, t: 28, b: 28 };
+      const w = Math.max(hostW || 0, 640);
+      const h = pad.t + pad.b + rows.length * rowH;
+      const innerW = w - pad.l - pad.r;
+      const maxX = Math.max(1, ...rows.map(r => r.totalDays || 0));
+      const ink = css("--ink", "#37352f");
+      const muted = css("--muted", "#787774");
+      const border = css("--border", "#e3e2de");
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
+      let g = [];
+      for (let i = 0; i <= 4; i++) {
+        const x = pad.l + innerW * (i / 4);
+        const val = Math.round(maxX * (i / 4) * 10) / 10;
+        g.push('<line x1="' + x + '" x2="' + x + '" y1="' + pad.t + '" y2="' + (h - pad.b) + '" stroke="' + border + '" />');
+        g.push('<text x="' + x + '" y="' + (h - 8) + '" font-size="11" fill="' + muted + '" text-anchor="middle">' + val + "</text>");
+      }
+      rows.forEach((r, i) => {
+        const y = pad.t + i * rowH + 6;
+        const bh = 18;
+        const label = r.n.length > 34 ? r.n.slice(0, 33) + "…" : r.n;
+        g.push('<text x="8" y="' + (y + 13) + '" font-size="11" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
+        let x = pad.l;
+        r.segs.forEach(seg => {
+          if (seg.kind === "done") {
+            const cx = x + 8;
+            const cy = y + bh / 2;
+            const tip = "Done " + fmtDateTime(seg.at);
+            g.push('<polygon tabindex="0" data-tip="' + esc(tip) + '" points="' +
+              cx + "," + (cy - 7) + " " + (cx + 7) + "," + cy + " " + cx + "," + (cy + 7) + " " + (cx - 7) + "," + cy +
+              '" fill="' + statusColor(seg.s) + '" stroke="' + ink + '" stroke-width="0.6" />');
+            return;
+          }
+          const bw = Math.max(seg.days ? 4 : 0, (seg.days / maxX) * innerW);
+          const tip = seg.s + " · " + fmtDur(seg.days);
+          g.push('<rect tabindex="0" data-tip="' + esc(tip) + '" x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + statusColor(seg.s) + '" />');
+          x += bw;
+        });
+        if (!r.doneAt) {
+          g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(fmtDur(r.totalDays)) + "</text>");
+        }
+      });
+      svg.innerHTML = g.join("");
+      bindTips(svg);
+      const used = {};
+      rows.forEach(r => r.segs.forEach(seg => { used[seg.s] = true; }));
+      const metaOrder = (DATA.status_meta || []).map(s => s.name).filter(Boolean);
+      const seen = [];
+      metaOrder.forEach(s => { if (used[s] && seen.indexOf(s) === -1) seen.push(s); });
+      Object.keys(used).forEach(s => { if (seen.indexOf(s) === -1) seen.push(s); });
+      document.getElementById("legend").innerHTML = seen.map(s =>
+        "<span><i class=\"swatch\" style=\"background:" + statusColor(s) + "\"></i>" + esc(s) + (isDoneName(s) ? " (момент)" : "") + "</span>"
+      ).join("");
+      document.getElementById("tbl").innerHTML = rows.map(r => {
+        const value = r.doneAt ? fmtDateTime(r.doneAt) : fmtDur(r.totalDays);
+        return "<tr><td>" + esc(r.n) + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
+          esc(r.s) + "</span></td><td>" + esc(value) + "</td><td>" + esc(r.d) + "</td><td>" + esc(fmtDate(r.start || r.created)) + "</td></tr>";
+      }).join("");
+    }
+
+    function toRow(t) {
+      const segs = segmentsFor(t);
+      return {
+        n: t.n || "Без названия",
+        s: t.s || "Unknown",
+        d: t.d || "Unassigned",
+        start: t.start,
+        created: t.created,
+        segs: segs,
+        totalDays: Math.round(dwellTotal(segs) * 10) / 10,
+        doneAt: doneAt(segs)
+      };
+    }
+
+    function render() {
+      const m = matchRelease(releaseEl.value);
+      errEl.hidden = m.ok || m.empty;
+      const live = m.ok ? selected() : [];
+      const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
+      const days = rows.map(r => r.totalDays).sort((a, b) => a - b);
+      const med = days.length ? days[Math.floor((days.length - 1) / 2)] : 0;
+      const uniq = new Set();
+      rows.forEach(r => r.segs.forEach(seg => uniq.add(seg.s)));
+      document.getElementById("k-n").textContent = m.ok ? String(rows.length) : "—";
+      document.getElementById("k-s").textContent = m.ok ? String(uniq.size) : "—";
+      document.getElementById("k-m").textContent = m.ok && days.length ? String(med) : "—";
+      document.getElementById("k-x").textContent = m.ok && days.length ? String(Math.max(0, ...days)) : "—";
+      document.getElementById("note").textContent =
+        "Данные только из таблицы задач (снимок Notion: Documentation, Status, DEV, Release, Start date, created_time, last_edited_time). Истории смены Status в таблице нет — один отрезок текущего Status. Hover сверху: длительность. Done — только момент получения (last_edited_time / Start date), без длительности.";
+      if (m.ok) draw(rows);
+      else {
+        document.getElementById("chart").innerHTML = "";
+        document.getElementById("tbl").innerHTML = "";
+        document.getElementById("legend").innerHTML = "";
+        document.getElementById("empty").hidden = true;
+        hideTip();
+      }
+    }
+
+    function formatSyncTime(iso) {
+      const d = iso ? new Date(iso) : new Date();
+      const src = isNaN(d.getTime()) ? new Date() : d;
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: false
+      }).formatToParts(src);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    function applyPayload(p, keepRelease) {
+      const prev = keepRelease ? releaseEl.value : "";
+      DATA = {
+        source: p.source || DATA.source,
+        generated_at: p.generated_at,
+        task_count: p.task_count || (p.tasks || []).length,
+        releases: p.releases || [],
+        tasks: p.tasks || [],
+        status_meta: p.status_meta || DATA.status_meta || [],
+        status_dwell_note: p.status_dwell_note || DATA.status_dwell_note || ""
+      };
+      fillList();
+      const want = "TEST";
+      if (prev && (DATA.releases || []).some(r => r.toLowerCase() === prev.toLowerCase())) {
+        releaseEl.value = (DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase());
+      } else if ((DATA.releases || []).indexOf(want) !== -1) {
+        releaseEl.value = want;
+      } else {
+        const firstNum = (DATA.releases || []).find(r => r !== "Backlog");
+        releaseEl.value = firstNum || (DATA.releases || [])[0] || "";
+      }
+      render();
+    }
+    async function loadCached() {
+      try {
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        applyPayload(await res.json(), false);
+      } catch (e) {
+        syncMsg.textContent = "Нет release-data.json рядом с HTML. Снимок делает backend (release-widget-sync.py), затем publish.";
+      }
+    }
+    async function syncNow() {
+      syncBtn.disabled = true;
+      syncMsg.textContent = "Обновление…";
+      try {
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        const p = await res.json();
+        if (p && p.ok === false) throw new Error(p.error || "snapshot error");
+        applyPayload(p, true);
+        syncMsg.textContent = "Обновлено из JSON " + formatSyncTime(p.generated_at);
+      } catch (e) {
+        syncMsg.textContent = "Ошибка загрузки JSON: " + e.message;
+      } finally {
+        syncBtn.disabled = false;
+      }
+    }
+
+    releaseEl.addEventListener("input", () => { filterOnType = true; activeIdx = 0; setExpanded(true, true); render(); });
+    releaseEl.addEventListener("focus", () => setExpanded(true, false));
+    releaseEl.addEventListener("keydown", (e) => {
+      const open = menuEl.classList.contains("open");
+      const items = listReleases();
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!open) setExpanded(true);
+        else { activeIdx = Math.min(items.length - 1, activeIdx + 1); highlight(); }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!open) setExpanded(true);
+        else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
+      } else if (e.key === "Enter") {
+        if (open && items[activeIdx]) { e.preventDefault(); pickRelease(items[activeIdx]); }
+      } else if (e.key === "Escape") setExpanded(false);
+    });
+    toggleEl.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      setExpanded(!menuEl.classList.contains("open"));
+      if (menuEl.classList.contains("open")) releaseEl.focus();
+    });
+    menuEl.addEventListener("mousedown", (e) => {
+      const btn = e.target.closest(".combo-option");
+      if (!btn) return;
+      e.preventDefault();
+      pickRelease(btn.getAttribute("data-value"));
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#release-combo")) setExpanded(false);
+    });
+    syncBtn.addEventListener("click", syncNow);
+    let resizeTimer = 0;
+    window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 80); });
+    loadCached();
+  </script>
+</body>
+</html>

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Release — Estimate vs Time tracking</title>
+  <meta name="widget-build" content="20260907-split-static">
+  <!-- Static-only: iframe loads HTML + public JSON. No OpenClaw sync endpoint, no Notion token. -->
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --subtle: #f7f6f3;
+      --ink: #37352f;
+      --muted: rgba(55,53,47,.65);
+      --border: rgba(55,53,47,.16);
+      --blue: #2383e2;
+      --orange: #d9730d;
+      --red: #eb5757;
+      --hover: rgba(55,53,47,.08);
+      --focus: #2383e2;
+      --shadow: rgba(15,15,15,.05) 0 0 0 1px, rgba(15,15,15,.05) 0 3px 6px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --radius: 10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #191919; --panel: #202020; --subtle: #2f2f2f;
+        --ink: rgba(255,255,255,.81); --muted: rgba(255,255,255,.46);
+        --border: rgba(255,255,255,.13); --blue: #529cca; --orange: #c77d48;
+        --red: #e03e3e; --hover: rgba(255,255,255,.08); --focus: #529cca;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; max-width: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+    main { width: 100%; max-width: none; margin: 0; padding: 12px; display: grid; gap: 12px; }
+    h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+    h2 { font-size: 1rem; font-weight: 650; margin: 0 0 10px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .err { color: var(--red); font-size: 13px; font-weight: 600; margin: 8px 0 0; min-height: 1.2em; }
+    .ok { color: var(--blue); font-size: 12px; margin: 0; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      gap: 8px 16px;
+      align-items: start;
+    }
+    .field { min-width: 0; display: flex; flex-direction: column; }
+    .field-control { min-height: 36px; display: flex; align-items: stretch; }
+    .sync-actions { justify-self: end; }
+    .sync-actions .field-control { justify-content: flex-end; }
+    .sync-status {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+      white-space: pre-line;
+      min-height: 1.2em;
+    }
+    .sync-status.is-ok { color: var(--blue); }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], button, input[type="color"] {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    input[type="text"] { width: 100%; min-height: 36px; padding: 6px 10px; }
+    button { min-height: 36px; padding: 6px 14px; cursor: pointer; background: var(--bg); }
+    button:hover { background: var(--hover); }
+    button.primary { background: var(--blue); color: #fff; border-color: transparent; white-space: nowrap; padding: 6px 16px; }
+    button:disabled { opacity: .55; cursor: wait; }
+    input:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .series { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 10px 0 12px; }
+    .series label.inline { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--ink); font-weight: 500; font-size: 13px; }
+    input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
+    input[type="color"] { width: 32px; height: 28px; padding: 2px; cursor: pointer; border: 1px solid var(--border); }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .kpis div { background: var(--subtle); border-radius: 8px; padding: 10px 12px; }
+    .kpis dt { font-size: 11px; color: var(--muted); }
+    .kpis dd { margin: 3px 0 0; font-size: 1.2rem; font-weight: 700; }
+    .scroll { overflow-x: auto; width: 100%; }
+    svg { display: block; width: 100%; height: auto; max-width: 100%; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-size: 11px; font-weight: 600; }
+    @media (max-width: 768px) {
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      main { padding: 10px; }
+      .sync-actions { justify-self: stretch; }
+      button.primary { width: 100%; }
+    }
+    .combo { position: relative; width: 100%; }
+    .combo-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--subtle);
+      overflow: hidden;
+    }
+    .combo-control:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .combo-control input[type="text"] {
+      border: 0;
+      border-radius: 0;
+      min-height: 36px;
+      background: transparent;
+    }
+    .combo-toggle {
+      min-height: 36px;
+      min-width: 36px;
+      padding: 0;
+      border: 0;
+      border-left: 1px solid var(--border);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .combo-toggle:hover { background: var(--hover); }
+    .combo-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .combo-toggle svg { width: 12px; height: 12px; fill: currentColor; transition: transform .15s; }
+    .combo-menu {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 20;
+      max-height: calc(10 * 32px + 8px);
+      overflow-y: auto;
+      margin: 0;
+      padding: 4px;
+      list-style: none;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .combo-menu.open { display: block; }
+    .combo-menu li { margin: 0; }
+    .combo-option {
+      width: 100%;
+      text-align: left;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .combo-option:hover, .combo-option.active { background: var(--hover); }
+    .combo-empty { padding: 8px 10px; color: var(--muted); font-size: 12px; }
+    @media (prefers-reduced-motion: reduce) { .combo-toggle svg { transition: none; } }
+    @media (max-width: 320px) { .kpis { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="toolbar">
+        <div class="field">
+          <label for="release">Релиз</label>
+          <div class="combo" id="release-combo">
+            <div class="combo-control">
+              <input id="release" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="release-menu" autocomplete="off" placeholder="Начните ввод, например 37.2026">
+              <button type="button" class="combo-toggle" id="release-toggle" aria-label="Открыть список релизов" aria-expanded="false" aria-controls="release-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="release-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="release-err" hidden>Такого релиза не существует.</p>
+        </div>
+        <div class="field sync-actions">
+          <label for="sync">Снимок JSON</label>
+          <div class="field-control">
+            <button type="button" class="primary" id="sync">Обновить данные</button>
+          </div>
+        </div>
+        <p class="sync-status" id="sync-msg" aria-live="polite"></p>
+      </div>
+    </section>
+    <section class="kpis" aria-label="Сводка релиза">
+      <div><dt>Задач в релизе</dt><dd id="k-n">—</dd></div>
+      <div><dt>Estimate, ч</dt><dd id="k-e">—</dd></div>
+      <div><dt>Time tracking, ч</dt><dd id="k-t">—</dd></div>
+      <div><dt>DEV с данными</dt><dd id="k-d">—</dd></div>
+    </section>
+    <section class="card">
+      <h2>По DEV</h2>
+      <p class="muted">Ось X — DEV. Ось Y — часы. Столбцы Estimate и Time tracking стоят над своим DEV.</p>
+      <div class="series">
+        <label class="inline"><input type="checkbox" id="show-est" checked> Estimate <input type="color" id="col-est" value="#2383e2" aria-label="Цвет Estimate"></label>
+        <label class="inline"><input type="checkbox" id="show-spent" checked> Time tracking <input type="color" id="col-spent" value="#d9730d" aria-label="Цвет Time tracking"></label>
+      </div>
+      <div class="scroll">
+        <svg id="dev-chart" role="img" aria-labelledby="dev-title">
+          <title id="dev-title">Вертикальные столбцы Estimate и Time tracking по DEV</title>
+        </svg>
+      </div>
+      <p class="muted" id="dev-empty" hidden>В этом релизе нет Estimate и Time tracking.</p>
+      <div class="scroll" style="margin-top:12px">
+        <table>
+          <thead>
+            <tr><th>DEV</th><th>Estimate, ч</th><th>Time tracking, ч</th><th>Δ</th></tr>
+          </thead>
+          <tbody id="dev-table"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <button type="button" id="download">Скачать HTML</button>
+    </section>
+  </main>
+  <script>
+    let DATA = { releases: [], tasks: [], generated_at: "", task_count: 0, source: "Estimate vs Time tracking" };
+    const releaseEl = document.getElementById("release");
+    const menuEl = document.getElementById("release-menu");
+    const toggleEl = document.getElementById("release-toggle");
+    const errEl = document.getElementById("release-err");
+    const showEst = document.getElementById("show-est");
+    const showSpent = document.getElementById("show-spent");
+    const colEst = document.getElementById("col-est");
+    const colSpent = document.getElementById("col-spent");
+    const syncBtn = document.getElementById("sync");
+    const syncMsg = document.getElementById("sync-msg");
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function round1(n) { return Math.round((n || 0) * 10) / 10; }
+    function css(name, fb) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
+    }
+    // Public static origin for HTML+JSON. Empty = same directory as this file (file://, Pages, any CDN).
+    // Do not point PUBLIC_BASE at the OpenClaw sync endpoint. Token never belongs in the iframe.
+    const PUBLIC_BASE = "";
+    function assetUrl(name) {
+      const n = String(name || "").replace(/^\/+/, "");
+      if (PUBLIC_BASE) return String(PUBLIC_BASE).replace(/\/+$/, "") + "/" + n;
+      try { return new URL(n, window.location.href).toString(); }
+      catch (e) { return n; }
+    }
+    function dataUrl() { return assetUrl("release-data.json"); }
+
+    let activeIdx = -1;
+    let filterOnType = false;
+    function listReleases() {
+      const all = DATA.releases || [];
+      const q = (releaseEl.value || "").trim().toLowerCase();
+      if (!filterOnType || !q) return all.slice();
+      const exact = all.some(r => r.toLowerCase() === q);
+      if (exact) return all.slice();
+      return all.filter(r => r.toLowerCase().indexOf(q) !== -1);
+    }
+    function fillList() {
+      const items = listReleases();
+      if (!items.length) {
+        menuEl.innerHTML = "<li class=\"combo-empty\">Нет совпадений</li>";
+        activeIdx = -1;
+        return;
+      }
+      menuEl.innerHTML = items.map((r, i) =>
+        "<li><button type=\"button\" class=\"combo-option" + (i === activeIdx ? " active" : "") + "\" role=\"option\" data-value=\"" + esc(r) + "\">" + esc(r) + "</button></li>"
+      ).join("");
+    }
+    function setExpanded(open, fromType) {
+      if (open && !fromType) filterOnType = false;
+      menuEl.classList.toggle("open", open);
+      menuEl.hidden = !open;
+      releaseEl.setAttribute("aria-expanded", open ? "true" : "false");
+      toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        const cur = (releaseEl.value || "").trim().toLowerCase();
+        const items = listReleases();
+        activeIdx = Math.max(0, items.findIndex(r => r.toLowerCase() === cur));
+        fillList();
+        highlight();
+      }
+    }
+    function highlight() {
+      const opts = menuEl.querySelectorAll(".combo-option");
+      opts.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+      if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+    }
+    function pickRelease(val) {
+      releaseEl.value = val;
+      setExpanded(false);
+      render();
+    }
+
+    function matchRelease(raw) {
+      const v = (raw || "").trim();
+      if (!v) return { ok: false, empty: true };
+      const exact = (DATA.releases || []).find(r => r.toLowerCase() === v.toLowerCase());
+      if (exact) return { ok: true, value: exact };
+      return { ok: false, empty: false };
+    }
+
+    function selected() {
+      const m = matchRelease(releaseEl.value);
+      if (!m.ok) return [];
+      return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.value) !== -1);
+    }
+
+    function byDev(tasks) {
+      const m = {};
+      tasks.forEach(t => {
+        const d = t.d || "Unassigned";
+        if (!m[d]) m[d] = { name: d, est: 0, spent: 0 };
+        if (t.e) m[d].est += t.e;
+        if (t.t) m[d].spent += t.t;
+      });
+      return Object.values(m)
+        .filter(x => x.est || x.spent)
+        .sort((a,b) => (b.spent - a.spent) || (b.est - a.est));
+    }
+
+    function drawDev(rows) {
+      const svg = document.getElementById("dev-chart");
+      const empty = document.getElementById("dev-empty");
+      empty.hidden = rows.length > 0;
+      if (!rows.length) {
+        svg.removeAttribute("viewBox");
+        svg.innerHTML = "";
+        document.getElementById("dev-table").innerHTML = "";
+        return;
+      }
+      const showE = showEst.checked;
+      const showT = showSpent.checked;
+      const series = (showE ? 1 : 0) + (showT ? 1 : 0);
+      const host = svg.parentElement || svg;
+      const hostW = Math.floor(host.getBoundingClientRect().width || host.clientWidth || 0);
+      const colW = 92;
+      const minForBars = 72 + rows.length * colW;
+      const w = Math.max(hostW || 0, minForBars, 320);
+      const h = 480, pad = { l: 56, r: 20, t: 24, b: 110 };
+      const innerW = w - pad.l - pad.r;
+      const innerH = h - pad.t - pad.b;
+      const maxY = Math.max(1, ...rows.map(r => Math.max(showE ? r.est : 0, showT ? r.spent : 0)));
+      const ink = css("--ink", "#37352f");
+      const muted = css("--muted", "#787774");
+      const border = css("--border", "#e3e2de");
+      const cE = colEst.value || "#2383e2";
+      const cT = colSpent.value || "#d9730d";
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
+      let g = [];
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + innerH * (i / 4);
+        const val = round1(maxY * (1 - i / 4));
+        g.push('<line x1="' + pad.l + '" x2="' + (w - pad.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + border + '" />');
+        g.push('<text x="10" y="' + (y + 4) + '" font-size="12" fill="' + muted + '">' + val + '</text>');
+      }
+      const slot = innerW / rows.length;
+      rows.forEach((r, i) => {
+        const x0 = pad.l + i * slot;
+        const cx = x0 + slot / 2;
+        const barW = series === 2 ? 22 : 28;
+        const gap = 6;
+        function bar(val, color, ox, label) {
+          const bh = (val / maxY) * innerH;
+          const x = cx + ox - barW / 2;
+          const y = pad.t + innerH - bh;
+          g.push('<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(bh, val ? 3 : 0) + '" rx="3" fill="' + color + '"><title>' + esc(r.name) + " " + label + " " + round1(val) + "h</title></rect>");
+        }
+        if (series === 2) {
+          if (showE) bar(r.est, cE, -(barW + gap) / 2, "Estimate");
+          if (showT) bar(r.spent, cT, (barW + gap) / 2, "Time tracking");
+        } else if (showE) bar(r.est, cE, 0, "Estimate");
+        else if (showT) bar(r.spent, cT, 0, "Time tracking");
+        const lines = String(r.name).split(" ");
+        const yBase = h - 78;
+        lines.forEach((ln, li) => {
+          g.push('<text x="' + cx + '" y="' + (yBase + li * 15) + '" font-size="12" fill="' + ink + '" text-anchor="middle">' + esc(ln) + "</text>");
+        });
+      });
+      if (!series) {
+        g.push('<text x="' + (w / 2) + '" y="' + (h / 2) + '" text-anchor="middle" fill="' + muted + '">Включите Estimate и/или Time tracking</text>');
+      }
+      svg.innerHTML = g.join("");
+      document.getElementById("dev-table").innerHTML = rows.map(r => {
+        const d = round1(r.spent - r.est);
+        return "<tr><td>" + esc(r.name) + "</td><td>" + round1(r.est) + "</td><td>" + round1(r.spent) + "</td><td>" + (d > 0 ? "+" : "") + d + "</td></tr>";
+      }).join("");
+    }
+
+    function render() {
+      const m = matchRelease(releaseEl.value);
+      errEl.hidden = m.ok || m.empty;
+      const tasks = m.ok ? selected() : [];
+      const rows = byDev(tasks);
+      const est = tasks.reduce((s, t) => s + (t.e || 0), 0);
+      const spent = tasks.reduce((s, t) => s + (t.t || 0), 0);
+      document.getElementById("k-n").textContent = m.ok ? String(tasks.length) : "—";
+      document.getElementById("k-e").textContent = m.ok ? String(round1(est)) : "—";
+      document.getElementById("k-t").textContent = m.ok ? String(round1(spent)) : "—";
+      document.getElementById("k-d").textContent = m.ok ? String(rows.length) : "—";
+      if (m.ok) drawDev(rows);
+      else {
+        document.getElementById("dev-chart").innerHTML = "";
+        document.getElementById("dev-table").innerHTML = "";
+        document.getElementById("dev-empty").hidden = true;
+      }
+    }
+
+    function formatSyncTime(iso) {
+      const d = iso ? new Date(iso) : new Date();
+      const src = isNaN(d.getTime()) ? new Date() : d;
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).formatToParts(src);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    function taskKey(t, useId) {
+      if (useId && t && t.id) return "id:" + t.id;
+      return "k:" + (t && t.n || "") + "|" + (t && t.d || "") + "|" + ((t && t.r) || []).join(",");
+    }
+    function diffAdded(prevData, nextData) {
+      const prevRel = new Set((prevData && prevData.releases) || []);
+      const addedRel = ((nextData && nextData.releases) || []).filter(r => !prevRel.has(r));
+      const prevTasks = (prevData && prevData.tasks) || [];
+      const nextTasks = (nextData && nextData.tasks) || [];
+      const hadPrev = prevTasks.length > 0 || prevRel.size > 0;
+      const useId = prevTasks.some(t => t && t.id) && nextTasks.some(t => t && t.id);
+      const prevSet = new Set(prevTasks.map(t => taskKey(t, useId)));
+      let addedTasks = 0;
+      if (hadPrev) {
+        nextTasks.forEach(t => {
+          if (!prevSet.has(taskKey(t, useId))) addedTasks += 1;
+        });
+      }
+      return { addedRel: hadPrev ? addedRel : [], addedTasks: hadPrev ? addedTasks : 0, first: !hadPrev };
+    }
+    function applyPayload(p, keepRelease) {
+      const prev = keepRelease ? releaseEl.value : "";
+      DATA = {
+        source: p.source || DATA.source,
+        generated_at: p.generated_at,
+        task_count: p.task_count || (p.tasks || []).length,
+        releases: p.releases || [],
+        tasks: p.tasks || []
+      };
+      fillList();
+      if (prev && (DATA.releases || []).some(r => r.toLowerCase() === prev.toLowerCase())) {
+        releaseEl.value = (DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase());
+      } else if (!prev) {
+        const firstNum = (DATA.releases || []).find(r => r !== "Backlog");
+        releaseEl.value = firstNum || (DATA.releases || [])[0] || "";
+      }
+      render();
+    }
+
+    async function loadCached() {
+      try {
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        applyPayload(await res.json(), false);
+      } catch (e) {
+        syncMsg.textContent = "Нет release-data.json рядом с HTML. Снимок делает backend (release-widget-sync.py), затем publish.";
+      }
+    }
+
+    async function syncNow() {
+      syncBtn.disabled = true;
+      syncMsg.textContent = "Обновление…";
+      const prevSnap = {
+        releases: (DATA.releases || []).slice(),
+        tasks: (DATA.tasks || []).slice()
+      };
+      try {
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        const p = await res.json();
+        if (p && p.ok === false) throw new Error(p.error || "snapshot error");
+        const diff = diffAdded(prevSnap, p);
+        applyPayload(p, true);
+        const relTxt = diff.addedRel.length ? diff.addedRel.join(", ") : "нет";
+        syncMsg.textContent =
+          "Обновлено из JSON " + formatSyncTime(p.generated_at) + "\n" +
+          "Добавлены новые данные:\n" +
+          "1) Релизы: " + relTxt + "\n" +
+          "2) Задачи: " + diff.addedTasks;
+      } catch (e) {
+        syncMsg.textContent = "Ошибка загрузки JSON: " + e.message;
+      } finally {
+        syncBtn.disabled = false;
+      }
+    }
+
+    releaseEl.addEventListener("input", () => {
+      filterOnType = true;
+      activeIdx = 0;
+      setExpanded(true, true);
+      render();
+    });
+    releaseEl.addEventListener("focus", () => setExpanded(true, false));
+    releaseEl.addEventListener("keydown", (e) => {
+      const open = menuEl.classList.contains("open");
+      const items = listReleases();
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!open) setExpanded(true);
+        else { activeIdx = Math.min(items.length - 1, activeIdx + 1); highlight(); }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!open) setExpanded(true);
+        else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
+      } else if (e.key === "Enter") {
+        if (open && items[activeIdx]) { e.preventDefault(); pickRelease(items[activeIdx]); }
+      } else if (e.key === "Escape") {
+        setExpanded(false);
+      }
+    });
+    toggleEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setExpanded(!menuEl.classList.contains("open"));
+      if (menuEl.classList.contains("open")) releaseEl.focus();
+    });
+    menuEl.addEventListener("mousedown", (e) => {
+      const btn = e.target.closest(".combo-option");
+      if (!btn) return;
+      e.preventDefault();
+      pickRelease(btn.getAttribute("data-value"));
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#release-combo")) setExpanded(false);
+    });
+    ["change", "input"].forEach(ev => {
+      showEst.addEventListener(ev, render);
+      showSpent.addEventListener(ev, render);
+      colEst.addEventListener(ev, render);
+      colSpent.addEventListener(ev, render);
+    });
+    syncBtn.addEventListener("click", syncNow);
+    let resizeTimer = 0;
+    function scheduleDraw() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, 80);
+    }
+    window.addEventListener("resize", scheduleDraw);
+    if (typeof ResizeObserver !== "undefined") {
+      const chartHost = document.getElementById("dev-chart") && document.getElementById("dev-chart").parentElement;
+      if (chartHost) new ResizeObserver(scheduleDraw).observe(chartHost);
+    }
+    document.getElementById("download").addEventListener("click", () => {
+      const src = "<!DOCTYPE html>\\n" + document.documentElement.outerHTML;
+      const blob = new Blob([src], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "release-charts.html";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    loadCached();
+  </script>
+</body>
+</html>

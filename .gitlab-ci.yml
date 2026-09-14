@@ -1,0 +1,73 @@
+# Release widgets — GitLab CI as backend.
+# Layout:
+#   backend/  — Notion snapshot (NOTION_TOKEN CI variable only)
+#   frontend/ — static HTML + release-data.json (no token)
+# Token: Settings → CI/CD → Variables → NOTION_TOKEN (Masked, Protected).
+# Never commit config/notion.json.
+# Long-running HTTP serve (:8755) is NOT used here.
+
+stages:
+  - validate
+  - snapshot
+  - pages
+
+default:
+  image: python:3.12-slim
+
+variables:
+  ROOT: "$CI_PROJECT_DIR"
+  WIDGETS_JSON: "$CI_PROJECT_DIR/frontend/release-data.json"
+  QA_WWW: ""
+  QA_WWW_JSON: "$CI_PROJECT_DIR/frontend/release-data.json"
+  GIT_STRATEGY: clone
+
+validate:
+  stage: validate
+  script:
+    - python3 -m py_compile backend/release-widget-sync.py
+    - python3 backend/release-widget-sync.py dry
+    - test ! -f config/notion.json
+    - test ! -f config/gitlab.env
+    - grep -RInE 'secret_[A-Za-z0-9]{10,}|ntn_[A-Za-z0-9]{10,}' frontend backend && exit 1 || true
+    - python3 -c "from pathlib import Path; t=Path('frontend/release-charts.html').read_text()+Path('frontend/status-dwell.html').read_text(); assert 'widgets/sync' not in t"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+snapshot:
+  stage: snapshot
+  script:
+    - test -n "$NOTION_TOKEN"
+    - python3 backend/release-widget-sync.py snapshot
+    - QA_WWW="" bash backend/publish-release-widgets.sh
+    - python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - frontend/public/
+      - frontend/release-data.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_BRANCH && $NOTION_TOKEN
+      when: manual
+
+# GitLab Pages:
+# https://qa-notion.gitlab.io/Notion-statistic/release-charts.html
+# unique domain (if enabled): https://notion-statistic-d31a14.gitlab.io/release-charts.html
+pages:
+  stage: pages
+  needs: ["snapshot"]
+  script:
+    - mkdir -p public
+    - cp -f frontend/public/release-charts.html frontend/public/status-dwell.html frontend/public/release-data.json public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_BRANCH && $NOTION_TOKEN
+      when: manual
