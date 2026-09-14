@@ -1,2 +1,0 @@
-QA PAT auth probe 2026-09-14T18:24:13+03:00
-Do not store secrets here.
