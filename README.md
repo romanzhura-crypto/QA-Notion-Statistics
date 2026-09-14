@@ -18,7 +18,9 @@ Backend job writes `frontend/release-data.json`; Pages artifact is `frontend/pub
 - `https://romanzhura-crypto.github.io/QA-Notion-Statistics/release-charts.html`
 - `https://romanzhura-crypto.github.io/QA-Notion-Statistics/status-dwell.html`
 
-Setup: `docs/release-widgets-github.md`. Secret name: `NOTION_TOKEN`. Pages source: GitHub Actions.
+Setup: [`docs/release-widgets-github.md`](docs/release-widgets-github.md). Secret name: `NOTION_TOKEN`. Pages source: GitHub Actions.
+
+GitHub workflow: [`.github/workflows/release-widgets.yml`](.github/workflows/release-widgets.yml) — validate on push/PR; snapshot + Pages on schedule or **Run workflow**.
 
 GitLab mirror (optional, private Pages not usable as Notion origin): `.gitlab-ci.yml` + `docs/release-widgets-gitlab-ci.md`.
 

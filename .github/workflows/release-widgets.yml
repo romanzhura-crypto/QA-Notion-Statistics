@@ -1,0 +1,83 @@
+# GitHub alternative to GitLab CI: Backend snapshot → Frontend JSON → GitHub Pages.
+# Secret: Settings → Secrets and variables → Actions → NOTION_TOKEN
+# Never commit config/notion.json. Do not log the secret.
+# Pages: Settings → Pages → Source = GitHub Actions.
+
+name: release-widgets
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: release-widgets-pages
+  cancel-in-progress: false
+
+env:
+  ROOT: ${{ github.workspace }}
+  WIDGETS_JSON: ${{ github.workspace }}/frontend/release-data.json
+  QA_WWW: ""
+  QA_WWW_JSON: ${{ github.workspace }}/frontend/release-data.json
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: static guards
+        run: |
+          python3 -m py_compile backend/release-widget-sync.py
+          python3 backend/release-widget-sync.py dry
+          test ! -f config/notion.json
+          test ! -f config/gitlab.env
+          test ! -f config/github.env
+          python3 -c "from pathlib import Path; t=Path('frontend/release-charts.html').read_text()+Path('frontend/status-dwell.html').read_text(); assert 'widgets/sync' not in t"
+          if grep -RInE 'secret_[A-Za-z0-9]{10,}|ntn_[A-Za-z0-9]{10,}' frontend backend; then exit 1; fi
+
+  snapshot:
+    needs: validate
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: github-pages
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: require secret
+        run: test -n "$NOTION_TOKEN"
+      - name: snapshot JSON for frontend
+        run: python3 backend/release-widget-sync.py snapshot
+      - name: stage static HTML+JSON
+        run: QA_WWW="" bash backend/publish-release-widgets.sh
+      - name: assert no token in JSON
+        run: python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+      - name: upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/public
+
+  deploy:
+    needs: snapshot
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
