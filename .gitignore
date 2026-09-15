@@ -1,6 +1,7 @@
 # Secrets — never commit
 config/notion.json
 config/gitlab.env
+config/github.env
 *.pem
 *.key
 

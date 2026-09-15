@@ -25,7 +25,7 @@ GitLab path stays in `.gitlab-ci.yml`. This file is the **same Frontend←Backen
 [Notion iframe]
 ```
 
-Frontend still never calls Notion or `/widgets/sync`.
+Frontend still never calls Notion or OpenClaw `/widgets/sync`. Button **Обновить данные** POSTs `https://185.47.152.152.sslip.io/sync-notion` (Let's Encrypt). QA proxy uses `config/github.env` (gitignored) to `workflow_dispatch` job **Sync Notion** and reuses an in-flight run instead of starting a second snapshot.
 
 ## Create the GitHub repo
 
@@ -43,14 +43,16 @@ Frontend still never calls Notion or `/widgets/sync`.
 
 User site (`https://<owner>.github.io/`) works if Pages is deployed to root; this workflow uploads `frontend/public/` as the Pages artifact root, so HTML and JSON are same-directory (`PUBLIC_BASE=""`).
 
-## Why not push from QA now
+## Sync Notion button (board #96)
 
-QA VM has **no** `GITHUB_TOKEN` / `GH_*` / `config/github.env` / `gh` CLI. Chuck cannot create the GitHub repo or push until the owner provides:
+1. Widget POST `/sync-notion` on `185.47.152.152.sslip.io`.
+2. QA `github-sync-notion-proxy` (loopback `:8756`, nginx SNI) reads `GITHUB_TOKEN` from `config/github.env` only.
+3. If Actions already has queued/in_progress run for this workflow → HTTP 200 `reused: true` (no second dispatch).
+4. Else POST `actions/workflows/release-widgets.yml/dispatches` with `inputs.source=widget`.
+5. Workflow concurrency group `sync-notion-pages` (`cancel-in-progress: false`) serializes snapshot+Pages.
+6. Widget polls GET `/sync-notion?run_id=` until `status=completed`, then re-fetches `release-data.json`.
 
-- GitHub org or user + repo URL
-- PAT or deploy key with `repo` + `workflow` (write to `config/github.env` on QA only — **do not paste in chat**)
-
-Mirror option: GitHub repo import from `https://gitlab.com/qa-notion/Notion-statistic` after workflow files are on `main`.
+Do not put the PAT in HTML, Pages, board comments, or chat.
 
 ## QA still
 

@@ -14,7 +14,7 @@ Public iframe assets. **No Notion token. No OpenClaw `/widgets/sync`.**
 1. `PUBLIC_BASE` is `""` → JSON is **same directory** as the HTML.
 2. `assetUrl("release-data.json")` + cache-bust `?t=<Date.now()>`, `cache: "no-store"`.
 3. If JSON is missing or HTTP error → fail-visible message in the widget (`syncMsg`), not a silent empty chart.
-4. Refresh button re-fetches the same JSON; it does **not** hit Notion or `/widgets/sync`.
+4. Refresh button **Обновить данные** POSTs the public CORS proxy `https://185.47.152.152.sslip.io/sync-notion` (no token in the iframe). The proxy dispatches GitHub Actions job **Sync Notion** (`workflow_dispatch` on `.github/workflows/release-widgets.yml`) with in-flight reuse so a second click does not start a parallel snapshot. After the job completes, the widget re-fetches `release-data.json`.
 
 Do not set `PUBLIC_BASE` to any OpenClaw URL. Set it only if HTML and JSON live on different public hosts.
 

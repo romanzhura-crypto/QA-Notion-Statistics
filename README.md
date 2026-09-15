@@ -9,7 +9,7 @@ Public GitHub repo for Notion iframe widgets. Split:
 | [`.github/workflows/release-widgets.yml`](.github/workflows/release-widgets.yml) | validate → snapshot → Pages | — |
 | [`docs/`](docs/) | Architecture, GitHub and GitLab CI | — |
 
-Frontend **never** calls Notion and **never** calls `/widgets/sync`. It only `fetch`es `release-data.json` next to the HTML (`PUBLIC_BASE = ""`).
+Frontend **never** calls Notion, **never** embeds `NOTION_TOKEN` / `GITHUB_TOKEN`, and **never** calls OpenClaw `/widgets/sync`. JSON load is same-directory `release-data.json`. Button **Обновить данные** POSTs public CORS proxy `https://185.47.152.152.sslip.io/sync-notion` (token stays on QA) which dispatches Actions job **Sync Notion** and refuses a second dispatch while a run is queued/in_progress.
 
 Backend job writes `frontend/release-data.json`; Pages artifact is `frontend/public/` (HTML + JSON same directory).
 

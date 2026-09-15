@@ -2,14 +2,22 @@
 # Secret: Settings → Secrets and variables → Actions → NOTION_TOKEN
 # Never commit config/notion.json. Do not log the secret.
 # Pages: Settings → Pages → Source = GitHub Actions.
+# Widget button "Обновить данные" dispatches this workflow as job "Sync Notion"
+# via the public QA CORS proxy (token stays on QA, never in the iframe).
 
-name: release-widgets
+name: Sync Notion
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      source:
+        description: Who triggered Sync Notion (widget / schedule / manual)
+        required: false
+        default: manual
+        type: string
   schedule:
     - cron: "*/30 * * * *"
 
@@ -19,7 +27,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: release-widgets-pages
+  group: sync-notion-pages
   cancel-in-progress: false
 
 env:
@@ -43,7 +51,7 @@ jobs:
           test ! -f config/notion.json
           test ! -f config/gitlab.env
           test ! -f config/github.env
-          python3 -c "from pathlib import Path; t=Path('frontend/release-charts.html').read_text()+Path('frontend/status-dwell.html').read_text(); assert 'widgets/sync' not in t"
+          python3 -c "from pathlib import Path; t=Path('frontend/release-charts.html').read_text()+Path('frontend/status-dwell.html').read_text(); assert 'widgets/sync' not in t; assert 'GITHUB_TOKEN' not in t; assert 'ntn_' not in t"
           if grep -RInE 'secret_[A-Za-z0-9]{10,}|ntn_[A-Za-z0-9]{10,}' frontend backend; then exit 1; fi
 
   snapshot:

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260907-split-static">
-  <!-- Static-only: iframe loads HTML + public JSON. No OpenClaw sync endpoint, no Notion token. -->
+  <meta name="widget-build" content="20260915-sync-notion">
+  <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
       --bg: #ffffff;
@@ -188,7 +188,7 @@
           <p class="err" id="release-err" hidden>Такого релиза не существует.</p>
         </div>
         <div class="field sync-actions">
-          <label for="sync">Снимок JSON</label>
+          <label for="sync">Sync Notion</label>
           <div class="field-control">
             <button type="button" class="primary" id="sync">Обновить данные</button>
           </div>
@@ -581,19 +581,58 @@
         syncMsg.textContent = "Нет release-data.json рядом с HTML. Снимок делает backend (release-widget-sync.py), затем publish.";
       }
     }
+    const SYNC_NOTION_URL = "https://185.47.152.152.sslip.io/sync-notion";
+    let syncBusy = false;
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    async function fetchSync(url, opts) {
+      const res = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
+      let body = null;
+      try { body = await res.json(); } catch (e) { body = null; }
+      if (!body || body.ok === false) {
+        throw new Error((body && (body.error || body.message)) || ("HTTP " + res.status));
+      }
+      return body;
+    }
+    async function waitForSyncNotion(started) {
+      let runId = started && started.run_id;
+      let last = started || {};
+      const deadline = Date.now() + 8 * 60 * 1000;
+      while (Date.now() < deadline) {
+        const st = String(last.status || "").toLowerCase();
+        if (st === "completed") return last;
+        syncMsg.textContent = last.reused
+          ? "Sync Notion уже выполняется — жду (второй job не запущен)."
+          : ("Sync Notion: " + (st || "queued") + "…");
+        await sleep(4000);
+        const q = runId ? ("?run_id=" + encodeURIComponent(runId)) : "";
+        last = await fetchSync(SYNC_NOTION_URL + q);
+        if (last.run_id) runId = last.run_id;
+      }
+      throw new Error("timeout waiting for Sync Notion");
+    }
     async function syncNow() {
+      if (syncBusy) return;
+      syncBusy = true;
       syncBtn.disabled = true;
-      syncMsg.textContent = "Обновление…";
       try {
+        syncMsg.textContent = "Запуск Sync Notion…";
+        const started = await fetchSync(SYNC_NOTION_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const done = await waitForSyncNotion(started);
+        if (done.conclusion && done.conclusion !== "success") {
+          throw new Error("job " + (done.conclusion || "failed"));
+        }
+        await sleep(2500);
         const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
         if (!res.ok) throw new Error("data " + res.status);
         const p = await res.json();
         if (p && p.ok === false) throw new Error(p.error || "snapshot error");
         applyPayload(p, true);
-        syncMsg.textContent = "Обновлено из JSON " + formatSyncTime(p.generated_at);
+        const reused = started.reused ? " (повторный клик: job не дублирован)" : "";
+        syncMsg.textContent = "Sync Notion готов" + reused + ". JSON " + formatSyncTime(p.generated_at);
       } catch (e) {
-        syncMsg.textContent = "Ошибка загрузки JSON: " + e.message;
+        syncMsg.textContent = "Ошибка Sync Notion: " + e.message;
       } finally {
+        syncBusy = false;
         syncBtn.disabled = false;
       }
     }
