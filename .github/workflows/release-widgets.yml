@@ -89,3 +89,34 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Push to main: publish the committed frontend JSON/HTML without calling Notion.
+  # Needed so a local Sprint snapshot can go live even if Actions NOTION_TOKEN
+  # is still the old integration or schedule has not fired.
+  publish_committed:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - name: stage committed HTML+JSON
+        run: |
+          mkdir -p frontend/public
+          cp -f frontend/release-charts.html frontend/status-dwell.html frontend/release-data.json frontend/public/
+          python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True; print(d.get('data_source_id'), d.get('task_count'), d.get('generated_at'))"
+      - name: upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/public
+
+  deploy_committed:
+    needs: publish_committed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

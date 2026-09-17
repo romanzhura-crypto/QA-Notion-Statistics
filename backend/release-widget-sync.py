@@ -21,7 +21,7 @@ CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json
 OUT_JSON = Path(os.environ.get("QA_WWW_JSON") or "/var/www/openclaw/widgets/release-data.json")
 WS_JSON = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "frontend" / "release-data.json"))
 TABLE_TESTS = Path(os.environ.get("TABLE_TESTS") or (ROOT / "frontend" / "status-dwell-table-tests.json"))
-DSID = os.environ.get("NOTION_DATA_SOURCE_ID") or "8ade17b6-8482-825d-9d87-8789ccdd1242"
+DSID = os.environ.get("NOTION_DATA_SOURCE_ID") or "2a8e17b6-8482-80b2-87ad-000b68f9d74e"
 LISTEN = ("127.0.0.1", 8755)
 
 
