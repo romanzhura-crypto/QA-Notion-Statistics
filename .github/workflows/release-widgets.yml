@@ -47,6 +47,7 @@ jobs:
       - name: static guards
         run: |
           python3 -m py_compile backend/release-widget-sync.py
+          python3 -m py_compile backend/log-statistics-sync.py
           python3 backend/release-widget-sync.py dry
           test ! -f config/notion.json
           test ! -f config/gitlab.env
@@ -70,6 +71,11 @@ jobs:
         run: test -n "$NOTION_TOKEN"
       - name: snapshot JSON for frontend
         run: python3 backend/release-widget-sync.py snapshot
+      - name: upsert LOG STATISTICS
+        env:
+          LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
+          LOG_STATS_SKIP_EXISTING: "0"
+        run: python3 backend/log-statistics-sync.py
       - name: stage static HTML+JSON
         run: QA_WWW="" bash backend/publish-release-widgets.sh
       - name: assert no token in JSON
