@@ -527,7 +527,7 @@
       document.getElementById("k-s").textContent = m.ok ? String(uniq.size) : "—";
       document.getElementById("k-m").textContent = m.ok && days.length ? String(med) : "—";
       document.getElementById("k-x").textContent = m.ok && days.length ? String(Math.max(0, ...days)) : "—";
-      document.getElementById("note").textContent =
+      document.getElementById("note").textContent = DATA.status_dwell_note ||
         "Данные только из таблицы задач (снимок Notion: Documentation, Status, DEV, Release, Start date, created_time, last_edited_time). Истории смены Status в таблице нет — один отрезок текущего Status. Hover сверху: длительность. Done — только момент получения (last_edited_time / Start date), без длительности.";
       if (m.ok) draw(rows);
       else {
