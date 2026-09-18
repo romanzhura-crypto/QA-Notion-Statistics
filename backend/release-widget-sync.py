@@ -17,11 +17,11 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROOT = Path(os.environ.get("ROOT") or os.environ.get("WIDGETS_ROOT") or Path(__file__).resolve().parents[1])
+ROOT = Path(os.environ.get("ROOT") or os.environ.get("WIDGETS_ROOT") or "/home/chuck/.openclaw/workspace")
 CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json"))
 OUT_JSON = Path(os.environ.get("QA_WWW_JSON") or "/var/www/openclaw/widgets/release-data.json")
-WS_JSON = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "frontend" / "release-data.json"))
-TABLE_TESTS = Path(os.environ.get("TABLE_TESTS") or (ROOT / "frontend" / "status-dwell-table-tests.json"))
+WS_JSON = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "widgets" / "release-data.json"))
+TABLE_TESTS = Path(os.environ.get("TABLE_TESTS") or (ROOT / "widgets" / "status-dwell-table-tests.json"))
 DEFAULT_DSID = "2a8e17b6-8482-80b2-87ad-000b68f9d74e"
 LOG_DSID = os.environ.get("LOG_STATISTICS_DSID") or "3dee17b6-8482-80a3-9fc4-000bafe19b46"
 LISTEN = ("127.0.0.1", 8755)
@@ -42,7 +42,10 @@ LOG_STATUS_COLS = [
     "Merged",
     "Ready For Release",
 ]
-STATUS_DWELL_NOTE = "dwell numbers from LOG STATISTICS 3dee17b6 when present"
+STATUS_DWELL_NOTE = (
+    "dwell: LOG collector closed segments + open interval from Status since. "
+    "No Notion Version History backfill."
+)
 
 
 def resolve_dsid(cfg: dict | None = None) -> str:
@@ -87,9 +90,48 @@ def _prop_status_name(prop) -> str | None:
     return None
 
 
-def history_from_log_row(props: dict) -> list:
-    """Build widget history from one LOG STATISTICS row. Skip invented Version history."""
+def parse_ts(v):
+    if not v:
+        return None
+    s = str(v).strip()
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        s = s + "T00:00:00+00:00"
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        d = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d
+
+
+def round_days(days: float) -> float:
+    days = max(0.0, float(days) or 0.0)
+    if days < 1.0:
+        return round(days * 24.0) / 24.0
+    return round(days * 10.0) / 10.0
+
+
+def rich_text_plain(prop) -> str:
+    if not prop:
+        return ""
+    arr = prop.get("rich_text") if isinstance(prop, dict) else None
+    if not arr:
+        return ""
+    parts = []
+    for x in arr:
+        parts.append(x.get("plain_text") or ((x.get("text") or {}).get("content") or ""))
+    return "".join(parts).strip()
+
+
+def history_from_log_row(props: dict, now=None) -> list:
+    """Closed collector segments + open interval. No invented Version History."""
+    now = now or datetime.now(timezone.utc)
     history = []
+    collected = rich_text_plain(props.get("Collected Status"))
+    since = parse_ts(prop_date_start(props.get("Status since")))
     for col in LOG_STATUS_COLS:
         raw = (props.get(col) or {}).get("number")
         if raw is None:
@@ -100,13 +142,30 @@ def history_from_log_row(props: dict) -> list:
             continue
         if days > 0:
             history.append({"s": col, "days": days})
-    status_name = _prop_status_name(props.get("Status")) or _prop_status_name(props.get("Current Status"))
+    status_name = (
+        collected
+        or _prop_status_name(props.get("Status"))
+        or _prop_status_name(props.get("Current Status"))
+    )
     done_at = prop_date_start(props.get("Done at"))
-    if (status_name and str(status_name).lower() == "done") or done_at:
+    is_done = (status_name and str(status_name).lower() == "done") or bool(done_at)
+    if is_done:
         diamond = {"s": "Done"}
         if done_at:
             diamond["at"] = done_at
         history.append(diamond)
+        return history
+    if collected and collected in LOG_STATUS_COLS and since:
+        open_days = round_days(max(0.0, (now - since).total_seconds() / 86400.0))
+        if open_days > 0:
+            merged = False
+            for item in history:
+                if item.get("s") == collected:
+                    item["days"] = round_days(float(item.get("days") or 0) + open_days)
+                    merged = True
+                    break
+            if not merged:
+                history.append({"s": collected, "days": open_days})
     return history
 
 

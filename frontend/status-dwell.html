@@ -530,7 +530,7 @@
       document.getElementById("k-m").textContent = m.ok && days.length ? fmtDur(med) : "—";
       document.getElementById("k-x").textContent = m.ok && days.length ? fmtDur(Math.max(0, ...days)) : "—";
       document.getElementById("note").textContent = DATA.status_dwell_note ||
-        "Данные только из таблицы задач (снимок Notion: Documentation, Status, DEV, Release, Start date, created_time, last_edited_time). Истории смены Status в таблице нет — один отрезок текущего Status. Hover сверху: длительность. Done — только момент получения (last_edited_time / Start date), без длительности.";
+        "LOG collector: закрытые отрезки + открытый интервал с Status since. Version History Notion REST нет. Hover: длительность. Done — момент, без длительности.";
       if (m.ok) draw(rows);
       else {
         document.getElementById("chart").innerHTML = "";

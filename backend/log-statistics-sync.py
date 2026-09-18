@@ -7,13 +7,17 @@ Title format on CREATE (and empty-row reuse): Sprit №{run}({job}) {DD.MM.YYYY 
 
 Default mode: incremental
   - CREATE if Sprint id is missing in LOG
-  - PATCH only if Status / dwell days / Done at differ
+  - PATCH if Collected Status / Status since / closed-segment days / Done at differ
   - Archive LOG rows with no Task, duplicate Task, or Task id not in Sprint
   - Count change is not a full-rewrite switch
 
-Dwell: current Status only (calendar days from Start date / created_time
-until now, or last_edited_time if Done). Does not invent Version-history
-intervals. Other status number columns are set to 0.
+Dwell collector (forward-looking, option C):
+  State on each LOG row: Collected Status + Status since.
+  On Status change: add elapsed (Status since → last_edited_time) to the
+  previous status number column; do not zero other columns.
+  First see: seed collector only — no invented Version History backfill.
+  Open interval is not written into number cols; snapshot adds it from
+  Status since. Done is date-only (diamond), not a dwell column.
 
 Token: config/notion.json. Never printed.
 """
@@ -151,6 +155,25 @@ def parse_ts(v):
     return d
 
 
+def round_days(days: float) -> float:
+    days = max(0.0, float(days) or 0.0)
+    if days < 1.0:
+        return round(days * 24.0) / 24.0
+    return round(days * 10.0) / 10.0
+
+
+def elapsed_days(start, end) -> float:
+    a = start if isinstance(start, datetime) else parse_ts(start)
+    b = end if isinstance(end, datetime) else parse_ts(end)
+    if not a or not b:
+        return 0.0
+    if a.tzinfo is None:
+        a = a.replace(tzinfo=timezone.utc)
+    if b.tzinfo is None:
+        b = b.replace(tzinfo=timezone.utc)
+    return round_days(max(0.0, (b - a).total_seconds() / 86400.0))
+
+
 def days_in_status(task: dict, now: datetime | None = None) -> float:
     start = parse_ts(task.get("start")) or parse_ts(task.get("created"))
     if not start:
@@ -159,11 +182,52 @@ def days_in_status(task: dict, now: datetime | None = None) -> float:
     end = parse_ts(task.get("edited")) if done else (now or datetime.now(timezone.utc))
     if end is None:
         end = now or datetime.now(timezone.utc)
-    ms = max(0.0, (end - start).total_seconds() * 1000.0)
-    days = ms / 86400000.0
-    if days < 1.0:
-        return round(days * 24.0) / 24.0
-    return round(days * 10.0) / 10.0
+    return elapsed_days(start, end)
+
+
+def rich_text_plain(prop) -> str:
+    if not prop:
+        return ""
+    arr = prop.get("rich_text") if isinstance(prop, dict) else None
+    if not arr:
+        return ""
+    parts = []
+    for x in arr:
+        parts.append(x.get("plain_text") or ((x.get("text") or {}).get("content") or ""))
+    return "".join(parts).strip()
+
+
+def rich_text_prop(text: str) -> dict:
+    return {"rich_text": [{"type": "text", "text": {"content": (text or "")[:2000]}}]}
+
+
+def date_prop(dt) -> dict:
+    parsed = dt if isinstance(dt, datetime) else parse_ts(dt)
+    if not parsed:
+        return {"date": None}
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return {"date": {"start": parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}}
+
+
+def collected_from_props(props: dict) -> str | None:
+    text = rich_text_plain(props.get("Collected Status"))
+    return text or None
+
+
+def since_from_props(props: dict):
+    d = (props.get("Status since") or {}).get("date") or {}
+    return parse_ts(d.get("start") if d else None)
+
+
+def number_from_props(props: dict, col: str) -> float:
+    raw = (props.get(col) or {}).get("number")
+    if raw is None:
+        return 0.0
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def query_all(dsid: str) -> list:
@@ -218,54 +282,70 @@ def existing_by_task(rows: list):
     return {tid: row.get("id") for tid, row in mapping.items()}, empties
 
 
-def number_props_for(task: dict, now: datetime | None = None) -> dict:
-    status = task.get("s") or ""
-    days = days_in_status(task, now=now)
-    out = {}
-    for col in STATUS_COLS:
-        out[col] = {"number": days if col == status else 0}
-    return out
-
-
 def done_at_prop(task: dict) -> dict:
     if str(task.get("s") or "").lower() != "done":
         return {"date": None}
     edited = parse_ts(task.get("edited")) or parse_ts(task.get("start")) or parse_ts(task.get("created"))
     if not edited:
         return {"date": None}
-    return {"date": {"start": edited.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}}
+    return date_prop(edited)
 
 
 def title_prop(text: str) -> dict:
     return {"title": [{"type": "text", "text": {"content": text[:2000]}}]}
 
 
-def page_properties(task: dict, title: str | None, now: datetime | None = None) -> dict:
+def collector_transition(task: dict, log_row: dict | None, now: datetime | None = None) -> dict:
+    """Closed segments + collector seed. Never zeros other status columns.
+
+    Returns number patches (only columns that change), Collected Status,
+    Status since, Done at.
+    """
+    now = now or datetime.now(timezone.utc)
+    status = (task.get("s") or "").strip()
+    done = status.lower() == "done"
+    edited = parse_ts(task.get("edited")) or now
+    created = parse_ts(task.get("created")) or parse_ts(task.get("start")) or edited
+    props = (log_row or {}).get("properties") or {}
+    have_collected = collected_from_props(props)
+    have_since = since_from_props(props)
+    out: dict = {"Done at": done_at_prop(task)}
+
+    if not have_collected:
+        seed_status = "Done" if done else status
+        # First see: do not invent Version History. Open tasks start the clock now.
+        # Zero leftover calendar-only numbers so they are not shown as history.
+        seed_since = edited if done else now
+        for col in STATUS_COLS:
+            out[col] = {"number": 0}
+        out["Collected Status"] = rich_text_prop(seed_status)
+        out["Status since"] = date_prop(seed_since)
+        return out
+
+    if have_collected == status or (done and have_collected.lower() == "done"):
+        out["Collected Status"] = rich_text_prop(have_collected)
+        out["Status since"] = date_prop(have_since or (edited if done else created))
+        return out
+
+    close_end = edited
+    added = elapsed_days(have_since or created, close_end)
+    if have_collected in STATUS_COLS and added > 0:
+        prev = number_from_props(props, have_collected)
+        out[have_collected] = {"number": round_days(prev + added)}
+    new_status = "Done" if done else status
+    out["Collected Status"] = rich_text_prop(new_status)
+    out["Status since"] = date_prop(close_end)
+    return out
+
+
+def page_properties(task: dict, title: str | None, now: datetime | None = None, log_row: dict | None = None) -> dict:
     props = {
         "Task": {"relation": [{"id": task["id"]}]},
     }
     if title:
         props["Name"] = title_prop(title)
-    props.update(number_props_for(task, now=now))
-    props["Done at"] = done_at_prop(task)
+    props.update(collector_transition(task, log_row, now=now))
     return props
-
-
-def log_status_days(props: dict) -> tuple[str | None, float | None]:
-    found = None
-    days = None
-    for col in STATUS_COLS:
-        raw = (props.get(col) or {}).get("number")
-        if raw is None:
-            continue
-        try:
-            n = float(raw)
-        except (TypeError, ValueError):
-            continue
-        if n > 0:
-            found = col
-            days = n
-    return found, days
 
 
 def log_done_at(props: dict) -> str | None:
@@ -281,36 +361,39 @@ def norm_dt_key(v) -> str | None:
 
 
 def needs_update(task: dict, log_row: dict, now: datetime | None = None) -> bool:
-    props = log_row.get("properties") or {}
-    want_status = task.get("s") or ""
-    want_done = want_status.lower() == "done"
-    want_days = days_in_status(task, now=now)
-    have_status, have_days = log_status_days(props)
-    have_done = log_done_at(props)
-    want_done_start = None
-    done_payload = done_at_prop(task).get("date")
-    if isinstance(done_payload, dict):
-        want_done_start = done_payload.get("start")
-
-    if want_done:
-        if have_status is not None:
+    want = collector_transition(task, log_row, now=now)
+    have = log_row.get("properties") or {}
+    want_collected = rich_text_plain(want.get("Collected Status"))
+    have_collected = collected_from_props(have)
+    if (want_collected or "") != (have_collected or ""):
+        return True
+    want_since = ((want.get("Status since") or {}).get("date") or {}).get("start")
+    have_since = ((have.get("Status since") or {}).get("date") or {}).get("start")
+    if not have_collected:
+        return True
+    if norm_dt_key(want_since) != norm_dt_key(have_since):
+        return True
+    want_done = ((want.get("Done at") or {}).get("date") or None)
+    have_done = ((have.get("Done at") or {}).get("date") or None)
+    want_done_start = want_done.get("start") if isinstance(want_done, dict) else None
+    have_done_start = have_done.get("start") if isinstance(have_done, dict) else None
+    if norm_dt_key(want_done_start) != norm_dt_key(have_done_start):
+        return True
+    for col in STATUS_COLS:
+        if col not in want:
+            continue
+        try:
+            want_n = float((want.get(col) or {}).get("number") or 0)
+        except (TypeError, ValueError):
+            want_n = 0.0
+        have_n = number_from_props(have, col)
+        if abs(want_n - have_n) >= DAYS_EPS:
             return True
-        return norm_dt_key(have_done) != norm_dt_key(want_done_start)
-
-    if have_done:
-        return True
-    # All-zero LOG row cannot encode current Status; skip if dwell is also ~0.
-    if have_status is None:
-        return want_days >= DAYS_EPS
-    if have_status != want_status:
-        return True
-    if abs((have_days or 0.0) - want_days) >= DAYS_EPS:
-        return True
     return False
 
 
-def upsert(task: dict, title: str | None, page_id: str | None, now: datetime | None = None) -> tuple[str, int, str | None]:
-    props = page_properties(task, title, now=now)
+def upsert(task: dict, title: str | None, page_id: str | None, now: datetime | None = None, log_row: dict | None = None) -> tuple[str, int, str | None]:
+    props = page_properties(task, title, now=now, log_row=log_row)
     if page_id:
         code, obj = _req("PATCH", f"/v1/pages/{page_id}", {"properties": props})
         return "updated", code, obj.get("id") if code == 200 else f"{obj.get('code')}: {obj.get('message')}"
@@ -428,7 +511,7 @@ def main():
             page_id = reuse_empty.pop(0)
             was_empty = True
         use_title = title if (not log_row or was_empty or rewrite_title or not page_id) else None
-        action, code, info = upsert(task, use_title, page_id, now=now_utc)
+        action, code, info = upsert(task, use_title, page_id, now=now_utc, log_row=None if was_empty else log_row)
         if code == 200:
             if action == "created":
                 created += 1
@@ -487,7 +570,7 @@ def main():
         "failed": failed,
         "errors": errors,
         "notion": "https://app.notion.com/p/3dee17b68482809fb688e89182385a15",
-        "status_dwell": "current_status_calendar_days",
+        "status_dwell": "collector_closed_segments",
     }
     print(json.dumps(out, ensure_ascii=False))
     if failed:
@@ -505,60 +588,6 @@ def selftest() -> None:
     }
     days = days_in_status(task_dev, now=now)
     assert days == 8.3, days
-    matching = {
-        "properties": {
-            "Development": {"number": 8.3},
-            "New": {"number": 0},
-            "Done at": {"date": None},
-            "Task": {"relation": [{"id": "aaa"}]},
-        }
-    }
-    assert needs_update(task_dev, matching, now=now) is False
-    stale_days = {
-        "properties": {
-            "Development": {"number": 6.0},
-            "Done at": {"date": None},
-        }
-    }
-    assert needs_update(task_dev, stale_days, now=now) is True
-    wrong_status = {
-        "properties": {
-            "Testing": {"number": 8.0},
-            "Done at": {"date": None},
-        }
-    }
-    assert needs_update(task_dev, wrong_status, now=now) is True
-    task_done = {
-        "id": "bbb",
-        "s": "Done",
-        "start": "2026-09-01T00:00:00Z",
-        "created": "2026-09-01T00:00:00Z",
-        "edited": "2026-09-15T12:00:00.000Z",
-    }
-    done_row = {
-        "properties": {
-            "Development": {"number": 0},
-            "Done at": {"date": {"start": "2026-09-15T12:00:00.000Z"}},
-        }
-    }
-    assert needs_update(task_done, done_row, now=now) is False
-    done_with_days = {
-        "properties": {
-            "Development": {"number": 3.0},
-            "Done at": {"date": {"start": "2026-09-15T12:00:00.000Z"}},
-        }
-    }
-    assert needs_update(task_done, done_with_days, now=now) is True
-    zero_task = {
-        "id": "ccc",
-        "s": "New",
-        "start": "2026-09-18T07:50:00Z",
-        "created": "2026-09-18T07:50:00Z",
-        "edited": "2026-09-18T07:50:00Z",
-    }
-    zero_row = {"properties": {"New": {"number": 0}, "Done at": {"date": None}}}
-    assert days_in_status(zero_task, now=now) < 1.0
-    assert needs_update(zero_task, zero_row, now=now) is False
     six_h = {
         "id": "ddd",
         "s": "New",
@@ -567,13 +596,70 @@ def selftest() -> None:
         "edited": "2026-09-18T02:00:00Z",
     }
     assert days_in_status(six_h, now=now) == 0.25
-    drift = {
+
+    empty = {"properties": {"Development": {"number": 8.3}, "Done at": {"date": None}}}
+    assert needs_update(task_dev, empty, now=now) is True
+    seed = collector_transition(task_dev, empty, now=now)
+    assert rich_text_plain(seed["Collected Status"]) == "Development"
+    assert seed["Development"]["number"] == 0
+    assert seed["New"]["number"] == 0
+
+    seeded = {
         "properties": {
-            "Development": {"number": 8.9},
+            "Collected Status": seed["Collected Status"],
+            "Status since": seed["Status since"],
+            "Development": {"number": 0},
+            "New": {"number": 0},
             "Done at": {"date": None},
         }
     }
-    assert needs_update(task_dev, drift, now=now) is False  # |8.9-8.3| < 1.0 day
+    assert needs_update(task_dev, seeded, now=now) is False
+
+    later = parse_ts("2026-09-20T08:00:00Z")
+    task_test = {
+        "id": "aaa",
+        "s": "Testing",
+        "start": "2026-09-10T00:00:00Z",
+        "created": "2026-09-10T00:00:00Z",
+        "edited": "2026-09-20T08:00:00Z",
+    }
+    change = collector_transition(task_test, seeded, now=later)
+    assert rich_text_plain(change["Collected Status"]) == "Testing"
+    assert change["Development"]["number"] == 2.0, change["Development"]
+    assert "Testing" not in change  # open interval not written
+    changed_row = {
+        "properties": {
+            **seeded["properties"],
+            "Collected Status": change["Collected Status"],
+            "Status since": change["Status since"],
+            "Development": change["Development"],
+        }
+    }
+    assert needs_update(task_test, changed_row, now=later) is False
+
+    task_done = {
+        "id": "aaa",
+        "s": "Done",
+        "start": "2026-09-10T00:00:00Z",
+        "created": "2026-09-10T00:00:00Z",
+        "edited": "2026-09-21T08:00:00.000Z",
+    }
+    to_done = collector_transition(task_done, changed_row, now=parse_ts("2026-09-21T08:00:00Z"))
+    assert rich_text_plain(to_done["Collected Status"]) == "Done"
+    assert to_done["Testing"]["number"] == 1.0, to_done
+    assert to_done["Done at"]["date"]["start"].startswith("2026-09-21T08:00:00")
+    done_row = {
+        "properties": {
+            **changed_row["properties"],
+            "Collected Status": to_done["Collected Status"],
+            "Status since": to_done["Status since"],
+            "Testing": to_done["Testing"],
+            "Done at": to_done["Done at"],
+        }
+    }
+    assert needs_update(task_done, done_row, now=parse_ts("2026-09-21T08:00:00Z")) is False
+    assert number_from_props(done_row["properties"], "Development") == 2.0
+
     rows = [
         {"id": "p1", "properties": {"Task": {"relation": [{"id": "aaa"}]}}},
         {"id": "p2", "properties": {"Task": {"relation": [{"id": "aaa"}]}}},
