@@ -160,7 +160,10 @@ def days_in_status(task: dict, now: datetime | None = None) -> float:
     if end is None:
         end = now or datetime.now(timezone.utc)
     ms = max(0.0, (end - start).total_seconds() * 1000.0)
-    return round((ms / 86400000.0) * 10) / 10.0
+    days = ms / 86400000.0
+    if days < 1.0:
+        return round(days * 24.0) / 24.0
+    return round(days * 10.0) / 10.0
 
 
 def query_all(dsid: str) -> list:
@@ -556,6 +559,14 @@ def selftest() -> None:
     zero_row = {"properties": {"New": {"number": 0}, "Done at": {"date": None}}}
     assert days_in_status(zero_task, now=now) < 1.0
     assert needs_update(zero_task, zero_row, now=now) is False
+    six_h = {
+        "id": "ddd",
+        "s": "New",
+        "start": "2026-09-18T02:00:00Z",
+        "created": "2026-09-18T02:00:00Z",
+        "edited": "2026-09-18T02:00:00Z",
+    }
+    assert days_in_status(six_h, now=now) == 0.25
     drift = {
         "properties": {
             "Development": {"number": 8.9},
