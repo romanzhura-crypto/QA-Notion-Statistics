@@ -48,6 +48,7 @@ jobs:
         run: |
           python3 -m py_compile backend/release-widget-sync.py
           python3 -m py_compile backend/log-statistics-sync.py
+          python3 backend/log-statistics-sync.py selftest
           python3 backend/release-widget-sync.py dry
           test ! -f config/notion.json
           test ! -f config/gitlab.env
@@ -74,7 +75,10 @@ jobs:
       - name: upsert LOG STATISTICS
         env:
           LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
-          LOG_STATS_SKIP_EXISTING: "0"
+          # Incremental default: CREATE missing, PATCH changed Status/dwell/Done at,
+          # archive extras. Count change is not a full rewrite. Force full with LOG_STATS_FULL=1.
+          LOG_STATS_FULL: "0"
+          LOG_STATS_REWRITE_TITLE: "0"
         run: python3 backend/log-statistics-sync.py
       - name: stage static HTML+JSON
         run: QA_WWW="" bash backend/publish-release-widgets.sh
