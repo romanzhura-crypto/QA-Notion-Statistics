@@ -560,6 +560,8 @@
       } else if (isDoneName(t.s)) {
         const dwellMs = dwellTotal(segs) * 86400000;
         if (dwellMs > 0) sumDoneMs = dwellMs;
+      } else if (firstDate) {
+        sumDoneMs = Math.max(0, Date.now() - firstDate.getTime());
       }
       const idStr = String(t.id || "");
       const href = t.u ? String(t.u) :
