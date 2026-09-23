@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260923-sync-time-no-note">
+  <meta name="widget-build" content="20260923-sync-time-left">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -62,10 +62,11 @@
       min-height: 1.2em;
     }
     .sync-time {
-      margin: 6px 0 0;
+      grid-column: 1 / -1;
+      margin: 0;
       font-size: 12px;
       color: var(--muted);
-      text-align: end;
+      text-align: start;
       white-space: nowrap;
     }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
@@ -245,8 +246,8 @@
           <div class="field-control">
             <button type="button" class="primary" id="sync">Обновить данные</button>
           </div>
-          <p class="sync-time" id="sync-time" aria-live="polite">Последняя синхронизация: —</p>
         </div>
+        <p class="sync-time" id="sync-time" aria-live="polite">Последняя синхронизация: —</p>
         <p class="sync-status" id="sync-msg" aria-live="polite"></p>
       </div>
     </section>
