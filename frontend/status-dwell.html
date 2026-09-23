@@ -133,12 +133,13 @@
     .tbl-tasks thead th[data-key]:hover { color: var(--ink); }
     .tbl-tasks thead th[data-key]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
     .sort-ind { display: inline-block; min-width: 11px; margin-left: 2px; font-size: 9px; color: var(--muted); }
-    .tbl-tasks .c-id { width: 10%; }
-    .tbl-tasks .c-name { width: 31%; }
-    .tbl-tasks .c-status { width: 13%; }
-    .tbl-tasks .c-sum { width: 16%; }
-    .tbl-tasks .c-created { width: 15%; }
-    .tbl-tasks .c-done { width: 15%; }
+    .tbl-tasks .c-id { width: 9%; }
+    .tbl-tasks .c-name { width: 26%; }
+    .tbl-tasks .c-dev { width: 13%; }
+    .tbl-tasks .c-status { width: 12%; }
+    .tbl-tasks .c-sum { width: 15%; }
+    .tbl-tasks .c-created { width: 12.5%; }
+    .tbl-tasks .c-done { width: 12.5%; }
     #tbl tr[data-href] { cursor: pointer; }
     #tbl tr[data-href]:hover td { background: var(--hover); }
     #tbl tr[data-href]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
@@ -239,12 +240,13 @@
       <div class="tbl-wrap">
         <table class="tbl-tasks">
           <colgroup>
-            <col class="c-id"><col class="c-name"><col class="c-status"><col class="c-sum"><col class="c-created"><col class="c-done">
+            <col class="c-id"><col class="c-name"><col class="c-dev"><col class="c-status"><col class="c-sum"><col class="c-created"><col class="c-done">
           </colgroup>
           <thead>
             <tr>
               <th data-key="id" tabindex="0" aria-sort="none" title="Сортировать">ID<span class="sort-ind"></span></th>
-              <th data-key="n" tabindex="0" aria-sort="none" title="Сортировать">Название задачи<span class="sort-ind"></span></th>
+              <th data-key="n" tabindex="0" aria-sort="none" title="Сортировать">Задача<span class="sort-ind"></span></th>
+              <th data-key="d" tabindex="0" aria-sort="none" title="Сортировать">DEV<span class="sort-ind"></span></th>
               <th data-key="s" tabindex="0" aria-sort="none" title="Сортировать">Текущий статус<span class="sort-ind"></span></th>
               <th data-key="sum" tabindex="0" aria-sort="none" title="Сортировать">Сумма до Done (дн/ч/мин)<span class="sort-ind"></span></th>
               <th data-key="created" tabindex="0" aria-sort="none" title="Сортировать">Создана<span class="sort-ind"></span></th>
@@ -496,6 +498,7 @@
       const val = (r) => {
         if (sortKey === "id") return tidNum(r);
         if (sortKey === "n") return String(r.n || "").toLowerCase();
+        if (sortKey === "d") return String(r.d || "").toLowerCase();
         if (sortKey === "s") {
           const i = ord[String(r.s || "").toLowerCase()];
           return i == null ? 9999 : i;
@@ -529,7 +532,7 @@
         const createdCell = fmtDateTime(r.created);
         const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
         const attr = r.href ? " data-href=\"" + esc(r.href) + "\" tabindex=\"0\" role=\"link\"" : "";
-        return "<tr" + attr + "><td>" + esc(r.tid || "—") + "</td><td>" + esc(r.n) + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
+        return "<tr" + attr + "><td>" + esc(r.tid || "—") + "</td><td>" + esc(r.n) + "</td><td>" + esc(r.d || "—") + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
           esc(r.s) + "</span></td><td>" + esc(sumCell) + "</td><td>" + esc(createdCell) + "</td><td>" + esc(doneCell) + "</td></tr>";
       }).join("");
       bindRowLinks();
