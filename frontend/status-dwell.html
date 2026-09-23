@@ -129,6 +129,10 @@
     .tbl-wrap { width: 100%; max-width: 100%; overflow-x: hidden; margin-top: 12px; }
     table.tbl-tasks { table-layout: fixed; width: 100%; }
     .tbl-tasks th, .tbl-tasks td { overflow-wrap: break-word; word-break: break-word; }
+    .tbl-tasks thead th[data-key] { cursor: pointer; user-select: none; }
+    .tbl-tasks thead th[data-key]:hover { color: var(--ink); }
+    .tbl-tasks thead th[data-key]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    .sort-ind { display: inline-block; min-width: 11px; margin-left: 2px; font-size: 9px; color: var(--muted); }
     .tbl-tasks .c-id { width: 10%; }
     .tbl-tasks .c-name { width: 31%; }
     .tbl-tasks .c-status { width: 13%; }
@@ -238,7 +242,14 @@
             <col class="c-id"><col class="c-name"><col class="c-status"><col class="c-sum"><col class="c-created"><col class="c-done">
           </colgroup>
           <thead>
-            <tr><th>ID</th><th>Название задачи</th><th>Текущий статус</th><th>Сумма до Done (дн/ч/мин)</th><th>Создана</th><th>Done</th></tr>
+            <tr>
+              <th data-key="id" tabindex="0" aria-sort="none" title="Сортировать">ID<span class="sort-ind"></span></th>
+              <th data-key="n" tabindex="0" aria-sort="none" title="Сортировать">Название задачи<span class="sort-ind"></span></th>
+              <th data-key="s" tabindex="0" aria-sort="none" title="Сортировать">Текущий статус<span class="sort-ind"></span></th>
+              <th data-key="sum" tabindex="0" aria-sort="none" title="Сортировать">Сумма до Done (дн/ч/мин)<span class="sort-ind"></span></th>
+              <th data-key="created" tabindex="0" aria-sort="none" title="Сортировать">Создана<span class="sort-ind"></span></th>
+              <th data-key="done" tabindex="0" aria-sort="none" title="Сортировать">Done<span class="sort-ind"></span></th>
+            </tr>
           </thead>
           <tbody id="tbl"></tbody>
         </table>
@@ -469,6 +480,61 @@
       });
     }
 
+    let sortKey = null, sortDir = 1, lastRows = [];
+    function tidNum(r) {
+      const m = /(\d+)\s*$/.exec(String(r.tid || ""));
+      return m ? parseInt(m[1], 10) : null;
+    }
+    function statusOrderMap() {
+      const map = {};
+      (DATA.status_meta || []).forEach((s, i) => { if (s && s.name) map[String(s.name).toLowerCase()] = i; });
+      return map;
+    }
+    function sortRows(rows) {
+      if (!sortKey) return rows.slice();
+      const ord = statusOrderMap();
+      const val = (r) => {
+        if (sortKey === "id") return tidNum(r);
+        if (sortKey === "n") return String(r.n || "").toLowerCase();
+        if (sortKey === "s") {
+          const i = ord[String(r.s || "").toLowerCase()];
+          return i == null ? 9999 : i;
+        }
+        if (sortKey === "sum") return r.sumDoneMs == null ? null : r.sumDoneMs;
+        const d = parseTs(sortKey === "created" ? r.created : r.doneAt);
+        return d ? d.getTime() : null;
+      };
+      return rows.slice().sort((a, b) => {
+        const va = val(a), vb = val(b);
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        let c;
+        if (typeof va === "string") c = va.localeCompare(vb, "ru");
+        else c = va < vb ? -1 : (va > vb ? 1 : 0);
+        return c * sortDir;
+      });
+    }
+    function updateSortIndicators() {
+      document.querySelectorAll(".tbl-tasks thead th[data-key]").forEach(th => {
+        const active = th.getAttribute("data-key") === sortKey;
+        th.setAttribute("aria-sort", active ? (sortDir === 1 ? "ascending" : "descending") : "none");
+        const ind = th.querySelector(".sort-ind");
+        if (ind) ind.textContent = active ? (sortDir === 1 ? "▲" : "▼") : "";
+      });
+    }
+    function renderTable(list) {
+      document.getElementById("tbl").innerHTML = list.map(r => {
+        const sumCell = r.sumDoneMs != null ? fmtDurParts(r.sumDoneMs) : "—";
+        const createdCell = fmtDateTime(r.created);
+        const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
+        const attr = r.href ? " data-href=\"" + esc(r.href) + "\" tabindex=\"0\" role=\"link\"" : "";
+        return "<tr" + attr + "><td>" + esc(r.tid || "—") + "</td><td>" + esc(r.n) + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
+          esc(r.s) + "</span></td><td>" + esc(sumCell) + "</td><td>" + esc(createdCell) + "</td><td>" + esc(doneCell) + "</td></tr>";
+      }).join("");
+      bindRowLinks();
+    }
+
     function draw(rows) {
       const svg = document.getElementById("chart");
       const empty = document.getElementById("empty");
@@ -477,6 +543,7 @@
       if (!rows.length) {
         svg.removeAttribute("viewBox");
         svg.innerHTML = "";
+        lastRows = [];
         document.getElementById("tbl").innerHTML = "";
         document.getElementById("legend").innerHTML = "";
         return;
@@ -538,15 +605,8 @@
       document.getElementById("legend").innerHTML = seen.map(s =>
         "<span><i class=\"swatch\" style=\"background:" + statusColor(s) + "\"></i>" + esc(s) + (isDoneName(s) ? " (момент)" : "") + "</span>"
       ).join("");
-      document.getElementById("tbl").innerHTML = rows.map(r => {
-        const sumCell = r.sumDoneMs != null ? fmtDurParts(r.sumDoneMs) : "—";
-        const createdCell = fmtDateTime(r.created);
-        const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
-        const attr = r.href ? " data-href=\"" + esc(r.href) + "\" tabindex=\"0\" role=\"link\"" : "";
-        return "<tr" + attr + "><td>" + esc(r.tid || "—") + "</td><td>" + esc(r.n) + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
-          esc(r.s) + "</span></td><td>" + esc(sumCell) + "</td><td>" + esc(createdCell) + "</td><td>" + esc(doneCell) + "</td></tr>";
-      }).join("");
-      bindRowLinks();
+      lastRows = rows;
+      renderTable(sortRows(rows));
     }
 
     function toRow(t) {
@@ -737,6 +797,23 @@
       if (!e.target.closest("#release-combo")) setExpanded(false);
     });
     syncBtn.addEventListener("click", syncNow);
+    document.querySelectorAll(".tbl-tasks thead th[data-key]").forEach(th => {
+      const key = th.getAttribute("data-key");
+      const apply = () => {
+        if (sortKey === key) {
+          sortDir = -sortDir;
+        } else {
+          sortKey = key;
+          sortDir = (key === "sum" || key === "created" || key === "done") ? -1 : 1;
+        }
+        updateSortIndicators();
+        renderTable(sortRows(lastRows));
+      };
+      th.addEventListener("click", apply);
+      th.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); apply(); }
+      });
+    });
     let resizeTimer = 0;
     window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 80); });
     loadCached();
