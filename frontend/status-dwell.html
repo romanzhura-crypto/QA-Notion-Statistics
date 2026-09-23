@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260923-project-task-filters">
+  <meta name="widget-build" content="20260923-sync-time-no-note">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -37,16 +37,6 @@
     h2 { font-size: 1rem; font-weight: 650; margin: 0 0 8px; }
     .muted { color: var(--muted); font-size: 12px; }
     .err { color: var(--red); font-size: 13px; font-weight: 600; margin: 8px 0 0; min-height: 1.2em; }
-    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
-    .callout {
-      background: var(--subtle);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-    }
     .toolbar {
       display: grid;
       grid-template-columns: minmax(0, 1fr) max-content;
@@ -71,6 +61,14 @@
       white-space: pre-line;
       min-height: 1.2em;
     }
+    .sync-time {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: end;
+      white-space: nowrap;
+    }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
     label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
     input[type="text"], button {
       font: inherit; color: var(--ink); background: var(--subtle);
@@ -247,11 +245,11 @@
           <div class="field-control">
             <button type="button" class="primary" id="sync">Обновить данные</button>
           </div>
+          <p class="sync-time" id="sync-time" aria-live="polite">Последняя синхронизация: —</p>
         </div>
         <p class="sync-status" id="sync-msg" aria-live="polite"></p>
       </div>
     </section>
-    <p class="callout" id="note"></p>
     <section class="kpis" aria-label="Сводка релиза">
       <div><dt>Задач</dt><dd id="k-n">—</dd></div>
       <div><dt>Статусов</dt><dd id="k-s">—</dd></div>
@@ -806,8 +804,7 @@
       document.getElementById("k-s").textContent = ok ? String(uniq.size) : "—";
       document.getElementById("k-m").textContent = ok && days.length ? fmtDur(med) : "—";
       document.getElementById("k-x").textContent = ok && days.length ? fmtDur(Math.max(0, ...days)) : "—";
-      document.getElementById("note").textContent = DATA.status_dwell_note ||
-        "LOG collector: закрытые отрезки + открытый интервал с Status since. Version History Notion REST нет. Hover: длительность. Done — момент, без длительности.";
+      updateSyncTime();
       if (ok) draw(rows);
       else {
         document.getElementById("chart").innerHTML = "";
@@ -827,6 +824,11 @@
       }).formatToParts(src);
       const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
       return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    function updateSyncTime() {
+      document.getElementById("sync-time").textContent = DATA.generated_at
+        ? ("Последняя синхронизация: " + formatSyncTime(DATA.generated_at))
+        : "Последняя синхронизация: —";
     }
     function applyPayload(p, keepRelease) {
       const prev = keepRelease ? releaseCombo.input.value : "";
