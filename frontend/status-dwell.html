@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260923-task-table-id-sum-done">
+  <meta name="widget-build" content="20260923-project-task-filters">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -52,6 +52,12 @@
       grid-template-columns: minmax(0, 1fr) max-content;
       gap: 8px 16px;
       align-items: start;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px 16px;
+      min-width: 0;
     }
     .field { min-width: 0; display: flex; flex-direction: column; }
     .field-control { min-height: 36px; display: flex; align-items: stretch; }
@@ -195,6 +201,7 @@
   <main>
     <section class="card">
       <div class="toolbar">
+        <div class="filters">
         <div class="field">
           <label for="release">Релиз</label>
           <div class="combo" id="release-combo">
@@ -207,6 +214,33 @@
             <ul class="combo-menu" id="release-menu" role="listbox" hidden></ul>
           </div>
           <p class="err" id="release-err" hidden>Такого релиза не существует.</p>
+        </div>
+        <div class="field">
+          <label for="project">Проект</label>
+          <div class="combo" id="project-combo">
+            <div class="combo-control">
+              <input id="project" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="project-menu" autocomplete="off" placeholder="Все проекты">
+              <button type="button" class="combo-toggle" id="project-toggle" aria-label="Открыть список проектов" aria-expanded="false" aria-controls="project-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="project-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="project-err" hidden>Такого проекта не существует.</p>
+        </div>
+        <div class="field">
+          <label for="task-filter">Задача</label>
+          <div class="combo" id="task-combo">
+            <div class="combo-control">
+              <input id="task-filter" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="task-menu" autocomplete="off" placeholder="Все задачи">
+              <button type="button" class="combo-toggle" id="task-toggle" aria-label="Открыть список задач" aria-expanded="false" aria-controls="task-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="task-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="task-err" hidden>Такой задачи не существует.</p>
+        </div>
         </div>
         <div class="field sync-actions">
           <label for="sync">Sync Notion</label>
@@ -265,10 +299,6 @@
       yellow: "#dfab01", green: "#0f7b6c", blue: "#2383e2", purple: "#6940a5",
       pink: "#ad1a72", red: "#e03e3e"
     };
-    const releaseEl = document.getElementById("release");
-    const menuEl = document.getElementById("release-menu");
-    const toggleEl = document.getElementById("release-toggle");
-    const errEl = document.getElementById("release-err");
     const syncBtn = document.getElementById("sync");
     const syncMsg = document.getElementById("sync-msg");
     const tipEl = document.getElementById("tip");
@@ -379,62 +409,175 @@
       return d ? d.at : null;
     }
 
-    let activeIdx = -1;
-    let filterOnType = false;
-    function listReleases() {
-      const all = DATA.releases || [];
-      const q = (releaseEl.value || "").trim().toLowerCase();
-      if (!filterOnType || !q) return all.slice();
-      const exact = all.some(r => r.toLowerCase() === q);
-      if (exact) return all.slice();
-      return all.filter(r => r.toLowerCase().indexOf(q) !== -1);
-    }
-    function fillList() {
-      const items = listReleases();
-      if (!items.length) {
-        menuEl.innerHTML = "<li class=\"combo-empty\">Нет совпадений</li>";
-        activeIdx = -1;
-        return;
+    function createCombo(cfg) {
+      const inputEl = document.getElementById(cfg.input);
+      const menuEl = document.getElementById(cfg.menu);
+      const toggleEl = document.getElementById(cfg.toggle);
+      const errEl = cfg.err ? document.getElementById(cfg.err) : null;
+      const rootSel = "#" + cfg.root;
+      let activeIdx = -1;
+      let filterOnType = false;
+      function items() { return cfg.items() || []; }
+      function listItems() {
+        const all = items();
+        const q = (inputEl.value || "").trim().toLowerCase();
+        if (!filterOnType || !q) return all.slice();
+        const exact = all.some(it => it.label.toLowerCase() === q || String(it.value).toLowerCase() === q);
+        if (exact) return all.slice();
+        return all.filter(it => it.label.toLowerCase().indexOf(q) !== -1 || String(it.value).toLowerCase().indexOf(q) !== -1);
       }
-      menuEl.innerHTML = items.map((r, i) =>
-        "<li><button type=\"button\" class=\"combo-option" + (i === activeIdx ? " active" : "") + "\" role=\"option\" data-value=\"" + esc(r) + "\">" + esc(r) + "</button></li>"
-      ).join("");
-    }
-    function setExpanded(open, fromType) {
-      if (open && !fromType) filterOnType = false;
-      menuEl.classList.toggle("open", open);
-      menuEl.hidden = !open;
-      releaseEl.setAttribute("aria-expanded", open ? "true" : "false");
-      toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
-      if (open) {
-        const cur = (releaseEl.value || "").trim().toLowerCase();
-        const items = listReleases();
-        activeIdx = Math.max(0, items.findIndex(r => r.toLowerCase() === cur));
-        fillList();
-        highlight();
+      function fill() {
+        const list = listItems();
+        if (!list.length) {
+          menuEl.innerHTML = "<li class=\"combo-empty\">Нет совпадений</li>";
+          activeIdx = -1;
+          return;
+        }
+        menuEl.innerHTML = list.map((it, i) =>
+          "<li><button type=\"button\" class=\"combo-option" + (i === activeIdx ? " active" : "") + "\" role=\"option\" data-value=\"" + esc(it.value) + "\">" + esc(it.label) + "</button></li>"
+        ).join("");
       }
+      function highlight() {
+        const opts = menuEl.querySelectorAll(".combo-option");
+        opts.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+        if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+      }
+      function setExpanded(open, fromType) {
+        if (open && !fromType) filterOnType = false;
+        menuEl.classList.toggle("open", open);
+        menuEl.hidden = !open;
+        inputEl.setAttribute("aria-expanded", open ? "true" : "false");
+        toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          const cur = (inputEl.value || "").trim().toLowerCase();
+          const list = listItems();
+          activeIdx = Math.max(0, list.findIndex(it => it.label.toLowerCase() === cur || String(it.value).toLowerCase() === cur));
+          fill();
+          highlight();
+        }
+      }
+      function pick(value) {
+        const it = items().find(x => String(x.value) === value) || null;
+        inputEl.value = it ? it.label : (value || "");
+        setExpanded(false);
+        cfg.onPick(it);
+      }
+      function match() {
+        const v = (inputEl.value || "").trim();
+        if (!v) return { ok: !!cfg.emptyMeansAll, empty: true, item: null };
+        const low = v.toLowerCase();
+        const it = items().find(x => x.label.toLowerCase() === low || String(x.value).toLowerCase() === low) || null;
+        return it ? { ok: true, empty: false, item: it } : { ok: false, empty: false, item: null };
+      }
+      function setErr(m) { if (errEl) errEl.hidden = m.ok || m.empty; }
+      function clear() { inputEl.value = ""; }
+
+      inputEl.addEventListener("input", () => { filterOnType = true; activeIdx = 0; setExpanded(true, true); cfg.onInput(); });
+      inputEl.addEventListener("focus", () => setExpanded(true, false));
+      inputEl.addEventListener("keydown", (e) => {
+        const open = menuEl.classList.contains("open");
+        const list = listItems();
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (!open) setExpanded(true);
+          else { activeIdx = Math.min(list.length - 1, activeIdx + 1); highlight(); }
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!open) setExpanded(true);
+          else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
+        } else if (e.key === "Enter") {
+          if (open && list[activeIdx]) { e.preventDefault(); pick(String(list[activeIdx].value)); }
+        } else if (e.key === "Escape") setExpanded(false);
+      });
+      toggleEl.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        setExpanded(!menuEl.classList.contains("open"));
+        if (menuEl.classList.contains("open")) inputEl.focus();
+      });
+      menuEl.addEventListener("mousedown", (e) => {
+        const btn = e.target.closest(".combo-option");
+        if (!btn) return;
+        e.preventDefault();
+        pick(btn.getAttribute("data-value"));
+      });
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(rootSel)) setExpanded(false);
+      });
+      return { input: inputEl, match, setErr, clear, setValue: (v) => { inputEl.value = v || ""; } };
     }
-    function highlight() {
-      const opts = menuEl.querySelectorAll(".combo-option");
-      opts.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
-      if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+
+    function releaseItems() {
+      return (DATA.releases || []).map(r => ({ value: r, label: r }));
     }
-    function pickRelease(val) {
-      releaseEl.value = val;
-      setExpanded(false);
-      render();
+    const releaseCombo = createCombo({
+      root: "release-combo", input: "release", menu: "release-menu", toggle: "release-toggle", err: "release-err",
+      emptyMeansAll: false,
+      items: releaseItems,
+      onInput: () => render(),
+      onPick: () => { cascadeReset(); render(); }
+    });
+    function releaseTasks() {
+      const m = releaseCombo.match();
+      if (!m.ok || !m.item) return [];
+      return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.item.value) !== -1);
     }
-    function matchRelease(raw) {
-      const v = (raw || "").trim();
-      if (!v) return { ok: false, empty: true };
-      const exact = (DATA.releases || []).find(r => r.toLowerCase() === v.toLowerCase());
-      if (exact) return { ok: true, value: exact };
-      return { ok: false, empty: false };
+    function projectItems() {
+      const names = [];
+      let none = false;
+      releaseTasks().forEach(t => {
+        const v = String(t.p || "");
+        if (!v) { none = true; return; }
+        if (names.indexOf(v) === -1) names.push(v);
+      });
+      names.sort((a, b) => a.localeCompare(b, "ru"));
+      const out = names.map(v => ({ value: v, label: v }));
+      if (none) out.push({ value: "__none__", label: "Без проекта" });
+      return out;
+    }
+    const projectCombo = createCombo({
+      root: "project-combo", input: "project", menu: "project-menu", toggle: "project-toggle", err: "project-err",
+      emptyMeansAll: true,
+      items: projectItems,
+      onInput: () => render(),
+      onPick: () => { cascadeReset(); render(); }
+    });
+    function projectTasks() {
+      const m = projectCombo.match();
+      let rows = releaseTasks();
+      if (m.ok && m.item) {
+        rows = rows.filter(t => m.item.value === "__none__" ? !t.p : String(t.p || "") === m.item.value);
+      }
+      return rows;
     }
     function selected() {
-      const m = matchRelease(releaseEl.value);
-      if (!m.ok) return [];
-      return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.value) !== -1);
+      const m = taskCombo.match();
+      let rows = projectTasks();
+      if (m.ok && m.item) {
+        rows = rows.filter(t => String(t.id) === m.item.value);
+      }
+      return rows;
+    }
+    function taskItems() {
+      return projectTasks()
+        .slice()
+        .sort((a, b) => String(a.tid || "").localeCompare(String(b.tid || ""), "ru", { numeric: true }) || String(a.n || "").localeCompare(String(b.n || ""), "ru"))
+        .map(t => ({
+          value: String(t.id),
+          label: (t.tid ? t.tid + " · " : "") + (t.n || "Без названия")
+        }));
+    }
+    const taskCombo = createCombo({
+      root: "task-combo", input: "task-filter", menu: "task-menu", toggle: "task-toggle", err: "task-err",
+      emptyMeansAll: true,
+      items: taskItems,
+      onInput: () => render(),
+      onPick: () => { cascadeReset(); render(); }
+    });
+    function cascadeReset() {
+      const mp = projectCombo.match();
+      if (!mp.ok && !mp.empty) projectCombo.clear();
+      const mt = taskCombo.match();
+      if (!mt.ok && !mt.empty) taskCombo.clear();
     }
 
     function hideTip() {
@@ -646,21 +789,26 @@
     }
 
     function render() {
-      const m = matchRelease(releaseEl.value);
-      errEl.hidden = m.ok || m.empty;
-      const live = m.ok ? selected() : [];
+      const m = releaseCombo.match();
+      const mp = projectCombo.match();
+      const mt = taskCombo.match();
+      releaseCombo.setErr(m);
+      projectCombo.setErr(mp);
+      taskCombo.setErr(mt);
+      const ok = m.ok && mp.ok && mt.ok;
+      const live = ok ? selected() : [];
       const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
       const days = rows.map(r => r.totalDays).sort((a, b) => a - b);
       const med = days.length ? days[Math.floor((days.length - 1) / 2)] : 0;
       const uniq = new Set();
       rows.forEach(r => r.segs.forEach(seg => uniq.add(seg.s)));
-      document.getElementById("k-n").textContent = m.ok ? String(rows.length) : "—";
-      document.getElementById("k-s").textContent = m.ok ? String(uniq.size) : "—";
-      document.getElementById("k-m").textContent = m.ok && days.length ? fmtDur(med) : "—";
-      document.getElementById("k-x").textContent = m.ok && days.length ? fmtDur(Math.max(0, ...days)) : "—";
+      document.getElementById("k-n").textContent = ok ? String(rows.length) : "—";
+      document.getElementById("k-s").textContent = ok ? String(uniq.size) : "—";
+      document.getElementById("k-m").textContent = ok && days.length ? fmtDur(med) : "—";
+      document.getElementById("k-x").textContent = ok && days.length ? fmtDur(Math.max(0, ...days)) : "—";
       document.getElementById("note").textContent = DATA.status_dwell_note ||
         "LOG collector: закрытые отрезки + открытый интервал с Status since. Version History Notion REST нет. Hover: длительность. Done — момент, без длительности.";
-      if (m.ok) draw(rows);
+      if (ok) draw(rows);
       else {
         document.getElementById("chart").innerHTML = "";
         document.getElementById("tbl").innerHTML = "";
@@ -681,7 +829,7 @@
       return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
     }
     function applyPayload(p, keepRelease) {
-      const prev = keepRelease ? releaseEl.value : "";
+      const prev = keepRelease ? releaseCombo.input.value : "";
       DATA = {
         source: p.source || DATA.source,
         generated_at: p.generated_at,
@@ -691,13 +839,13 @@
         status_meta: p.status_meta || DATA.status_meta || [],
         status_dwell_note: p.status_dwell_note || DATA.status_dwell_note || ""
       };
-      fillList();
       if (prev && (DATA.releases || []).some(r => r.toLowerCase() === prev.toLowerCase())) {
-        releaseEl.value = (DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase());
+        releaseCombo.setValue((DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase()));
       } else {
         const firstNum = (DATA.releases || []).find(r => r !== "Backlog");
-        releaseEl.value = firstNum || (DATA.releases || [])[0] || "";
+        releaseCombo.setValue(firstNum || (DATA.releases || [])[0] || "");
       }
+      cascadeReset();
       render();
     }
     async function loadCached() {
@@ -765,37 +913,6 @@
       }
     }
 
-    releaseEl.addEventListener("input", () => { filterOnType = true; activeIdx = 0; setExpanded(true, true); render(); });
-    releaseEl.addEventListener("focus", () => setExpanded(true, false));
-    releaseEl.addEventListener("keydown", (e) => {
-      const open = menuEl.classList.contains("open");
-      const items = listReleases();
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (!open) setExpanded(true);
-        else { activeIdx = Math.min(items.length - 1, activeIdx + 1); highlight(); }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (!open) setExpanded(true);
-        else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
-      } else if (e.key === "Enter") {
-        if (open && items[activeIdx]) { e.preventDefault(); pickRelease(items[activeIdx]); }
-      } else if (e.key === "Escape") setExpanded(false);
-    });
-    toggleEl.addEventListener("click", (e) => {
-      e.preventDefault(); e.stopPropagation();
-      setExpanded(!menuEl.classList.contains("open"));
-      if (menuEl.classList.contains("open")) releaseEl.focus();
-    });
-    menuEl.addEventListener("mousedown", (e) => {
-      const btn = e.target.closest(".combo-option");
-      if (!btn) return;
-      e.preventDefault();
-      pickRelease(btn.getAttribute("data-value"));
-    });
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest("#release-combo")) setExpanded(false);
-    });
     syncBtn.addEventListener("click", syncNow);
     document.querySelectorAll(".tbl-tasks thead th[data-key]").forEach(th => {
       const key = th.getAttribute("data-key");

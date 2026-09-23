@@ -39,6 +39,7 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `tid` | string\|null | Sprint `ID` unique_id, e.g. `TASK-42` (board #144) |
 | `u` | string\|null | Notion page URL — row click target in tasks table (board #144) |
 | `r` | string[] | Releases (multi-select names) |
+| `p` | string | Project (select name) or `""` when unset — «Проект» filter in status-dwell (board #153) |
 | `d` | string | DEV assignee or `Unassigned` |
 | `s` | string | Status name |
 | `e` | number\|null | Estimate hours (`1d=8h`) |

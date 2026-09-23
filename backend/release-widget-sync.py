@@ -354,6 +354,7 @@ def snapshot() -> dict:
             "tid": tid,
             "u": row.get("url"),
             "r": releases,
+            "p": ((p.get("Project") or {}).get("select") or {}).get("name") or "",
             "d": ((p.get("DEV") or {}).get("select") or {}).get("name") or "Unassigned",
             "s": status,
             "e": parse_estimate(est_txt),
