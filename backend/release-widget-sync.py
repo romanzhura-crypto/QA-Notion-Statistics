@@ -21,7 +21,6 @@ ROOT = Path(os.environ.get("ROOT") or os.environ.get("WIDGETS_ROOT") or "/home/c
 CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json"))
 OUT_JSON = Path(os.environ.get("QA_WWW_JSON") or "/var/www/openclaw/widgets/release-data.json")
 WS_JSON = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "widgets" / "release-data.json"))
-TABLE_TESTS = Path(os.environ.get("TABLE_TESTS") or (ROOT / "widgets" / "status-dwell-table-tests.json"))
 DEFAULT_DSID = "2a8e17b6-8482-80b2-87ad-000b68f9d74e"
 LOG_DSID = os.environ.get("LOG_STATISTICS_DSID") or "3dee17b6-8482-80a3-9fc4-000bafe19b46"
 LISTEN = ("127.0.0.1", 8755)
@@ -243,28 +242,7 @@ def enrich_existing() -> dict:
     payload = json.loads(WS_JSON.read_text(encoding="utf-8"))
     payload = enrich_with_log_statistics(payload)
     payload["generated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    payload = merge_table_tests(payload)
     return write_payload(payload)
-
-
-def merge_table_tests(payload: dict) -> dict:
-    """Append <=5 QA rows into the table snapshot so the widget can read them via DATA.tasks."""
-    if not TABLE_TESTS.exists():
-        return payload
-    extra = json.loads(TABLE_TESTS.read_text(encoding="utf-8"))
-    tests = extra.get("tasks") or []
-    if not tests:
-        return payload
-    ids = {t.get("id") for t in tests if t.get("id")}
-    live = [t for t in (payload.get("tasks") or []) if t.get("id") not in ids]
-    payload["tasks"] = live + tests
-    from_tasks = set(payload.get("releases") or [])
-    for tsk in tests:
-        from_tasks.update(r for r in (tsk.get("r") or []) if r)
-    payload["releases"] = sorted(from_tasks, key=rel_sort_key)
-    payload["task_count"] = len(payload["tasks"])
-    payload["table_tests"] = len(tests)
-    return payload
 
 
 def _cfg():
@@ -401,7 +379,6 @@ def snapshot() -> dict:
         "releases": sorted(from_tasks, key=rel_sort_key),
         "tasks": tasks,
     }
-    payload = merge_table_tests(payload)
     payload = enrich_with_log_statistics(payload)
     return write_payload(payload)
 

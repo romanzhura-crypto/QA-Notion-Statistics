@@ -692,11 +692,8 @@
         status_dwell_note: p.status_dwell_note || DATA.status_dwell_note || ""
       };
       fillList();
-      const want = "TEST";
       if (prev && (DATA.releases || []).some(r => r.toLowerCase() === prev.toLowerCase())) {
         releaseEl.value = (DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase());
-      } else if ((DATA.releases || []).indexOf(want) !== -1) {
-        releaseEl.value = want;
       } else {
         const firstNum = (DATA.releases || []).find(r => r !== "Backlog");
         releaseEl.value = firstNum || (DATA.releases || [])[0] || "";

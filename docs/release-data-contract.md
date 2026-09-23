@@ -21,14 +21,14 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `generated_at` | string ISO-8601 UTC `…Z` | yes | Shown in UI |
 | `source` | string | yes | e.g. `Estimate vs Time tracking` |
 | `data_source_id` | string UUID | yes | Notion data source (not a secret) |
-| `task_count` | number | yes | `len(tasks)` after table-tests merge |
+| `task_count` | number | yes | `len(tasks)` |
 | `estimate_rule` | string | yes | `1d=8h` |
 | `status_dwell` | string | yes | `current_status_calendar_days` |
 | `status_dwell_note` | string | yes | Changelog limitation note |
 | `status_meta` | array `{name, color}` | yes | Notion status colors |
 | `releases` | string[] | yes | Sorted; includes `Backlog` when present |
 | `tasks` | object[] | yes | See below |
-| `table_tests` | number | no | Count of injected QA rows |
+| `table_tests` | — | **removed** | TEST fixture rows were removed (board #152); key no longer emitted |
 | `token` | — | **forbidden** | Backend must not emit this key |
 
 ## `tasks[]` item
