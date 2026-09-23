@@ -368,8 +368,13 @@ def snapshot() -> dict:
                 spent_h = None
         title = "".join(x.get("plain_text", "") for x in (p.get("Documentation") or {}).get("title") or [])
         status = ((p.get("Status") or {}).get("status") or {}).get("name") or "Unknown"
+        uid = (p.get("ID") or {}).get("unique_id") or {}
+        uid_num = uid.get("number")
+        tid = (str(uid.get("prefix") or "TASK") + "-" + str(uid_num)) if uid_num is not None else None
         tasks.append({
             "id": row.get("id"),
+            "tid": tid,
+            "u": row.get("url"),
             "r": releases,
             "d": ((p.get("DEV") or {}).get("select") or {}).get("name") or "Unassigned",
             "s": status,

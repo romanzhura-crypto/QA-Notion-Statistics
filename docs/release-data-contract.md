@@ -36,6 +36,8 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | Field | Type | Meaning |
 |---|---|---|
 | `id` | string | Notion page id |
+| `tid` | string\|null | Sprint `ID` unique_id, e.g. `TASK-42` (board #144) |
+| `u` | string\|null | Notion page URL — row click target in tasks table (board #144) |
 | `r` | string[] | Releases (multi-select names) |
 | `d` | string | DEV assignee or `Unassigned` |
 | `s` | string | Status name |

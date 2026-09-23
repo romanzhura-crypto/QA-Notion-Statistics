@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260918-hours-if-zero-days">
+  <meta name="widget-build" content="20260923-task-table-id-sum-done">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -126,6 +126,22 @@
       font-weight: 550;
     }
     .seg-list { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tbl-wrap { width: 100%; max-width: 100%; overflow-x: hidden; margin-top: 12px; }
+    table.tbl-tasks { table-layout: fixed; width: 100%; }
+    .tbl-tasks th, .tbl-tasks td { overflow-wrap: break-word; word-break: break-word; }
+    .tbl-tasks .c-id { width: 10%; }
+    .tbl-tasks .c-name { width: 31%; }
+    .tbl-tasks .c-status { width: 13%; }
+    .tbl-tasks .c-sum { width: 16%; }
+    .tbl-tasks .c-created { width: 15%; }
+    .tbl-tasks .c-done { width: 15%; }
+    #tbl tr[data-href] { cursor: pointer; }
+    #tbl tr[data-href]:hover td { background: var(--hover); }
+    #tbl tr[data-href]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    @media (max-width: 640px) {
+      table.tbl-tasks { font-size: 11px; }
+      .tbl-tasks th, .tbl-tasks td { padding: 6px 3px; }
+    }
     @media (max-width: 768px) {
       .kpis { grid-template-columns: 1fr 1fr; }
       .toolbar { grid-template-columns: 1fr; }
@@ -216,10 +232,13 @@
         </div>
       </div>
       <p class="muted" id="empty" hidden>В этом релизе нет задач.</p>
-      <div class="scroll" style="margin-top:12px; max-height: none;">
-        <table>
+      <div class="tbl-wrap">
+        <table class="tbl-tasks">
+          <colgroup>
+            <col class="c-id"><col class="c-name"><col class="c-status"><col class="c-sum"><col class="c-created"><col class="c-done">
+          </colgroup>
           <thead>
-            <tr><th>Задача</th><th>Status</th><th>Время / момент</th><th>DEV</th><th>Старт</th></tr>
+            <tr><th>ID</th><th>Название задачи</th><th>Текущий статус</th><th>Сумма до Done (дн/ч/мин)</th><th>Создана</th><th>Done</th></tr>
           </thead>
           <tbody id="tbl"></tbody>
         </table>
@@ -308,6 +327,18 @@
         return h + " ч";
       }
       return (Math.round(n * 10) / 10) + " дн";
+    }
+    function fmtDurParts(ms) {
+      if (ms == null || isNaN(ms)) return "—";
+      const totalMin = Math.max(0, Math.round(ms / 60000));
+      const d = Math.floor(totalMin / 1440);
+      const h = Math.floor((totalMin % 1440) / 60);
+      const m = totalMin % 60;
+      const parts = [];
+      if (d) parts.push(d + " дн");
+      if (h) parts.push(h + " ч");
+      if (m || !parts.length) parts.push(m + " мин");
+      return parts.join(" ");
     }
     function historyOf(t) {
       return (t && (t.history || t.segments)) || [];
@@ -426,6 +457,18 @@
       });
     }
 
+    function bindRowLinks() {
+      document.querySelectorAll("#tbl tr[data-href]").forEach(tr => {
+        const href = tr.getAttribute("data-href") || "";
+        if (!href) return;
+        const open = () => window.open(href, "_blank", "noopener");
+        tr.addEventListener("click", open);
+        tr.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+        });
+      });
+    }
+
     function draw(rows) {
       const svg = document.getElementById("chart");
       const empty = document.getElementById("empty");
@@ -496,14 +539,32 @@
         "<span><i class=\"swatch\" style=\"background:" + statusColor(s) + "\"></i>" + esc(s) + (isDoneName(s) ? " (момент)" : "") + "</span>"
       ).join("");
       document.getElementById("tbl").innerHTML = rows.map(r => {
-        const value = r.doneAt ? fmtDateTime(r.doneAt) : fmtDur(r.totalDays);
-        return "<tr><td>" + esc(r.n) + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
-          esc(r.s) + "</span></td><td>" + esc(value) + "</td><td>" + esc(r.d) + "</td><td>" + esc(fmtDate(r.start || r.created)) + "</td></tr>";
+        const sumCell = r.sumDoneMs != null ? fmtDurParts(r.sumDoneMs) : "—";
+        const createdCell = fmtDateTime(r.created);
+        const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
+        const attr = r.href ? " data-href=\"" + esc(r.href) + "\" tabindex=\"0\" role=\"link\"" : "";
+        return "<tr" + attr + "><td>" + esc(r.tid || "—") + "</td><td>" + esc(r.n) + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
+          esc(r.s) + "</span></td><td>" + esc(sumCell) + "</td><td>" + esc(createdCell) + "</td><td>" + esc(doneCell) + "</td></tr>";
       }).join("");
+      bindRowLinks();
     }
 
     function toRow(t) {
       const segs = segmentsFor(t);
+      const doneRaw = doneAt(segs);
+      const doneDate = parseTs(doneRaw);
+      const firstDate = parseTs(t.created) || parseTs(t.start);
+      let sumDoneMs = null;
+      if (doneDate && firstDate && doneDate.getTime() >= firstDate.getTime()) {
+        sumDoneMs = doneDate.getTime() - firstDate.getTime();
+      } else if (isDoneName(t.s)) {
+        const dwellMs = dwellTotal(segs) * 86400000;
+        if (dwellMs > 0) sumDoneMs = dwellMs;
+      }
+      const idStr = String(t.id || "");
+      const href = t.u ? String(t.u) :
+        (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(idStr)
+          ? "https://app.notion.com/p/" + idStr.replace(/-/g, "") : "");
       return {
         n: t.n || "Без названия",
         s: t.s || "Unknown",
@@ -512,7 +573,10 @@
         created: t.created,
         segs: segs,
         totalDays: dwellTotal(segs),
-        doneAt: doneAt(segs)
+        doneAt: doneRaw,
+        tid: t.tid || "",
+        href: href,
+        sumDoneMs: sumDoneMs
       };
     }
 
