@@ -664,7 +664,7 @@ def selftest() -> None:
         {"id": "p1", "properties": {"Task": {"relation": [{"id": "aaa"}]}}},
         {"id": "p2", "properties": {"Task": {"relation": [{"id": "aaa"}]}}},
         {"id": "p3", "properties": {"Task": {"relation": []}}},
-        {"id": "p4", "archived": True, "properties": {"Task": {"relation": [{"id": "zzz"}]}}},
+        {"id": "p4", "in_trash": True, "properties": {"Task": {"relation": [{"id": "zzz"}]}}},
     ]
     mapping, empties, dups = index_log_rows(rows)
     assert list(mapping) == ["aaa"]

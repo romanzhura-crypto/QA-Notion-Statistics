@@ -55,6 +55,8 @@ jobs:
           test ! -f config/github.env
           python3 -c "from pathlib import Path; t=Path('frontend/release-charts.html').read_text()+Path('frontend/status-dwell.html').read_text(); assert 'widgets/sync' not in t; assert 'GITHUB_TOKEN' not in t; assert 'ntn_' not in t"
           if grep -RInE 'secret_[A-Za-z0-9]{10,}|ntn_[A-Za-z0-9]{10,}' frontend backend; then exit 1; fi
+          # Notion API 2026-03-11 contract: request bodies must use in_trash, never archived (see board #161)
+          if grep -RInE "[\"']archived[\"'][[:space:]]*:" backend; then echo 'DEPRECATED: "archived" request-body field — use in_trash' >&2; exit 1; fi
 
   snapshot:
     needs: validate
