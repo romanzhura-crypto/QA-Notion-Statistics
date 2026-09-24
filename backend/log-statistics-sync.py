@@ -408,7 +408,7 @@ def upsert(task: dict, title: str | None, page_id: str | None, now: datetime | N
 
 
 def archive_page(page_id: str) -> tuple[int, str]:
-    code, obj = _req("PATCH", f"/v1/pages/{page_id}", {"archived": True})
+    code, obj = _req("PATCH", f"/v1/pages/{page_id}", {"in_trash": True})
     if code == 200:
         return code, "archived"
     return code, f"{obj.get('code')}: {obj.get('message')}"
