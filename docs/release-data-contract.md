@@ -28,6 +28,7 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `status_meta` | array `{name, color}` | yes | Notion status colors |
 | `releases` | string[] | yes | Sorted; includes `Backlog` when present |
 | `tasks` | object[] | yes | See below |
+| `fixtures_excluded` | number | yes (board #164) | Fixture rows excluded from `tasks[]` (synthetic id / «тест» title marker) |
 | `table_tests` | — | **removed** | TEST fixture rows were removed (board #152); key no longer emitted |
 | `token` | — | **forbidden** | Backend must not emit this key |
 
@@ -56,3 +57,9 @@ Query `?t=<epoch-ms>` plus `Cache-Control: no-store` on fetch. Pages may still C
 ## Fail-visible
 
 If JSON is absent, Frontend must not look like an empty sprint. Show the Russian message that the snapshot is missing and is produced by Backend.
+
+## Board #164 quick wins (additive, no breaking changes)
+
+- `fixtures_excluded`: number of QA-fixture rows dropped at `snapshot()` input. Fixture = synthetic id (non-UUID / `table-test*`) or title marker «тест»/«тестовая/ый/ое»/«table-test» at title start (brackets/dashes allowed). Conservative: «тестирование», «тест-драйв», mid-title «тест» are NOT fixtures.
+- `Done at` (LOG STATISTICS) is immutable: fixed at the first Done transition; later `last_edited_time` never rewrites it (memory: LOG row value, fallback — Done `at` diamond in the published snapshot JSON).
+- Date-only values (`YYYY-MM-DD`) are interpreted as midnight **Europe/Minsk (UTC+3)**, not UTC — server (`parse_ts`) and client (`parseTs` in status-dwell). Output strings keep their original format.

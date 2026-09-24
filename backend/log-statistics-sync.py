@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -143,7 +144,8 @@ def parse_ts(v):
         return None
     s = str(v).strip()
     if len(s) == 10 and s[4] == "-" and s[7] == "-":
-        s = s + "T00:00:00+00:00"
+        # Date-only = midnight Europe/Minsk (UTC+3), not midnight UTC.
+        s = s + "T00:00:00+03:00"
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"
     try:
@@ -252,6 +254,36 @@ def relation_ids(prop: dict) -> list[str]:
     return [x.get("id") for x in (prop.get("relation") or []) if x.get("id")]
 
 
+# Fixture (synthetic/QA-test) row detector. Keep in sync with release-widget-sync.py.
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+_FIXTURE_TITLE_RE = re.compile(
+    r"^[\s\[\(\-]*(?:table-test|тест(?:овая|овый|овое|ый|ая|ое)?(?![\w-]))",
+    re.IGNORECASE,
+)
+
+
+def is_fixture_row(row) -> bool:
+    """True for synthetic id (non-UUID / table-test*) or fixture title marker."""
+    if not isinstance(row, dict):
+        return False
+    rid = str(row.get("id") or "").strip()
+    if not rid:
+        return False
+    if "table-test" in rid.lower():
+        return True
+    if not _UUID_RE.match(rid):
+        return True
+    title = str(row.get("n") or row.get("title") or "")
+    if not title:
+        for prop in (row.get("properties") or {}).values():
+            if isinstance(prop, dict) and prop.get("type") == "title":
+                title = "".join(x.get("plain_text", "") for x in (prop.get("title") or []))
+                break
+    return bool(_FIXTURE_TITLE_RE.match(title or ""))
+
+
 def index_log_rows(rows: list) -> tuple[dict, list[str], list[str]]:
     """task_id → row; empty pages; duplicate extra page ids."""
     mapping: dict[str, dict] = {}
@@ -282,13 +314,46 @@ def existing_by_task(rows: list):
     return {tid: row.get("id") for tid, row in mapping.items()}, empties
 
 
-def done_at_prop(task: dict) -> dict:
+def done_at_prop(task: dict, previous: str | None = None) -> dict:
     if str(task.get("s") or "").lower() != "done":
         return {"date": None}
+    if previous:
+        # Immutable Done at: keep the first Done-transition value, never
+        # re-derive from drifting last_edited_time.
+        return {"date": {"start": previous}}
     edited = parse_ts(task.get("edited")) or parse_ts(task.get("start")) or parse_ts(task.get("created"))
     if not edited:
         return {"date": None}
     return date_prop(edited)
+
+
+_DONE_MEMORY: dict | None = None
+
+
+def load_done_memory() -> dict:
+    """task id → first Done timestamp remembered from the published snapshot JSON.
+
+    Fallback memory for rows whose LOG Done at was lost (row recycle/re-create),
+    so Done at stays immutable across runs.
+    """
+    global _DONE_MEMORY
+    if _DONE_MEMORY is not None:
+        return _DONE_MEMORY
+    mem: dict = {}
+    try:
+        data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        for t in data.get("tasks") or []:
+            tid = str(t.get("id") or "")
+            if not tid:
+                continue
+            for h in t.get("history") or []:
+                if isinstance(h, dict) and str(h.get("s") or "").lower() == "done" and h.get("at"):
+                    mem[tid] = h["at"]
+                    break
+    except (OSError, ValueError):
+        mem = {}
+    _DONE_MEMORY = mem
+    return mem
 
 
 def title_prop(text: str) -> dict:
@@ -309,7 +374,8 @@ def collector_transition(task: dict, log_row: dict | None, now: datetime | None 
     props = (log_row or {}).get("properties") or {}
     have_collected = collected_from_props(props)
     have_since = since_from_props(props)
-    out: dict = {"Done at": done_at_prop(task)}
+    prev_done = log_done_at(props) or load_done_memory().get(str(task.get("id") or ""))
+    out: dict = {"Done at": done_at_prop(task, previous=prev_done)}
 
     if not have_collected:
         seed_status = "Done" if done else status
@@ -419,7 +485,7 @@ def load_tasks() -> tuple[list, object, object]:
     tasks = []
     for t in data.get("tasks") or []:
         tid = str(t.get("id") or "")
-        if not tid or tid.startswith("table-test"):
+        if not tid or is_fixture_row(t):
             continue
         tasks.append(t)
     return tasks, data.get("generated_at"), data.get("task_count")
@@ -670,6 +736,26 @@ def selftest() -> None:
     assert list(mapping) == ["aaa"]
     assert empties == ["p3"]
     assert dups == ["p2"]
+
+    # fixture predicate
+    assert is_fixture_row({"id": "table-test-1", "n": "x"}) is True
+    assert is_fixture_row({"id": "aaa", "n": "x"}) is True  # synthetic id
+    assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "тестовая задача по прикреплению файлов"}) is True
+    assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "[тест] Проверка"}) is True
+    assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "Тест-драйв"}) is False
+    assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "Итоги тестирования"}) is False
+    assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "Тестирование релиза"}) is False
+
+    # immutable Done at: later last_edited_time must not move an existing value
+    assert done_at_prop(task_done, previous="2026-09-21T08:00:00.000Z")["date"]["start"] == "2026-09-21T08:00:00.000Z"
+    edited_late = {**task_done, "edited": "2026-09-25T23:00:00Z"}
+    frozen = collector_transition(edited_late, done_row, now=parse_ts("2026-09-25T23:00:00Z"))
+    assert frozen["Done at"]["date"]["start"].startswith("2026-09-21T08:00:00"), frozen["Done at"]
+
+    # date-only = Minsk midnight (UTC+3), not UTC midnight
+    assert parse_ts("2026-09-23").utcoffset().total_seconds() == 3 * 3600
+    assert parse_ts("2026-09-23").astimezone(timezone.utc).hour == 21
+
     print(json.dumps({"ok": True, "mode": "selftest", "days": days}, ensure_ascii=False))
 
 

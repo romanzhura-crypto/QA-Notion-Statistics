@@ -330,7 +330,10 @@
     function dataUrl() { return assetUrl("release-data.json"); }
     function parseTs(v) {
       if (!v) return null;
-      const d = new Date(v);
+      let s = String(v);
+      // Date-only = midnight Europe/Minsk (UTC+3), not midnight UTC (day-boundary fix).
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00+03:00";
+      const d = new Date(s);
       return isNaN(d.getTime()) ? null : d;
     }
     function daysInStatus(t) {

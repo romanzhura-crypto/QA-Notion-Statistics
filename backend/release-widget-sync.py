@@ -94,7 +94,9 @@ def parse_ts(v):
         return None
     s = str(v).strip()
     if len(s) == 10 and s[4] == "-" and s[7] == "-":
-        s = s + "T00:00:00+00:00"
+        # Date-only = midnight Europe/Minsk (UTC+3, no DST), not midnight UTC:
+        # removes ±3h day-boundary errors for display in Minsk.
+        s = s + "T00:00:00+03:00"
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"
     try:
@@ -111,6 +113,40 @@ def round_days(days: float) -> float:
     if days < 1.0:
         return round(days * 24.0) / 24.0
     return round(days * 10.0) / 10.0
+
+
+# Fixture (synthetic/QA-test) row detector. Keep in sync with log-statistics-sync.py.
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+# Title markers: «table-test» or «тест» (+ short adjective forms), optionally
+# prefixed by brackets/dashes. Conservative: «тестирование», «тест-драйв» and
+# mid-title «тест» do NOT match (legit tasks stay in stats).
+_FIXTURE_TITLE_RE = re.compile(
+    r"^[\s\[\(\-]*(?:table-test|тест(?:овая|овый|овое|ый|ая|ое)?(?![\w-]))",
+    re.IGNORECASE,
+)
+
+
+def is_fixture_row(row) -> bool:
+    """True for synthetic id (non-UUID / table-test*) or fixture title marker.
+    Accepts Notion pages (properties title) and snapshot task dicts (n/title)."""
+    if not isinstance(row, dict):
+        return False
+    rid = str(row.get("id") or "").strip()
+    if not rid:
+        return False
+    if "table-test" in rid.lower():
+        return True
+    if not _UUID_RE.match(rid):
+        return True
+    title = str(row.get("n") or row.get("title") or "")
+    if not title:
+        for prop in (row.get("properties") or {}).values():
+            if isinstance(prop, dict) and prop.get("type") == "title":
+                title = "".join(x.get("plain_text", "") for x in (prop.get("title") or []))
+                break
+    return bool(_FIXTURE_TITLE_RE.match(title or ""))
 
 
 def rich_text_plain(prop) -> str:
@@ -209,7 +245,7 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
     matched = 0
     for task in payload.get("tasks") or []:
         tid = str(task.get("id") or "")
-        if not tid or tid.startswith("table-test"):
+        if not tid or is_fixture_row(task):
             continue
         hist = by_task.get(tid) or by_task.get(task.get("id"))
         if not hist:
@@ -225,13 +261,19 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
     return payload
 
 
+def _atomic_write(path: Path, text: str) -> None:
+    """tmp+rename: readers never see a truncated/partial JSON."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def write_payload(payload: dict) -> dict:
     text = json.dumps(payload, ensure_ascii=False)
-    WS_JSON.parent.mkdir(parents=True, exist_ok=True)
-    WS_JSON.write_text(text, encoding="utf-8")
+    _atomic_write(WS_JSON, text)
     try:
-        OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
-        OUT_JSON.write_text(text, encoding="utf-8")
+        _atomic_write(OUT_JSON, text)
     except OSError:
         pass
     return payload
@@ -263,17 +305,35 @@ def _cfg():
 
 
 def _req(method: str, path: str, body=None):
+    import urllib.error
     import urllib.request
 
     token, version = _cfg()
     url = "https://api.notion.com" + path
     data = None if body is None else json.dumps(body).encode()
-    r = urllib.request.Request(url, data=data, method=method)
-    r.add_header("Authorization", "Bearer " + token)
-    r.add_header("Notion-Version", version)
-    r.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(r, timeout=60) as resp:
-        return json.loads(resp.read().decode() or "{}")
+    # Retry/backoff: 3 attempts, exponential pause on 429/5xx/timeouts.
+    for attempt in range(3):
+        r = urllib.request.Request(url, data=data, method=method)
+        r.add_header("Authorization", "Bearer " + token)
+        r.add_header("Notion-Version", version)
+        r.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(r, timeout=60) as resp:
+                return json.loads(resp.read().decode() or "{}")
+        except urllib.error.HTTPError as e:
+            retryable = e.code == 429 or 500 <= e.code < 600
+            if not retryable or attempt >= 2:
+                raise
+            retry_after = e.headers.get("Retry-After") if e.headers else None
+            try:
+                wait = float(retry_after) if retry_after else 0.0
+            except (TypeError, ValueError):
+                wait = 0.0
+            time.sleep(min(max(wait, float(2 ** attempt)), 30.0))
+        except (TimeoutError, urllib.error.URLError):
+            if attempt >= 2:
+                raise
+            time.sleep(min(float(2 ** attempt), 8.0))
 
 
 def parse_estimate(text):
@@ -329,7 +389,11 @@ def snapshot() -> dict:
 
     tasks = []
     from_tasks = set()
+    fixtures_excluded = 0
     for row in rows:
+        if is_fixture_row(row):
+            fixtures_excluded += 1
+            continue
         p = row.get("properties") or {}
         releases = [x.get("name") for x in ((p.get("Release") or {}).get("multi_select") or []) if x.get("name")]
         from_tasks.update(releases)
@@ -373,6 +437,7 @@ def snapshot() -> dict:
         "data_source_id": DSID,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "task_count": len(tasks),
+        "fixtures_excluded": fixtures_excluded,
         "estimate_rule": "1d=8h",
         "status_dwell": "current_status_calendar_days",
         "status_dwell_note": STATUS_DWELL_NOTE,
