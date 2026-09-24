@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 import traceback
 from datetime import datetime, timezone
@@ -45,6 +46,9 @@ STATUS_DWELL_NOTE = (
     "dwell: LOG collector closed segments + open interval from Status since. "
     "No Notion Version History backfill."
 )
+# Done is a terminal marker (Done at date), not a dwell bar. "Unknown" is the
+# synthetic snapshot placeholder for a missing Status — not a Notion status.
+KNOWN_STATUSES = set(LOG_STATUS_COLS) | {"Done", "Unknown"}
 
 
 def resolve_dsid(cfg: dict | None = None) -> str:
@@ -115,6 +119,21 @@ def round_days(days: float) -> float:
     return round(days * 10.0) / 10.0
 
 
+def is_number_prop(value) -> bool:
+    """True for a Notion number property dict (dwell column), incl. bare {"number": x}."""
+    return isinstance(value, dict) and "number" in value and value.get("type") in (None, "number")
+
+
+def status_dwell_cols(props: dict) -> list:
+    """Dwell columns from actual row data: hardcoded order first, then unknown (sorted).
+
+    Statuses outside LOG_STATUS_COLS are collected dynamically instead of dropped.
+    """
+    cols = [c for c in LOG_STATUS_COLS if c in props]
+    cols += sorted(c for c, v in props.items() if c not in LOG_STATUS_COLS and is_number_prop(v))
+    return cols
+
+
 # Fixture (synthetic/QA-test) row detector. Keep in sync with log-statistics-sync.py.
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
@@ -161,13 +180,17 @@ def rich_text_plain(prop) -> str:
     return "".join(parts).strip()
 
 
-def history_from_log_row(props: dict, now=None) -> list:
-    """Closed collector segments + open interval. No invented Version History."""
+def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> list:
+    """Closed collector segments + open interval. No invented Version History.
+
+    Statuses outside LOG_STATUS_COLS never lose time: their number columns and
+    the open interval are collected dynamically; names go to `unknown` (if given).
+    """
     now = now or datetime.now(timezone.utc)
     history = []
     collected = rich_text_plain(props.get("Collected Status"))
     since = parse_ts(prop_date_start(props.get("Status since")))
-    for col in LOG_STATUS_COLS:
+    for col in status_dwell_cols(props):
         raw = (props.get(col) or {}).get("number")
         if raw is None:
             continue
@@ -177,11 +200,15 @@ def history_from_log_row(props: dict, now=None) -> list:
             continue
         if days > 0:
             history.append({"s": col, "days": days})
+            if unknown is not None and col not in KNOWN_STATUSES:
+                unknown.add(col)
     status_name = (
         collected
         or _prop_status_name(props.get("Status"))
         or _prop_status_name(props.get("Current Status"))
     )
+    if unknown is not None and status_name and str(status_name) not in KNOWN_STATUSES:
+        unknown.add(str(status_name))
     done_at = prop_date_start(props.get("Done at"))
     is_done = (status_name and str(status_name).lower() == "done") or bool(done_at)
     if is_done:
@@ -190,7 +217,7 @@ def history_from_log_row(props: dict, now=None) -> list:
             diamond["at"] = done_at
         history.append(diamond)
         return history
-    if collected and collected in LOG_STATUS_COLS and since:
+    if collected and since:
         open_days = round_days(max(0.0, (now - since).total_seconds() / 86400.0))
         if open_days > 0:
             merged = False
@@ -221,7 +248,7 @@ def query_log_rows(dsid: str | None = None) -> list:
     return rows
 
 
-def log_history_by_task(rows: list) -> dict:
+def log_history_by_task(rows: list, unknown: set | None = None) -> dict:
     """Task relation id → history. Last non-archived LOG row wins."""
     mapping = {}
     for row in rows:
@@ -232,7 +259,7 @@ def log_history_by_task(rows: list) -> dict:
         ids = [x.get("id") for x in (rel.get("relation") or []) if x.get("id")]
         if not ids:
             continue
-        hist = history_from_log_row(props)
+        hist = history_from_log_row(props, unknown=unknown)
         if hist:
             mapping[ids[0]] = hist
     return mapping
@@ -241,12 +268,16 @@ def log_history_by_task(rows: list) -> dict:
 def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> dict:
     """Attach tasks[].history from LOG STATISTICS. Tasks without LOG rows keep calendar fallback."""
     rows = log_rows if log_rows is not None else query_log_rows()
-    by_task = log_history_by_task(rows)
+    unknown: set = set()
+    by_task = log_history_by_task(rows, unknown=unknown)
     matched = 0
     for task in payload.get("tasks") or []:
         tid = str(task.get("id") or "")
         if not tid or is_fixture_row(task):
             continue
+        cur = str(task.get("s") or "").strip()
+        if cur and cur not in KNOWN_STATUSES:
+            unknown.add(cur)
         hist = by_task.get(tid) or by_task.get(task.get("id"))
         if not hist:
             task.pop("history", None)
@@ -258,6 +289,15 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
     payload["log_data_source_id"] = LOG_DSID
     payload["log_history_tasks"] = matched
     payload["log_row_count"] = len(rows)
+    # Additive: statuses seen in data but outside LOG_STATUS_COLS. Never dropped
+    # silently — their dwell stays in tasks[].history and the names are listed here.
+    payload["unknown_statuses"] = sorted(unknown)
+    if unknown:
+        print(
+            "warning: statuses outside LOG_STATUS_COLS (dwell kept, listed in unknown_statuses): "
+            + ", ".join(sorted(unknown)),
+            file=sys.stderr,
+        )
     return payload
 
 
@@ -529,6 +569,43 @@ def dry_check() -> dict:
     }
 
 
+def selftest() -> dict:
+    """Offline checks: unknown statuses keep their time and surface in unknown_statuses."""
+    now = parse_ts("2026-09-22T00:00:00Z")
+    props = {
+        "Collected Status": {"rich_text": [{"plain_text": "Blocked"}]},
+        "Status since": {"date": {"start": "2026-09-20T00:00:00Z"}},
+        "New": {"type": "number", "number": 1.0},
+        "Blocked": {"type": "number", "number": 2.5},
+        "Done at": {"date": None},
+    }
+    unknown: set = set()
+    hist = history_from_log_row(props, now=now, unknown=unknown)
+    seg = {h["s"]: h["days"] for h in hist}
+    assert seg.get("New") == 1.0, seg
+    assert seg.get("Blocked") == 4.5, seg  # 2.5 closed + 2.0 open — time not lost
+    assert "Blocked" in unknown, unknown
+
+    open_only = {
+        "Collected Status": {"rich_text": [{"plain_text": "QA Hold"}]},
+        "Status since": {"date": {"start": "2026-09-21T00:00:00Z"}},
+        "Done at": {"date": None},
+    }
+    u2: set = set()
+    hist2 = history_from_log_row(open_only, now=now, unknown=u2)
+    assert {h["s"]: h["days"] for h in hist2}.get("QA Hold") == 1.0, hist2
+    assert u2 == {"QA Hold"}, u2
+
+    payload = {"tasks": [{"id": "3c8e17b6-8482-8166-0000-000000000000", "s": "Code Freeze"}]}
+    enrich_with_log_statistics(payload, log_rows=[])
+    assert "unknown_statuses" in payload, payload.keys()
+    assert payload["unknown_statuses"] == ["Code Freeze"], payload["unknown_statuses"]
+    clean = {"tasks": [{"id": "3c8e17b6-8482-8166-0000-000000000001", "s": "Done"}]}
+    enrich_with_log_statistics(clean, log_rows=[])
+    assert clean["unknown_statuses"] == [], clean["unknown_statuses"]
+    return {"ok": True, "mode": "selftest"}
+
+
 if __name__ == "__main__":
     import sys
 
@@ -559,5 +636,7 @@ if __name__ == "__main__":
             "status_dwell": p.get("status_dwell"),
             "status_dwell_note": p.get("status_dwell_note"),
         }, ensure_ascii=False))
+    elif cmd in ("selftest", "test"):
+        print(json.dumps(selftest(), ensure_ascii=False))
     else:
-        raise SystemExit("usage: release-widget-sync.py [snapshot|enrich|dry|serve]")
+        raise SystemExit("usage: release-widget-sync.py [snapshot|enrich|dry|selftest|serve]")

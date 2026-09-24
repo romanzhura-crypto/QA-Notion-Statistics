@@ -29,6 +29,7 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `releases` | string[] | yes | Sorted; includes `Backlog` when present |
 | `tasks` | object[] | yes | See below |
 | `fixtures_excluded` | number | yes (board #164) | Fixture rows excluded from `tasks[]` (synthetic id / «тест» title marker) |
+| `unknown_statuses` | string[] | yes (board #164 phase 2) | Statuses seen in data outside the hardcoded status lists; empty `[]` when none. Never silently dropped: their dwell stays in `tasks[].history` |
 | `table_tests` | — | **removed** | TEST fixture rows were removed (board #152); key no longer emitted |
 | `token` | — | **forbidden** | Backend must not emit this key |
 
@@ -63,3 +64,8 @@ If JSON is absent, Frontend must not look like an empty sprint. Show the Russian
 - `fixtures_excluded`: number of QA-fixture rows dropped at `snapshot()` input. Fixture = synthetic id (non-UUID / `table-test*`) or title marker «тест»/«тестовая/ый/ое»/«table-test» at title start (brackets/dashes allowed). Conservative: «тестирование», «тест-драйв», mid-title «тест» are NOT fixtures.
 - `Done at` (LOG STATISTICS) is immutable: fixed at the first Done transition; later `last_edited_time` never rewrites it (memory: LOG row value, fallback — Done `at` diamond in the published snapshot JSON).
 - Date-only values (`YYYY-MM-DD`) are interpreted as midnight **Europe/Minsk (UTC+3)**, not UTC — server (`parse_ts`) and client (`parseTs` in status-dwell). Output strings keep their original format.
+
+## Board #164 phase 2: unknown status coverage (additive)
+
+- Statuses outside the hardcoded `LOG_STATUS_COLS` / `STATUS_COLS` lists (+ `Done`) are **never silently lost**. Read side collects dwell columns and the open interval dynamically from LOG row data; write side accounts closed elapsed for them in `unknown_statuses` and writes their own number column when LOG has one (schema check — never PATCHes a missing column).
+- `unknown_statuses`: sorted list of unknown status names (LOG number columns, `Collected Status`, task current status). Warning is printed to stderr when non-empty. `Done` and the synthetic `Unknown` placeholder (missing Status) are not reported.

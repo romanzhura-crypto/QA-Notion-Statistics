@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -58,6 +59,15 @@ STATUS_COLS = [
     "Merged",
     "Ready For Release",
 ]
+# Done is terminal (Done at date), never a dwell column.
+KNOWN_STATUSES = set(STATUS_COLS) | {"Done"}
+# Statuses seen in data but outside STATUS_COLS: name -> closed days accounted.
+# Never silently zeroed — surfaced as `unknown_statuses` in the run report.
+UNKNOWN_STATUSES: dict = {}
+# Writable LOG number columns (schema check) to avoid PATCH on missing columns.
+# None = permissive (pure/selftest use: every status gets its number patch).
+WRITABLE_NUMBER_COLS: set | None = None
+_NOTED_SEGMENTS: set = set()
 
 
 def _cfg():
@@ -162,6 +172,51 @@ def round_days(days: float) -> float:
     if days < 1.0:
         return round(days * 24.0) / 24.0
     return round(days * 10.0) / 10.0
+
+
+def is_number_prop(value) -> bool:
+    """True for a Notion number property dict (dwell column), incl. bare {"number": x}."""
+    return isinstance(value, dict) and "number" in value and value.get("type") in (None, "number")
+
+
+def is_known_status(name) -> bool:
+    s = str(name or "").strip()
+    return (not s) or s.lower() == "done" or s in STATUS_COLS
+
+
+def note_unknown_status(name, days: float = 0.0, key=None) -> None:
+    """Account elapsed for a status outside STATUS_COLS (idempotent per segment key)."""
+    s = str(name or "").strip()
+    if not s or is_known_status(s):
+        return
+    if key is not None:
+        if key in _NOTED_SEGMENTS:
+            return
+        _NOTED_SEGMENTS.add(key)
+    UNKNOWN_STATUSES[s] = round_days(UNKNOWN_STATUSES.get(s, 0.0) + max(0.0, float(days or 0.0)))
+
+
+def status_col_allowed(col: str) -> bool:
+    """False when LOG has no number column for this status — no PATCH, but time is still accounted."""
+    return WRITABLE_NUMBER_COLS is None or col in WRITABLE_NUMBER_COLS
+
+
+def log_number_cols() -> set:
+    """Number columns that really exist in LOG STATISTICS (schema ∪ STATUS_COLS)."""
+    global WRITABLE_NUMBER_COLS
+    if WRITABLE_NUMBER_COLS is not None:
+        return WRITABLE_NUMBER_COLS
+    cols = set(STATUS_COLS)
+    try:
+        code, ds = _req("GET", f"/v1/data_sources/{LOG_DSID}")
+        if code == 200:
+            for _name, meta in (ds.get("properties") or {}).items():
+                if isinstance(meta, dict) and meta.get("type") == "number":
+                    cols.add(str(meta.get("name") or _name))
+    except Exception:
+        pass
+    WRITABLE_NUMBER_COLS = cols
+    return cols
 
 
 def elapsed_days(start, end) -> float:
@@ -382,7 +437,11 @@ def collector_transition(task: dict, log_row: dict | None, now: datetime | None 
         # First see: do not invent Version History. Open tasks start the clock now.
         # Zero leftover calendar-only numbers so they are not shown as history.
         seed_since = edited if done else now
-        for col in STATUS_COLS:
+        note_unknown_status(seed_status, key=("seed", str(task.get("id") or ""), seed_status))
+        zero_cols = list(dict.fromkeys(STATUS_COLS + [c for c, v in props.items() if is_number_prop(v)]))
+        for col in zero_cols:
+            if col not in STATUS_COLS:
+                note_unknown_status(col, key=("seed-col", str(task.get("id") or ""), col))
             out[col] = {"number": 0}
         out["Collected Status"] = rich_text_prop(seed_status)
         out["Status since"] = date_prop(seed_since)
@@ -395,10 +454,16 @@ def collector_transition(task: dict, log_row: dict | None, now: datetime | None 
 
     close_end = edited
     added = elapsed_days(have_since or created, close_end)
-    if have_collected in STATUS_COLS and added > 0:
-        prev = number_from_props(props, have_collected)
-        out[have_collected] = {"number": round_days(prev + added)}
+    if have_collected and have_collected.lower() != "done" and added > 0:
+        # Unknown status: elapsed is never silently zeroed. It is accounted in
+        # UNKNOWN_STATUSES and written to its own number column when LOG has one.
+        seg_key = ("close", str(task.get("id") or ""), have_collected, str(have_since or created))
+        note_unknown_status(have_collected, added, key=seg_key)
+        if status_col_allowed(have_collected):
+            prev = number_from_props(props, have_collected)
+            out[have_collected] = {"number": round_days(prev + added)}
     new_status = "Done" if done else status
+    note_unknown_status(new_status, key=("status", str(task.get("id") or ""), new_status))
     out["Collected Status"] = rich_text_prop(new_status)
     out["Status since"] = date_prop(close_end)
     return out
@@ -445,7 +510,11 @@ def needs_update(task: dict, log_row: dict, now: datetime | None = None) -> bool
     have_done_start = have_done.get("start") if isinstance(have_done, dict) else None
     if norm_dt_key(want_done_start) != norm_dt_key(have_done_start):
         return True
-    for col in STATUS_COLS:
+    for col in dict.fromkeys(
+        STATUS_COLS
+        + [c for c, v in want.items() if is_number_prop(v)]
+        + [c for c, v in have.items() if is_number_prop(v)]
+    ):
         if col not in want:
             continue
         try:
@@ -516,6 +585,7 @@ def main():
         skip_existing = False
     tasks, generated_at, snap_count = load_tasks()
     rows = query_all(LOG_DSID)
+    log_number_cols()  # schema check: only existing LOG number columns get PATCHed
     mapping, empties, dups = index_log_rows(rows)
     created = updated = failed = skipped = 0
     archived_empty = archived_dup = archived_unlinked = 0
@@ -614,6 +684,7 @@ def main():
         "last_archived_empty": archived_empty,
         "last_archived_dup": archived_dup,
         "last_archived_unlinked": archived_unlinked,
+        "last_unknown_statuses": sorted(UNKNOWN_STATUSES),
         "mode": "full" if full else ("skip_existing" if skip_existing else "incremental"),
         "snapshot_generated_at": generated_at,
     })
@@ -637,13 +708,22 @@ def main():
         "errors": errors,
         "notion": "https://app.notion.com/p/3dee17b68482809fb688e89182385a15",
         "status_dwell": "collector_closed_segments",
+        "unknown_statuses": sorted(UNKNOWN_STATUSES),
+        "unknown_status_days": {k: UNKNOWN_STATUSES[k] for k in sorted(UNKNOWN_STATUSES)},
     }
+    if UNKNOWN_STATUSES:
+        print(
+            "warning: statuses outside STATUS_COLS accounted (unknown_statuses): "
+            + ", ".join(f"{k}={v}d" for k, v in sorted(UNKNOWN_STATUSES.items())),
+            file=sys.stderr,
+        )
     print(json.dumps(out, ensure_ascii=False))
     if failed:
         raise SystemExit(2)
 
 
 def selftest() -> None:
+    global WRITABLE_NUMBER_COLS
     now = parse_ts("2026-09-18T08:00:00Z")
     task_dev = {
         "id": "aaa",
@@ -755,6 +835,47 @@ def selftest() -> None:
     # date-only = Minsk midnight (UTC+3), not UTC midnight
     assert parse_ts("2026-09-23").utcoffset().total_seconds() == 3 * 3600
     assert parse_ts("2026-09-23").astimezone(timezone.utc).hour == 21
+
+    # unknown statuses: elapsed kept (no silent zero) + surfaced in UNKNOWN_STATUSES
+    UNKNOWN_STATUSES.clear()
+    _NOTED_SEGMENTS.clear()
+    task_blk = {
+        "id": "bbb",
+        "s": "Testing",
+        "start": "2026-09-10T00:00:00Z",
+        "created": "2026-09-10T00:00:00Z",
+        "edited": "2026-09-19T08:00:00Z",
+    }
+    blk_row = {
+        "properties": {
+            "Collected Status": rich_text_prop("Blocked"),
+            "Status since": date_prop(parse_ts("2026-09-17T08:00:00Z")),
+            "Blocked": {"number": 1.5},
+            "Done at": {"date": None},
+        }
+    }
+    closed = collector_transition(task_blk, blk_row, now=parse_ts("2026-09-19T08:00:00Z"))
+    assert closed["Blocked"]["number"] == 3.5, closed["Blocked"]  # 1.5 + 2.0, not zeroed
+    assert UNKNOWN_STATUSES.get("Blocked") == 2.0, UNKNOWN_STATUSES
+    collector_transition(task_blk, blk_row, now=parse_ts("2026-09-19T08:00:00Z"))  # idempotent per segment
+    assert UNKNOWN_STATUSES.get("Blocked") == 2.0, UNKNOWN_STATUSES
+    WRITABLE_NUMBER_COLS = set(STATUS_COLS)  # LOG has no "Blocked" number column
+    try:
+        gated = collector_transition(task_blk, blk_row, now=parse_ts("2026-09-19T08:00:00Z"))
+        assert "Blocked" not in gated, gated  # no PATCH on a missing column
+    finally:
+        WRITABLE_NUMBER_COLS = None
+    # unknown-col drift is detected (seed zeroes dynamic columns too)
+    assert needs_update(task_dev, {"properties": {"Blocked": {"number": 7.0}, "Done at": {"date": None}}}, now=now) is True
+    # Done is never a dwell column (reopen from Done must not write a "Done" number)
+    reopen = collector_transition(task_blk, {
+        "properties": {
+            "Collected Status": rich_text_prop("Done"),
+            "Status since": date_prop(parse_ts("2026-09-18T08:00:00Z")),
+            "Done at": {"date": {"start": "2026-09-18T08:00:00.000Z"}},
+        }
+    }, now=parse_ts("2026-09-19T08:00:00Z"))
+    assert "Done" not in {k for k, v in reopen.items() if is_number_prop(v)}, reopen
 
     print(json.dumps({"ok": True, "mode": "selftest", "days": days}, ensure_ascii=False))
 
