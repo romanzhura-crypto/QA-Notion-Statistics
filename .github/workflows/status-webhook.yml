@@ -4,6 +4,9 @@
 # backend/status-webhook-event.py writes LOG STATISTICS "Segments" with the exact
 # event timestamp. Idempotent and order-tolerant; log-statistics-sync.py remains
 # the reconciliation fallback (job "Sync Notion").
+# Board #174 (variant A): after the segments are applied, job "refresh_pages"
+# rebuilds release-data.json (snapshot + enrich) and deploys GitHub Pages, so the
+# widget reflects the new status within seconds — no waiting for the schedule.
 # Secret: NOTION_TOKEN (same as Sync Notion). Never log the secret.
 
 name: Status Webhook
@@ -23,6 +26,7 @@ env:
   LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
 
 jobs:
+  # Fast path: write the exact status segment. Never waits on Pages deploys.
   apply:
     runs-on: ubuntu-latest
     steps:
@@ -43,3 +47,58 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           EVENT_JSON: ${{ toJson(github.event.client_payload) }}
         run: python3 backend/status-webhook-event.py
+
+  # Variant A (board #174): event-driven widget refresh. STRICTLY after "apply"
+  # so the snapshot already sees the just-written segment. Mirrors job "snapshot"
+  # of release-widgets.yml MINUS the "upsert LOG STATISTICS" step (the segments
+  # are already written by status-webhook-event.py — never write them twice).
+  # Concurrency group "sync-notion-pages" = same group as release-widgets.yml:
+  # two Pages deploys (webhook / schedule / button) can never race each other.
+  # Previously pending runs of the group are superseded by newer ones — safe,
+  # because snapshot always reads the full current Notion+LOG state.
+  refresh_pages:
+    needs: apply
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: sync-notion-pages
+      cancel-in-progress: false
+    env:
+      ROOT: ${{ github.workspace }}
+      WIDGETS_JSON: ${{ github.workspace }}/frontend/release-data.json
+      QA_WWW: ""
+      QA_WWW_JSON: ${{ github.workspace }}/frontend/release-data.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: require secret
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: test -n "$NOTION_TOKEN"
+      - name: snapshot JSON for frontend
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: python3 backend/release-widget-sync.py snapshot
+      - name: re-enrich JSON from LOG collector
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: python3 backend/release-widget-sync.py enrich
+      - name: stage static HTML+JSON
+        run: QA_WWW="" bash backend/publish-release-widgets.sh
+      - name: assert no token in JSON
+        run: python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+      - name: upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/public
+      - name: deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
