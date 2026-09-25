@@ -1,0 +1,13 @@
+name = "notion-status-webhook"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Secrets (wrangler secret put <NAME>):
+#   GH_PAT              — GitHub PAT: actions:write (+ contents:read)
+#   VERIFICATION_TOKEN  — Notion webhook verification_token (from the one-time
+#                         verification POST, visible in Worker logs; optional in
+#                         setup mode only)
+[vars]
+GH_OWNER = "romanzhura-crypto"
+GH_REPO = "QA-Notion-Statistics"
+SYNC_WORKFLOW = "release-widgets.yml"

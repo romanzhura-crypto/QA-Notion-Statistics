@@ -1,0 +1,45 @@
+# Board #171 (architecture B): Notion status webhook → exact status segments.
+# Pipeline: Notion Webhooks → Cloudflare Worker (cloudflare/status-webhook-worker,
+# HMAC + repository_dispatch "notion-webhook") → this workflow →
+# backend/status-webhook-event.py writes LOG STATISTICS "Segments" with the exact
+# event timestamp. Idempotent and order-tolerant; log-statistics-sync.py remains
+# the reconciliation fallback (job "Sync Notion").
+# Secret: NOTION_TOKEN (same as Sync Notion). Never log the secret.
+
+name: Status Webhook
+
+on:
+  repository_dispatch:
+    types: [notion-webhook]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: status-webhook-${{ github.event.client_payload.entity_id || 'none' }}
+  cancel-in-progress: false
+
+env:
+  LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: offline selftest
+        run: |
+          python3 -m py_compile backend/status-webhook-event.py backend/log-statistics-sync.py
+          python3 backend/status-webhook-event.py selftest
+      - name: require secret
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: test -n "$NOTION_TOKEN"
+      - name: apply status event to LOG STATISTICS
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          EVENT_JSON: ${{ toJson(github.event.client_payload) }}
+        run: python3 backend/status-webhook-event.py
