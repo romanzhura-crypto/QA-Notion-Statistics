@@ -78,8 +78,19 @@ def plan_event(log_props: dict, new_status: str, event_ts, done_memory: str | No
         return out  # stale/out-of-order event; next event or the collector reconciles
 
     segs = LJS.segments_from_props(log_props)
-    seg_from = LJS.iso_z(have_since or ts)
+    # Delivery order is not guaranteed and aggregated events may repeat with
+    # different timestamps (docs: Event ordering / retries). Keep boundaries
+    # strictly monotonic: never overlap the previous segment.
+    last_to = None
+    if segs:
+        last_to = LJS.parse_ts(segs[-1].get("to"))
+    base_from = LJS.parse_ts(have_since or ts)
+    if last_to and base_from and base_from < last_to:
+        base_from = last_to
+    seg_from = LJS.iso_z(base_from)
     seg_to = LJS.iso_z(ts)
+    if last_to and LJS.parse_ts(seg_to) and LJS.parse_ts(seg_to) < last_to:
+        seg_to = LJS.iso_z(last_to)
     is_old_done = have_collected.lower() == "done"
     if not is_old_done and not any(
         x["s"] == have_collected and x["from"] == seg_from and x["to"] == seg_to for x in segs
@@ -94,7 +105,10 @@ def plan_event(log_props: dict, new_status: str, event_ts, done_memory: str | No
             out[have_collected] = {"number": LJS.round_days(prev + added)}
 
     out["Collected Status"] = LJS.rich_text_prop(new_status)
-    out["Status since"] = LJS.date_prop(ts)
+    since_ts = LJS.parse_ts(ts)
+    if last_to and since_ts and since_ts < last_to:
+        since_ts = last_to
+    out["Status since"] = LJS.date_prop(since_ts)
 
     # Done at: immutable; event timestamp is more precise than last_edited_time.
     done_now = new_status.lower() == "done"
@@ -201,6 +215,17 @@ def selftest() -> None:
     # 7) first see = seed only
     seed = plan_event({"Done at": {"date": None}}, "New", ts0)
     assert LJS.rich_text_plain(seed["Collected Status"]) == "New" and LJS.SEGMENTS_PROP not in seed
+    # 8) monotonic boundaries: an out-of-order/duplicate event never overlaps
+    # the previous segment (docs: delivery order is not guaranteed)
+    mono = plan_event({
+        "Collected Status": {"rich_text": [{"plain_text": "Testing"}]},
+        "Status since": {"date": {"start": "2026-09-25T11:58:00.000Z"}},
+        "Segments": LJS.segments_prop([{"s": "Development", "from": "2026-09-25T11:55:00.000Z", "to": "2026-09-25T11:58:57.000Z"}]),
+        "Done at": {"date": None},
+    }, "Ready For Dev", "2026-09-25T12:00:38.000Z")
+    msegs = LJS.segments_from_props(mono)
+    assert msegs[-1]["from"] == "2026-09-25T11:58:57.000Z", msegs  # clamped to previous to
+    assert msegs[-1]["to"].startswith("2026-09-25T12:00"), msegs
     print(json.dumps({"ok": True, "mode": "selftest"}))
 
 
