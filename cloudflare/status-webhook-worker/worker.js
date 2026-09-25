@@ -94,12 +94,28 @@ async function handleNotion(env, raw, request) {
   return json({ ok: true, forwarded: true }, 202);
 }
 
-async function handleSync(env) {
+async function handleSync(env, request, raw) {
   // Button "Обновить данные" / external cron → workflow_dispatch with in-flight
-  // reuse (same contract the QA proxy served: {ok, reused, run_id}).
+  // reuse (same contract the QA proxy served).
+  //   POST /sync-notion        → {ok, reused, run_id?, status}
+  //   GET  /sync-notion?run_id → {ok, run_id, status, conclusion}
   const owner = env.GH_OWNER || "romanzhura-crypto";
   const repo = env.GH_REPO || "QA-Notion-Statistics";
   const wf = encodeURIComponent(env.SYNC_WORKFLOW || "release-widgets.yml");
+  const url = new URL(request.url);
+  const runId = url.searchParams.get("run_id");
+  if (request.method === "GET") {
+    if (runId) {
+      const one = await ghApi(env, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}`);
+      if (one.status !== 200) return json({ ok: false, error: "run not found" }, 404);
+      return json({ ok: true, run_id: one.data.id, status: one.data.status, conclusion: one.data.conclusion });
+    }
+    const list = await ghApi(env, "GET", `/repos/${owner}/${repo}/actions/workflows/${wf}/runs?per_page=3`);
+    const runs = (list.data && list.data.workflow_runs) || [];
+    const cur = runs[0];
+    if (!cur) return json({ ok: true, status: "none" });
+    return json({ ok: true, run_id: cur.id, status: cur.status, conclusion: cur.conclusion });
+  }
   const list = await ghApi(env, "GET", `/repos/${owner}/${repo}/actions/workflows/${wf}/runs?status=in_progress&per_page=5`);
   const runs = (list.data && list.data.workflow_runs) || [];
   const active = runs.find(r => r.event === "workflow_dispatch" || r.event === "schedule");
@@ -115,10 +131,14 @@ export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     const url = new URL(request.url);
-    if (request.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
-    const raw = await request.text();
-    if (url.pathname === "/webhook/notion") return handleNotion(env, raw, request);
-    if (url.pathname === "/sync-notion") return handleSync(env);
+    if (url.pathname === "/webhook/notion") {
+      if (request.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
+      return handleNotion(env, await request.text(), request);
+    }
+    if (url.pathname === "/sync-notion") {
+      if (request.method !== "GET" && request.method !== "POST") return json({ ok: false, error: "GET/POST only" }, 405);
+      return handleSync(env, request);
+    }
     return json({ ok: false, error: "unknown route" }, 404);
   },
 };

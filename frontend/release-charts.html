@@ -482,7 +482,7 @@
       }
     }
 
-    const SYNC_NOTION_URL = "https://185.47.152.152.sslip.io/sync-notion";
+    const SYNC_NOTION_URL = "https://notion-status-webhook.romanzhura.workers.dev/sync-notion";
     let syncBusy = false;
     function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     async function fetchSync(url, opts) {
