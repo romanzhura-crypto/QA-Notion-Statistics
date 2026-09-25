@@ -37,6 +37,19 @@ def _ljs():
 LJS = _ljs()
 
 
+def _status_name(prop) -> str | None:
+    """Status/select name from a Notion property (keep in sync with
+    release-widget-sync._prop_status_name — that module is snapshot-side)."""
+    if not prop:
+        return None
+    t = prop.get("type")
+    if t == "status":
+        return (prop.get("status") or {}).get("name")
+    if t == "select":
+        return (prop.get("select") or {}).get("name")
+    return None
+
+
 def plan_event(log_props: dict, new_status: str, event_ts, done_memory: str | None = None) -> dict:
     """LOG-row property patch for one observed status event. Empty patch = no-op.
 
@@ -120,8 +133,8 @@ def main() -> int:
         return 1
     props = page.get("properties") or {}
     status = (
-        LJS._prop_status_name(props.get("Status"))
-        or LJS._prop_status_name(props.get("Current Status"))
+        _status_name(props.get("Status"))
+        or _status_name(props.get("Current Status"))
         or "Unknown"
     )
     patch = plan_event(log_row.get("properties") or {}, str(status), ev.get("timestamp"))
