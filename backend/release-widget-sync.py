@@ -114,9 +114,38 @@ def parse_ts(v):
 
 def round_days(days: float) -> float:
     days = max(0.0, float(days) or 0.0)
-    if days < 1.0:
-        return round(days * 24.0) / 24.0
-    return round(days * 10.0) / 10.0
+    # Minute precision (was: whole hours <1 day, 0.1 day above). Hour rounding
+    # turned <30-min segments into 0 and the widget dropped them entirely.
+    return round(days * 1440.0) / 1440.0
+
+
+def iso_z(dt) -> str | None:
+    """ISO-8601 UTC (…Z) for segment boundaries; None-safe."""
+    d = dt if isinstance(dt, datetime) else parse_ts(dt)
+    if not d:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def segments_from_props(props: dict) -> list:
+    """Closed dwell segments [{s, from, to}] from the Segments rich_text JSON.
+
+    Tolerant to absent/corrupt values: bad data yields [], never an exception.
+    """
+    raw = rich_text_plain(props.get("Segments"))
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return []
+    out = []
+    for item in data if isinstance(data, list) else []:
+        if isinstance(item, dict) and item.get("s") and item.get("from") and item.get("to"):
+            out.append({"s": str(item["s"]), "from": str(item["from"]), "to": str(item["to"])})
+    return out
 
 
 def is_number_prop(value) -> bool:
@@ -183,6 +212,15 @@ def rich_text_plain(prop) -> str:
 def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> list:
     """Closed collector segments + open interval. No invented Version History.
 
+    With Segments (rich_text JSON) each closed interval is its own history item
+    {s, days, from, to} — repeats stay separate. Dwell number columns remain
+    status aggregates; only the part not covered by segments (legacy accrual
+    from before Segments existed) is emitted, WITHOUT invented timestamps.
+    The open interval (Collected Status + Status since) is always its own item
+    {s, days, from, to: null} — the moment the current status was obtained is
+    collector-known even for legacy rows. Done is a diamond {s, at}, never a
+    dwell bar.
+
     Statuses outside LOG_STATUS_COLS never lose time: their number columns and
     the open interval are collected dynamically; names go to `unknown` (if given).
     """
@@ -190,6 +228,16 @@ def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> l
     history = []
     collected = rich_text_plain(props.get("Collected Status"))
     since = parse_ts(prop_date_start(props.get("Status since")))
+    segs = segments_from_props(props)
+    covered = {}
+    for seg in segs:
+        a = parse_ts(seg.get("from"))
+        b = parse_ts(seg.get("to"))
+        days = round_days(max(0.0, (b - a).total_seconds() / 86400.0)) if a and b else 0.0
+        history.append({"s": seg["s"], "days": days, "from": seg["from"], "to": seg["to"]})
+        covered[seg["s"]] = round_days(covered.get(seg["s"], 0.0) + days)
+        if unknown is not None and seg["s"] not in KNOWN_STATUSES:
+            unknown.add(seg["s"])
     for col in status_dwell_cols(props):
         raw = (props.get(col) or {}).get("number")
         if raw is None:
@@ -199,7 +247,10 @@ def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> l
         except (TypeError, ValueError):
             continue
         if days > 0:
-            history.append({"s": col, "days": days})
+            rest = round_days(days - covered.get(col, 0.0))
+            if rest > 0:
+                # Legacy remainder (pre-Segments accrual): no timestamps known.
+                history.append({"s": col, "days": rest})
             if unknown is not None and col not in KNOWN_STATUSES:
                 unknown.add(col)
     status_name = (
@@ -220,14 +271,8 @@ def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> l
     if collected and since:
         open_days = round_days(max(0.0, (now - since).total_seconds() / 86400.0))
         if open_days > 0:
-            merged = False
-            for item in history:
-                if item.get("s") == collected:
-                    item["days"] = round_days(float(item.get("days") or 0) + open_days)
-                    merged = True
-                    break
-            if not merged:
-                history.append({"s": collected, "days": open_days})
+            # Exact open interval: when the current status was obtained is known.
+            history.append({"s": collected, "days": open_days, "from": iso_z(since), "to": None})
     return history
 
 
@@ -581,9 +626,14 @@ def selftest() -> dict:
     }
     unknown: set = set()
     hist = history_from_log_row(props, now=now, unknown=unknown)
-    seg = {h["s"]: h["days"] for h in hist}
+    seg = {}
+    for h in hist:
+        seg[h["s"]] = round_days(seg.get(h["s"], 0.0) + (h.get("days") or 0))
     assert seg.get("New") == 1.0, seg
     assert seg.get("Blocked") == 4.5, seg  # 2.5 closed + 2.0 open — time not lost
+    open_blk = [h for h in hist if h["s"] == "Blocked" and "to" in h and h["to"] is None]
+    assert len(open_blk) == 1 and open_blk[0]["days"] == 2.0, hist  # open = own item
+    assert open_blk[0]["from"].startswith("2026-09-20"), open_blk  # obtained-at is collector-known
     assert "Blocked" in unknown, unknown
 
     open_only = {
@@ -594,6 +644,7 @@ def selftest() -> dict:
     u2: set = set()
     hist2 = history_from_log_row(open_only, now=now, unknown=u2)
     assert {h["s"]: h["days"] for h in hist2}.get("QA Hold") == 1.0, hist2
+    assert hist2[0]["to"] is None and hist2[0]["from"].startswith("2026-09-21"), hist2
     assert u2 == {"QA Hold"}, u2
 
     payload = {"tasks": [{"id": "3c8e17b6-8482-8166-0000-000000000000", "s": "Code Freeze"}]}
@@ -603,6 +654,41 @@ def selftest() -> dict:
     clean = {"tasks": [{"id": "3c8e17b6-8482-8166-0000-000000000001", "s": "Done"}]}
     enrich_with_log_statistics(clean, log_rows=[])
     assert clean["unknown_statuses"] == [], clean["unknown_statuses"]
+
+    # Segments: each interval is its own item (repeats never merged), exact
+    # from/to, open interval keeps to=null, legacy remainder has no timestamps.
+    seg_json = json.dumps([
+        {"s": "Ready For Dev", "from": "2026-09-21T08:00:00.000Z", "to": "2026-09-21T09:00:00.000Z"},
+        {"s": "Development", "from": "2026-09-21T09:00:00.000Z", "to": "2026-09-21T09:05:00.000Z"},
+        {"s": "Ready For QA", "from": "2026-09-21T09:05:00.000Z", "to": "2026-09-21T10:00:00.000Z"},
+        {"s": "Development", "from": "2026-09-21T10:00:00.000Z", "to": "2026-09-21T11:00:00.000Z"},
+    ], ensure_ascii=False)
+    seg_props = {
+        "Collected Status": {"rich_text": [{"plain_text": "Testing"}]},
+        "Status since": {"date": {"start": "2026-09-21T11:00:00Z"}},
+        "Segments": {"rich_text": [{"plain_text": seg_json}]},
+        "Development": {"type": "number", "number": 1.0 + 65 / 1440},  # 65 min covered + 1.0 legacy
+        "Done at": {"date": None},
+    }
+    u3: set = set()
+    hist3 = history_from_log_row(seg_props, now=parse_ts("2026-09-23T11:00:00Z"), unknown=u3)
+    names = [h["s"] for h in hist3]
+    assert names.count("Development") == 3, names  # 2 interval segments + 1 legacy remainder
+    assert names == ["Ready For Dev", "Development", "Ready For QA", "Development", "Development", "Testing"], names
+    dev5 = hist3[1]
+    assert dev5["days"] > 0 and dev5["days"] < 0.01, dev5  # 5-minute interval survives
+    assert dev5["from"].startswith("2026-09-21T09:00") and dev5["to"].startswith("2026-09-21T09:05"), dev5
+    legacy_rest = hist3[4]
+    assert legacy_rest["days"] == 1.0 and "from" not in legacy_rest and "to" not in legacy_rest, legacy_rest
+    opened = hist3[5]
+    assert opened["s"] == "Testing" and opened["to"] is None and opened["from"].startswith("2026-09-21T11:00"), opened
+    assert opened["days"] == 2.0, opened
+
+    # legacy rows (no Segments): closed aggregates stay timestamp-free (no
+    # invented from/to); only the collector-known open interval carries exact
+    # boundaries (it is always its own item)
+    legacy_items = [h for h in hist if "from" not in h and h.get("s") != "Done"]
+    assert legacy_items and all("to" not in h for h in legacy_items), hist
     return {"ok": True, "mode": "selftest"}
 
 

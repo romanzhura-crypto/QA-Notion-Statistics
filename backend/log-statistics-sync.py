@@ -169,9 +169,9 @@ def parse_ts(v):
 
 def round_days(days: float) -> float:
     days = max(0.0, float(days) or 0.0)
-    if days < 1.0:
-        return round(days * 24.0) / 24.0
-    return round(days * 10.0) / 10.0
+    # Minute precision (was: whole hours <1 day, 0.1 day above). Hour rounding
+    # turned <30-min segments into 0 and the widget dropped them entirely.
+    return round(days * 1440.0) / 1440.0
 
 
 def is_number_prop(value) -> bool:
@@ -256,6 +256,49 @@ def rich_text_plain(prop) -> str:
 
 def rich_text_prop(text: str) -> dict:
     return {"rich_text": [{"type": "text", "text": {"content": (text or "")[:2000]}}]}
+
+
+SEGMENTS_PROP = "Segments"
+
+
+def iso_z(dt) -> str | None:
+    """ISO-8601 UTC (…Z) for segment boundaries; None-safe."""
+    d = dt if isinstance(dt, datetime) else parse_ts(dt)
+    if not d:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def segments_from_props(props: dict) -> list:
+    """Closed dwell segments [{s, from, to}] from the Segments rich_text JSON.
+
+    Tolerant to absent/corrupt values: bad data yields [], never an exception.
+    """
+    raw = rich_text_plain(props.get(SEGMENTS_PROP))
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return []
+    out = []
+    for item in data if isinstance(data, list) else []:
+        if isinstance(item, dict) and item.get("s") and item.get("from") and item.get("to"):
+            out.append({"s": str(item["s"]), "from": str(item["from"]), "to": str(item["to"])})
+    return out
+
+
+def segments_prop(segments: list) -> dict:
+    """rich_text property value with JSON chunks ≤2000 chars (Notion text limit)."""
+    text = json.dumps(segments or [], ensure_ascii=False, separators=(",", ":"))
+    chunks = [text[i:i + 2000] for i in range(0, len(text), 2000)] or ["[]"]
+    return {"rich_text": [{"type": "text", "text": {"content": c}} for c in chunks]}
+
+
+def segments_same(a: list, b: list) -> bool:
+    return json.dumps(a or [], ensure_ascii=False, sort_keys=True) == json.dumps(b or [], ensure_ascii=False, sort_keys=True)
 
 
 def date_prop(dt) -> dict:
@@ -462,6 +505,14 @@ def collector_transition(task: dict, log_row: dict | None, now: datetime | None 
         if status_col_allowed(have_collected):
             prev = number_from_props(props, have_collected)
             out[have_collected] = {"number": round_days(prev + added)}
+        # Closed segment with exact boundaries (repeats stay separate: the
+        # number column stays an aggregate for backward compatibility).
+        segs = segments_from_props(props)
+        seg_from = iso_z(have_since or created)
+        seg_to = iso_z(close_end)
+        if not any(x["s"] == have_collected and x["from"] == seg_from and x["to"] == seg_to for x in segs):
+            segs.append({"s": have_collected, "from": seg_from, "to": seg_to})
+        out[SEGMENTS_PROP] = segments_prop(segs)
     new_status = "Done" if done else status
     note_unknown_status(new_status, key=("status", str(task.get("id") or ""), new_status))
     out["Collected Status"] = rich_text_prop(new_status)
@@ -509,6 +560,10 @@ def needs_update(task: dict, log_row: dict, now: datetime | None = None) -> bool
     want_done_start = want_done.get("start") if isinstance(want_done, dict) else None
     have_done_start = have_done.get("start") if isinstance(have_done, dict) else None
     if norm_dt_key(want_done_start) != norm_dt_key(have_done_start):
+        return True
+    if SEGMENTS_PROP in want and not segments_same(
+        segments_from_props(want), segments_from_props(have)
+    ):
         return True
     for col in dict.fromkeys(
         STATUS_COLS
@@ -733,7 +788,7 @@ def selftest() -> None:
         "edited": "2026-09-17T00:00:00Z",
     }
     days = days_in_status(task_dev, now=now)
-    assert days == 8.3, days
+    assert round(days, 4) == 8.3333, days  # minute precision (was 8.3 with hour rounding)
     six_h = {
         "id": "ddd",
         "s": "New",
@@ -773,12 +828,29 @@ def selftest() -> None:
     assert rich_text_plain(change["Collected Status"]) == "Testing"
     assert change["Development"]["number"] == 2.0, change["Development"]
     assert "Testing" not in change  # open interval not written
+    # closed segment is persisted with exact boundaries (from = when obtained)
+    segs = segments_from_props(change)
+    assert len(segs) == 1, segs
+    assert segs[0]["s"] == "Development", segs
+    assert segs[0]["from"].startswith("2026-09-18T08:00"), segs
+    assert segs[0]["to"].startswith("2026-09-20T08:00"), segs
+    # re-run over a row that already has the segment must not duplicate it
+    redone = collector_transition(
+        task_test,
+        {"properties": {**seeded["properties"], SEGMENTS_PROP: change[SEGMENTS_PROP]}},
+        now=later,
+    )
+    assert segments_same(segments_from_props(redone), segs), redone
+    # 5-minute interval survives minute rounding (hour rounding dropped it)
+    five = elapsed_days("2026-09-18T08:00:00Z", "2026-09-18T08:05:00Z")
+    assert 0 < five < 0.01, five
     changed_row = {
         "properties": {
             **seeded["properties"],
             "Collected Status": change["Collected Status"],
             "Status since": change["Status since"],
             "Development": change["Development"],
+            SEGMENTS_PROP: change[SEGMENTS_PROP],
         }
     }
     assert needs_update(task_test, changed_row, now=later) is False
@@ -794,6 +866,9 @@ def selftest() -> None:
     assert rich_text_plain(to_done["Collected Status"]) == "Done"
     assert to_done["Testing"]["number"] == 1.0, to_done
     assert to_done["Done at"]["date"]["start"].startswith("2026-09-21T08:00:00")
+    done_segs = segments_from_props(to_done)
+    assert [x["s"] for x in done_segs] == ["Development", "Testing"], done_segs
+    assert done_segs[1]["from"].startswith("2026-09-20T08:00") and done_segs[1]["to"].startswith("2026-09-21T08:00"), done_segs
     done_row = {
         "properties": {
             **changed_row["properties"],
@@ -801,6 +876,7 @@ def selftest() -> None:
             "Status since": to_done["Status since"],
             "Testing": to_done["Testing"],
             "Done at": to_done["Done at"],
+            SEGMENTS_PROP: to_done[SEGMENTS_PROP],
         }
     }
     assert needs_update(task_done, done_row, now=parse_ts("2026-09-21T08:00:00Z")) is False
@@ -876,6 +952,41 @@ def selftest() -> None:
         }
     }, now=parse_ts("2026-09-19T08:00:00Z"))
     assert "Done" not in {k for k, v in reopen.items() if is_number_prop(v)}, reopen
+
+    # repeats stay separate: Development → Ready For QA → Development
+    # yields three segments, two of them Development (never merged)
+    rep_row = {
+        "properties": {
+            "Collected Status": rich_text_prop("Ready For QA"),
+            "Status since": date_prop(parse_ts("2026-09-21T08:00:00Z")),
+            SEGMENTS_PROP: segments_prop([
+                {
+                    "s": "Development",
+                    "from": iso_z(parse_ts("2026-09-20T08:00:00Z")),
+                    "to": iso_z(parse_ts("2026-09-21T08:00:00Z")),
+                }
+            ]),
+            "Done at": {"date": None},
+        }
+    }
+    rep = collector_transition(
+        {"id": "aaa", "s": "Development", "created": "2026-09-10T00:00:00Z", "edited": "2026-09-22T08:00:00Z"},
+        rep_row,
+        now=parse_ts("2026-09-22T08:00:00Z"),
+    )
+    assert [x["s"] for x in segments_from_props(rep)] == ["Development", "Ready For QA"], rep
+    rep2 = collector_transition(
+        {"id": "aaa", "s": "Ready For QA", "created": "2026-09-10T00:00:00Z", "edited": "2026-09-22T12:00:00Z"},
+        {"properties": {
+            **rep_row["properties"],
+            "Collected Status": rep["Collected Status"],
+            "Status since": rep["Status since"],
+            SEGMENTS_PROP: rep[SEGMENTS_PROP],
+        }},
+        now=parse_ts("2026-09-22T12:00:00Z"),
+    )
+    rep2_segs = segments_from_props(rep2)
+    assert [x["s"] for x in rep2_segs] == ["Development", "Ready For QA", "Development"], rep2_segs
 
     print(json.dumps({"ok": True, "mode": "selftest", "days": days}, ensure_ascii=False))
 

@@ -104,9 +104,15 @@
       line-height: 1.3;
       padding: 5px 8px;
       border-radius: 6px;
-      white-space: nowrap;
+      white-space: pre-line;
+      width: max-content;
+      max-width: 460px;
       pointer-events: none;
       box-shadow: var(--shadow);
+    }
+    rect.hl {
+      stroke: var(--ink);
+      stroke-width: 2;
     }
     .tip::after {
       content: "";
@@ -259,7 +265,7 @@
     </section>
     <section class="card">
       <h2>Время в каждом Status</h2>
-      <p class="muted">Источник — таблица задач выбранного релиза (снимок Notion). Полоса = текущий Status из таблицы. Done — только момент получения статуса, без длительности. Наведите на отрезок: время сверху.</p>
+      <p class="muted">Done — только момент получения статуса, без длительности. Наведите на отрезок: общая информация по статусу и по каждому участку отдельно.</p>
       <div class="legend" id="legend"></div>
       <div class="scroll chart-scroll">
         <div class="chart-wrap">
@@ -367,10 +373,9 @@
     }
     function fmtDur(days) {
       const n = Number(days) || 0;
-      if (n < 1) {
-        const h = Math.round(n * 24 * 10) / 10;
-        return h + " ч";
-      }
+      if (n <= 0) return "0 мин";
+      if (n < 1 / 24) return Math.max(1, Math.round(n * 1440)) + " мин";
+      if (n < 1) return (Math.round(n * 24 * 10) / 10) + " ч";
       return (Math.round(n * 10) / 10) + " дн";
     }
     function fmtDurParts(ms) {
@@ -388,6 +393,27 @@
     function historyOf(t) {
       return (t && (t.history || t.segments)) || [];
     }
+    function segRange(seg) {
+      if (!seg.from) return "получение статуса неизвестно (учтён агрегатом без таймстампа)";
+      const from = "получен " + fmtDateTime(seg.from);
+      return seg.to ? (from + " → ушёл " + fmtDateTime(seg.to)) : (from + " → сейчас");
+    }
+    function tipFor(seg, same) {
+      const dur = (s) => fmtDurParts((Number(s.days) || 0) * 86400000);
+      const lines = [];
+      if (same.length > 1) {
+        let totalMs = 0;
+        same.forEach(s => { totalMs += (Number(s.days) || 0) * 86400000; });
+        lines.push(seg.s + " · участков: " + same.length + " · всего " + fmtDurParts(totalMs));
+        same.forEach((s, i) => {
+          lines.push((i + 1) + ") " + segRange(s) + " · " + dur(s));
+        });
+      } else {
+        lines.push(seg.s + " · " + dur(seg));
+        lines.push(segRange(seg));
+      }
+      return lines.join("\n");
+    }
     function segmentsFor(t) {
       const raw = historyOf(t);
       if (raw.length) {
@@ -395,13 +421,21 @@
           if (isDoneName(h.s)) {
             return { s: h.s || "Done", kind: "done", days: 0, at: h.at || h.start || h.end || null };
           }
-          return { s: h.s || "Unknown", kind: "dwell", days: Number(h.days) || 0, at: null };
+          return {
+            s: h.s || "Unknown",
+            kind: "dwell",
+            days: Number(h.days) || 0,
+            at: null,
+            from: h.from || null,
+            to: h.to || null,
+            legacy: !h.from
+          };
         });
       }
       if (isDoneName(t.s)) {
         return [{ s: t.s || "Done", kind: "done", days: 0, at: t.edited || t.start || t.created || null }];
       }
-      return [{ s: t.s || "Unknown", kind: "dwell", days: daysInStatus(t), at: null }];
+      return [{ s: t.s || "Unknown", kind: "dwell", days: daysInStatus(t), at: null, from: null, to: null, legacy: true }];
     }
     function dwellTotal(segs) {
       return segs.filter(s => s.kind === "dwell").reduce((sum, s) => sum + (s.days || 0), 0);
@@ -607,11 +641,18 @@
     function bindTips(svg) {
       svg.querySelectorAll("[data-tip]").forEach(el => {
         const text = el.getAttribute("data-tip") || "";
-        el.addEventListener("mouseenter", (evt) => showTip(evt, text));
+        const group = el.getAttribute("data-group") || "";
+        const setHl = (on) => {
+          if (!group) return;
+          svg.querySelectorAll("[data-group]").forEach(gEl => {
+            if (gEl.getAttribute("data-group") === group) gEl.classList.toggle("hl", on);
+          });
+        };
+        el.addEventListener("mouseenter", (evt) => { setHl(true); showTip(evt, text); });
         el.addEventListener("mousemove", (evt) => showTip(evt, text));
-        el.addEventListener("mouseleave", hideTip);
-        el.addEventListener("focus", (evt) => showTip(evt, text));
-        el.addEventListener("blur", hideTip);
+        el.addEventListener("mouseleave", () => { setHl(false); hideTip(); });
+        el.addEventListener("focus", (evt) => { setHl(true); showTip(evt, text); });
+        el.addEventListener("blur", () => { setHl(false); hideTip(); });
       });
     }
 
@@ -723,19 +764,23 @@
         const label = r.n.length > 34 ? r.n.slice(0, 33) + "…" : r.n;
         g.push('<text x="8" y="' + (y + 13) + '" font-size="11" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
         let x = pad.l;
+        const byStatus = {};
+        r.segs.forEach(seg => { (byStatus[seg.s] = byStatus[seg.s] || []).push(seg); });
         r.segs.forEach(seg => {
           if (seg.kind === "done") {
             const cx = x + 8;
             const cy = y + bh / 2;
-            const tip = "Done " + fmtDateTime(seg.at);
+            const tip = "Done · " + fmtDateTime(seg.at) + "\nмомент получения статуса (без длительности)";
             g.push('<polygon tabindex="0" data-tip="' + esc(tip) + '" points="' +
               cx + "," + (cy - 7) + " " + (cx + 7) + "," + cy + " " + cx + "," + (cy + 7) + " " + (cx - 7) + "," + cy +
               '" fill="' + statusColor(seg.s) + '" stroke="' + ink + '" stroke-width="0.6" />');
             return;
           }
+          const same = byStatus[seg.s] || [seg];
           const bw = Math.max(seg.days ? 4 : 0, (seg.days / maxX) * innerW);
-          const tip = seg.s + " · " + fmtDur(seg.days);
-          g.push('<rect tabindex="0" data-tip="' + esc(tip) + '" x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + statusColor(seg.s) + '" />');
+          const tip = tipFor(seg, same);
+          const grp = same.length > 1 ? ' data-group="' + i + "::" + esc(seg.s) + '"' : "";
+          g.push('<rect tabindex="0" data-tip="' + esc(tip) + '"' + grp + ' x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + statusColor(seg.s) + '" />');
           x += bw;
         });
         if (!r.doneAt) {

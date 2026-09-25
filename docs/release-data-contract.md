@@ -50,6 +50,35 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `start` | string\|null | Start date |
 | `created` | string\|null | `created_time` |
 | `edited` | string\|null | `last_edited_time` |
+| `history` | object[] | Status dwell timeline (board #165) — see below |
+
+## `tasks[].history` (board #165, 2026-09-25)
+
+One item per **interval**, in chronological order. Repeated statuses stay
+separate items (e.g. `Ready For Dev → Development → Ready For QA → Development`
+yields 4 items) — never summed into one bar per status.
+
+| Kind | Shape | Meaning |
+|---|---|---|
+| Interval with timestamps | `{s, days, from, to}` | Closed interval. `from` = when the status was obtained (ISO-8601 UTC `…Z`), `to` = when it was left. `days` — minute-precision duration (`round(days*1440)/1440`); intervals of minutes survive (no hour rounding) |
+| Open interval | `{s, days, from, to: null}` | Current status since `from` (collector `Status since`) — always its own item, even for legacy rows |
+| Legacy remainder | `{s, days}` | Dwell accrued **before** per-interval collection existed (LOG number-column aggregate not covered by intervals). **No timestamps** — they are unknowable (Notion REST has no Version History) and must never be invented |
+| Done | `{s: "Done", at}` | Terminal marker (Done at), not a dwell bar |
+
+Rules:
+
+- Source of intervals: LOG STATISTICS `Segments` rich_text property (JSON array
+  `[{s, from, to}]`, chunked ≤2000 chars per text item), written by the
+  collector `log-statistics-sync.py` on each status transition.
+- Rows without `Segments` (or with empty/corrupt JSON) fall back to the legacy
+  aggregate format: number columns per status + separate open-interval item.
+  Tolerant parsing — bad JSON yields `[]`, never an error.
+- Dwell number columns stay in the LOG schema for backward compatibility and
+  remain **aggregates**; the snapshot emits only the part not covered by
+  `Segments` (the legacy remainder) so totals never change.
+- `from`/`to` are only present when actually known; the Frontend must render
+  intervals without timestamps as-is (no invented dates).
+- `days` is always ≥ 0; a >0 duration is never dropped (minute precision).
 
 ## Cache-bust
 
