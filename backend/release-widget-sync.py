@@ -451,6 +451,35 @@ def _prev_task_count() -> int | None:
     return None
 
 
+def webhook_from_run_state(now=None) -> dict | None:
+    """quality.webhook (board #184.3): N1 observability from the webhook run-state
+    written by status-webhook-event.py (env WEBHOOK_RUN_STATE shared by both).
+    None when no run-state is available — the gate then skips the gap check
+    (webhook not deployed yet), never false-fails. gap_hours = hours from the
+    last delivered+applied event (processed/noop refresh it, error/skipped do not)
+    to the snapshot moment."""
+    path = Path(
+        os.environ.get("WEBHOOK_RUN_STATE") or (ROOT / "config" / "status-webhook-run.json")
+    )
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not data:
+        return None
+    now = now or datetime.now(timezone.utc)
+    last = parse_ts(data.get("last_event_at"))
+    return {
+        "events_total": int(data.get("events_total") or 0),
+        "events_processed": int(data.get("events_processed") or 0),
+        "events_noop": int(data.get("events_noop") or 0),
+        "events_skipped": int(data.get("events_skipped") or 0),
+        "events_error": int(data.get("events_error") or 0),
+        "last_event_at": data.get("last_event_at"),
+        "gap_hours": round((now - last).total_seconds() / 3600.0, 2) if last else None,
+    }
+
+
 def attach_quality(payload: dict, prev_count: int | None = None, truncated: int | None = None) -> dict:
     """payload["quality"] (A27, strictly additive). Fields that cannot be
     recomputed at enrich time (truncated_titles, delta) are preserved as-is."""
@@ -471,6 +500,13 @@ def attach_quality(payload: dict, prev_count: int | None = None, truncated: int 
         q.setdefault("task_count_prev", None)
         q.setdefault("task_count_delta_pct", None)
     q["unknown_statuses"] = list(payload.get("unknown_statuses") or [])
+    # N1 webhook observability (board #184.3): recomputed when the run-state is
+    # readable here (same CI workspace); preserved from the snapshot pass when not.
+    wh = webhook_from_run_state()
+    if wh is not None:
+        q["webhook"] = wh
+    else:
+        q.setdefault("webhook", None)
     q["thresholds"] = {
         "task_count_delta_pct": QUALITY_DELTA_PCT_MAX,
         "gap_hours": QUALITY_GAP_HOURS_MAX,
@@ -893,6 +929,42 @@ def selftest() -> dict:
     seg2 = seg_ok + [{"s": "Development", "from": "2026-09-04T00:00:00Z", "to": "2026-09-05T00:00:00Z"}]
     d = drift_from_rows([lrow(seg2, 1.0)])
     assert d["drift_days"] > 1.9 and d["drift_items"] == 1, d
+
+    # N1 webhook observability (board #184.3): run-state → quality.webhook
+    import tempfile
+    old_ws = os.environ.get("WEBHOOK_RUN_STATE")
+    with tempfile.TemporaryDirectory() as td:
+        os.environ["WEBHOOK_RUN_STATE"] = str(Path(td) / "run.json")
+        try:
+            # no run-state file → None (gate will skip the gap check, not false-fail)
+            assert webhook_from_run_state() is None
+            Path(os.environ["WEBHOOK_RUN_STATE"]).write_text(json.dumps({
+                "events_total": 7, "events_processed": 5, "events_noop": 1,
+                "events_skipped": 0, "events_error": 1,
+                "last_event_at": "2026-09-27T06:00:00.000Z",
+            }), encoding="utf-8")
+            wh = webhook_from_run_state(
+                now=datetime(2026, 9, 27, 9, 0, tzinfo=timezone.utc)
+            )
+            assert wh["gap_hours"] == 3.0, wh  # 3h since last applied event
+            assert wh["events_processed"] == 5 and wh["events_error"] == 1, wh
+            assert wh["last_event_at"] == "2026-09-27T06:00:00.000Z", wh
+            # gap_hours null-safe: state without last_event_at → None, not fake 0
+            Path(os.environ["WEBHOOK_RUN_STATE"]).write_text(
+                json.dumps({"events_total": 1}), encoding="utf-8"
+            )
+            wh = webhook_from_run_state(now=datetime(2026, 9, 27, 9, 0, tzinfo=timezone.utc))
+            assert wh["gap_hours"] is None and wh["events_total"] == 1, wh
+            # attach_quality picks the run-state up; enrich without it preserves
+            q4 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
+            assert isinstance(q4["webhook"], dict) and q4["webhook"]["events_total"] == 1, q4
+        finally:
+            if old_ws is None:
+                os.environ.pop("WEBHOOK_RUN_STATE", None)
+            else:
+                os.environ["WEBHOOK_RUN_STATE"] = old_ws
+    q5 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
+    assert q5.get("webhook") is None, q5  # no run-state → null, gate skips N1
     return {"ok": True, "mode": "selftest"}
 
 

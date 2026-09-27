@@ -15,9 +15,11 @@ Hard rules (no silent quality debt):
   - segments_negative           > 0                                -> FAIL
   - segments_absurd             > 0                                -> FAIL
   - tasks_without_history       > 0                                -> FAIL
-  - gap_hours (when present)    > thresholds.gap_hours              -> FAIL (N1)
   - drift_days (when present)   > thresholds.drift_days             -> FAIL (N2)
   - a19_conflicts (when present) > 0                               -> FAIL (A19)
+  - quality.webhook.gap_hours   > thresholds.gap_hours              -> FAIL (N1)
+  - quality.webhook.events_error > 0                               -> FAIL
+  - quality.webhook == null (or gap_hours == null) -> N1 check SKIPPED (webhook not observed yet)
 WARN-only: truncated_titles (cosmetic), fixtures_excluded (informational),
 unknown_statuses (listed, dwell kept — see contract).
 Empty placeholder payload (task_count == 0) is SKIP (exit 0): nothing to gate.
@@ -53,9 +55,18 @@ def evaluate(payload: dict) -> tuple[str, list]:
     check_max("segments_negative", 0)
     check_max("segments_absurd", 0)
     check_max("tasks_without_history", 0)
-    check_max("gap_hours", th.get("gap_hours"))  # N1: webhook delivery loss
-    check_max("drift_days", th.get("drift_days"))  # N2: collector vs Segments
+    check_max("drift_days", th.get("drift_days"))  # N2: Segments vs columns
     check_max("a19_conflicts", 0)  # A19: concurrent close collisions
+    # N1: gap_hours lives in quality.webhook (board #184.3). webhook == null →
+    # the webhook pipeline is not deployed/observed yet → skip, never false-fail.
+    wh = q.get("webhook")
+    if isinstance(wh, dict):
+        gap = wh.get("gap_hours")
+        gap_lim = th.get("gap_hours")
+        if gap is not None and gap_lim is not None and float(gap) > float(gap_lim):
+            problems.append(f"webhook.gap_hours: {gap} > {gap_lim}")
+        if int(wh.get("events_error") or 0) > 0:
+            problems.append(f"webhook.events_error: {wh.get('events_error')} > 0")
 
     for m in WARN_ONLY:
         v = q.get(m)
@@ -89,19 +100,30 @@ def selftest() -> int:
         base = {"thresholds": th, "segments_negative": 0, "segments_absurd": 0,
                 "tasks_without_history": 0, "task_count_prev": 100,
                 "task_count_delta_pct": 0.0, "truncated_titles": 0,
-                "fixtures_excluded": 0, "unknown_statuses": []}
+                "fixtures_excluded": 0, "unknown_statuses": [],
+                "drift_days": 0.0, "drift_items": 0, "webhook": None}
         base.update(kw)
         return {"ok": True, "task_count": 100, "quality": base}
+
+    def wh(**kw):
+        base = {"events_total": 5, "events_processed": 4, "events_noop": 1,
+                "events_skipped": 0, "events_error": 0,
+                "last_event_at": "2026-09-27T06:00:00.000Z", "gap_hours": 1.0}
+        base.update(kw)
+        return base
 
     cases = [
         ("PASS", q()),
         ("PASS", q(truncated_titles=8)),  # WARN-only
         ("PASS", q(unknown_statuses=["Code Freeze"])),  # WARN-only (listed)
+        ("PASS", q(webhook=wh())),  # N1 green
+        ("PASS", q(webhook=wh(gap_hours=None, last_event_at=None))),  # unknown gap → skip
         ("FAIL", q(task_count_delta_pct=15.0)),
         ("FAIL", q(segments_negative=1)),
         ("FAIL", q(segments_absurd=1)),
         ("FAIL", q(tasks_without_history=2)),
-        ("FAIL", q(gap_hours=7.5)),  # N1
+        ("FAIL", q(webhook=wh(gap_hours=7.5))),  # N1: delivery loss
+        ("FAIL", q(webhook=wh(events_error=1))),  # handler failures
         ("FAIL", q(drift_days=2.0)),  # N2
         ("FAIL", q(a19_conflicts=1)),  # A19
         ("FAIL", {"ok": True, "task_count": 100}),  # quality missing

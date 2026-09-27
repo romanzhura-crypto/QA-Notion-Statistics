@@ -117,7 +117,7 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `drift_items` | number | Count of (row, status) pairs with deficit > `DRIFT_DAYS_MIN` (1.0 day) |
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
 | `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0 |
-| `webhook` | object\|null | Webhook observability (board #177.2/#184.2): `events_processed`, `last_event_at`, `gap_hours` (N1 — hours since last event, `null` when unknown). `null`/absent when no run-state is available |
+| `webhook` | object\|null | Webhook observability (board #177.2/#184.3): `events_total`, `events_processed`, `events_noop`, `events_skipped`, `events_error`, `last_event_at`, `gap_hours` (N1 — hours from the last delivered+applied event to the snapshot, `null` when unknown). `null`/absent when no run-state is available |
 
 Rules:
 
