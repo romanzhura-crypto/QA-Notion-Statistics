@@ -34,6 +34,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # Board #184.4: webhook run-state survives across ephemeral CI runners via
+      # actions/cache (restore latest, save under a unique key; last-write-wins
+      # across parallel events — metrics are best-effort, segments are not).
+      - name: restore webhook run-state
+        uses: actions/cache/restore@v4
+        with:
+          path: config/status-webhook-run.json
+          key: webhook-run-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            webhook-run-state-
       - name: offline selftest
         run: |
           python3 -m py_compile backend/status-webhook-event.py backend/log-statistics-sync.py
@@ -47,6 +57,12 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           EVENT_JSON: ${{ toJson(github.event.client_payload) }}
         run: python3 backend/status-webhook-event.py
+      - name: save webhook run-state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: config/status-webhook-run.json
+          key: webhook-run-state-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Variant A (board #174): event-driven widget refresh. STRICTLY after "apply"
   # so the snapshot already sees the just-written segment. Mirrors job "snapshot"
@@ -83,6 +99,15 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         run: test -n "$NOTION_TOKEN"
+      # Board #184.4: read the webhook run-state (latest saved by job "apply")
+      # so the snapshot's quality.webhook carries real N1 gap/event metrics.
+      - name: restore webhook run-state
+        uses: actions/cache/restore@v4
+        with:
+          path: config/status-webhook-run.json
+          key: webhook-run-state-refresh-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            webhook-run-state-
       - name: snapshot JSON for frontend
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}

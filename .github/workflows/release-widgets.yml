@@ -73,6 +73,14 @@ jobs:
           python-version: "3.12"
       - name: require secret
         run: test -n "$NOTION_TOKEN"
+      # Board #184.4: webhook run-state from actions/cache → quality.webhook (N1).
+      - name: restore webhook run-state
+        uses: actions/cache/restore@v4
+        with:
+          path: config/status-webhook-run.json
+          key: webhook-run-state-sync-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            webhook-run-state-
       - name: snapshot JSON for frontend
         run: python3 backend/release-widget-sync.py snapshot
       - name: upsert LOG STATISTICS
