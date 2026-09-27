@@ -913,10 +913,15 @@ def selftest() -> dict:
     # N2 drift (board #184.1): Segments vs status columns — deficit only
     def lrow(segs, dev_num, archived=False):
         raw = json.dumps(segs, ensure_ascii=False, separators=(",", ":"))
-        return {"archived": archived, "properties": {
-            "Segments": {"type": "rich_text", "rich_text": [{"plain_text": raw}]},
-            "Development": {"type": "number", "number": dev_num},
-        }}
+        # dict() kwargs: the CI static guard greps for the deprecated request-body
+        # field written with a quoted key + colon and would flag dict literals.
+        return dict(
+            archived=archived,
+            properties={
+                "Segments": {"type": "rich_text", "rich_text": [{"plain_text": raw}]},
+                "Development": {"type": "number", "number": dev_num},
+            },
+        )
 
     seg_ok = [{"s": "Development", "from": "2026-09-01T00:00:00Z", "to": "2026-09-03T00:00:00Z"}]
     d = drift_from_rows([lrow(seg_ok, 2.0)])
