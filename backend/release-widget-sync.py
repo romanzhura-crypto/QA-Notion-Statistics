@@ -345,6 +345,11 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
     # Additive: statuses seen in data but outside LOG_STATUS_COLS. Never dropped
     # silently — their dwell stays in tasks[].history and the names are listed here.
     payload["unknown_statuses"] = sorted(unknown)
+    # N2 drift (board #184.1): Segments vs status columns from the same rows.
+    # attach_quality() runs AFTER this and preserves these keys (additive).
+    q = dict(payload.get("quality") or {})
+    q.update(drift_from_rows(rows))
+    payload["quality"] = q
     if unknown:
         print(
             "warning: statuses outside LOG_STATUS_COLS (dwell kept, listed in unknown_statuses): "
@@ -352,6 +357,43 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
             file=sys.stderr,
         )
     return payload
+
+
+def drift_from_rows(rows: list) -> dict:
+    """N2 drift (board #184.1, read-only): Segments vs status number columns.
+
+    Invariant of both writers (collector + webhook): every closed segment is
+    credited to its number column in the same patch, so per status
+    sum(segment days) <= number column (legacy accrual only ADDs to columns).
+    deficit = segments > column = a lost column credit = drift.
+    Per-minute rounding gives sub-minute epsilon — tolerated up to DRIFT_DAYS_MIN.
+    """
+    worst = 0.0
+    items = 0
+    for row in rows:
+        if row.get("archived") or row.get("in_trash"):
+            continue
+        props = row.get("properties") or {}
+        seg_days = {}
+        for seg in segments_from_props(props):
+            a = parse_ts(seg.get("from"))
+            b = parse_ts(seg.get("to"))
+            if a and b:
+                seg_days[seg["s"]] = seg_days.get(seg["s"], 0.0) + max(
+                    0.0, (b - a).total_seconds() / 86400.0
+                )
+        for col, sdays in seg_days.items():
+            raw = (props.get(col) or {}).get("number")
+            try:
+                coldays = float(raw) if raw is not None else 0.0
+            except (TypeError, ValueError):
+                coldays = 0.0
+            deficit = sdays - coldays
+            if deficit > DRIFT_DAYS_MIN:
+                items += 1
+            if deficit > worst:
+                worst = deficit
+    return {"drift_days": round_days(max(0.0, worst)), "drift_items": items}
 
 
 def quality_from_tasks(payload: dict) -> dict:
@@ -822,6 +864,35 @@ def selftest() -> dict:
     # first snapshot ever (no previous file): delta fields are null, not fake
     q3 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
     assert q3["task_count_prev"] is None and q3["task_count_delta_pct"] is None, q3
+
+    # N2 drift (board #184.1): Segments vs status columns — deficit only
+    def lrow(segs, dev_num, archived=False):
+        raw = json.dumps(segs, ensure_ascii=False, separators=(",", ":"))
+        return {"archived": archived, "properties": {
+            "Segments": {"type": "rich_text", "rich_text": [{"plain_text": raw}]},
+            "Development": {"type": "number", "number": dev_num},
+        }}
+
+    seg_ok = [{"s": "Development", "from": "2026-09-01T00:00:00Z", "to": "2026-09-03T00:00:00Z"}]
+    d = drift_from_rows([lrow(seg_ok, 2.0)])
+    assert d == {"drift_days": 0.0, "drift_items": 0}, d  # exact match, no drift
+    # legacy accrual (column > segments) is NOT drift
+    d = drift_from_rows([lrow(seg_ok, 5.0)])
+    assert d == {"drift_days": 0.0, "drift_items": 0}, d
+    # segments > column = lost credit = drift (2d segs vs 0.5d col)
+    d = drift_from_rows([lrow(seg_ok, 0.5)])
+    assert d["drift_days"] > 1.4 and d["drift_items"] == 1, d
+    # sub-minute rounding epsilon is tolerated (below DRIFT_DAYS_MIN)
+    d = drift_from_rows([lrow(seg_ok, 1.99)])
+    assert d["drift_items"] == 0 and d["drift_days"] < DRIFT_DAYS_MIN, d
+    # archived rows excluded
+    d = drift_from_rows([lrow(seg_ok, 0.0, archived=True)])
+    assert d == {"drift_days": 0.0, "drift_items": 0}, d
+    # two segments accumulate before comparison: 2d+1d segs vs 1d col.
+    # (Alone the first segment would give exactly 1.0 = at threshold, not over.)
+    seg2 = seg_ok + [{"s": "Development", "from": "2026-09-04T00:00:00Z", "to": "2026-09-05T00:00:00Z"}]
+    d = drift_from_rows([lrow(seg2, 1.0)])
+    assert d["drift_days"] > 1.9 and d["drift_items"] == 1, d
     return {"ok": True, "mode": "selftest"}
 
 

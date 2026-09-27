@@ -113,9 +113,11 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `segments_negative` | number | History items with `days < 0`, `to < from` or unparseable duration (Done diamond excluded) |
 | `segments_absurd` | number | Closed dwell intervals longer than 366 days (`SEGMENT_ABSURD_DAYS`) |
 | `truncated_titles` | number | Titles longer than 140 chars (truncated into `tasks[].n`) |
+| `drift_days` | number | N2 (board #184.1): worst per-task deficit `sum(segment days) − status column days` over all statuses; 0.0 when segments never exceed their columns (legacy accrual above columns is not drift) |
+| `drift_items` | number | Count of (row, status) pairs with deficit > `DRIFT_DAYS_MIN` (1.0 day) |
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
 | `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0 |
-| `webhook` | object\|null | Webhook observability (board #177.2): `events_processed`, `events_noop_stale`, `events_dupes`, `last_event_at`, `gap_hours` (N1 — hours since last event, `null` when unknown), `collector_vs_webhook_drift` (N2). `null`/absent when no run-state is available |
+| `webhook` | object\|null | Webhook observability (board #177.2/#184.2): `events_processed`, `last_event_at`, `gap_hours` (N1 — hours since last event, `null` when unknown). `null`/absent when no run-state is available |
 
 Rules:
 
@@ -124,6 +126,8 @@ Rules:
 - Fields that cannot be recomputed at `enrich` time (`task_count_prev`,
   `task_count_delta_pct`, `truncated_titles`) are preserved from the snapshot
   pass, not zeroed by re-enrich.
-- `collector_vs_webhook_drift` (N2): disagreement between LOG number-column
-  aggregates and `Segments` coverage (webhook-written intervals) per LOG row;
-  measured in days (`max`/`rows_over`) with tolerance `DRIFT_DAYS_MIN`.
+- N2 drift is computed read-only from LOG rows in the enrich pass: both
+  writers credit closed segments to their number column in the same patch, so
+  per status `sum(segment days) <= column` is the invariant; a deficit above
+  `DRIFT_DAYS_MIN` (rounding tolerance) means a lost column credit.
+  `quality.drift_days` > `thresholds.drift_days` fails the gate.
