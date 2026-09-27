@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""A27 quality gate for release-data.json (board #183, additive).
+
+Reads the `quality` block produced by release-widget-sync.py snapshot and
+FAILs (exit 1) when a metric breaches its threshold. Wired into GH Actions
+job "Sync Notion" between snapshot and Pages deploy — a bad snapshot never
+reaches the widgets.
+
+Usage:
+  python3 quality-gate.py <release-data.json>   # gate one snapshot
+  python3 quality-gate.py selftest              # synthetic PASS+FAIL probes
+
+Hard rules (no silent quality debt):
+  - task_count_delta_pct        > thresholds.task_count_delta_pct  -> FAIL
+  - segments_negative           > 0                                -> FAIL
+  - segments_absurd             > 0                                -> FAIL
+  - tasks_without_history       > 0                                -> FAIL
+  - gap_hours (when present)    > thresholds.gap_hours              -> FAIL (N1)
+  - drift_days (when present)   > thresholds.drift_days             -> FAIL (N2)
+  - a19_conflicts (when present) > 0                               -> FAIL (A19)
+WARN-only: truncated_titles (cosmetic), fixtures_excluded (informational),
+unknown_statuses (listed, dwell kept — see contract).
+Empty placeholder payload (task_count == 0) is SKIP (exit 0): nothing to gate.
+"""
+import json
+import sys
+
+WARN_ONLY = ("truncated_titles", "fixtures_excluded", "unknown_statuses")
+
+
+def evaluate(payload: dict) -> tuple[str, list]:
+    """Return (verdict, problems). verdict: PASS | FAIL | SKIP."""
+    if not isinstance(payload, dict) or payload.get("ok") is not True:
+        return "FAIL", ["payload missing or ok != true"]
+    if int(payload.get("task_count") or 0) == 0:
+        return "SKIP", []  # empty placeholder (wiped demo board) — nothing to gate
+    q = payload.get("quality")
+    if not isinstance(q, dict):
+        return "FAIL", ["quality block missing (A27) — snapshot too old?"]
+    th = q.get("thresholds") or {}
+    problems = []
+
+    def check_max(metric, limit, name=None):
+        val = q.get(metric)
+        if val is None or limit is None:
+            return  # metric not produced by this snapshot generation
+        if float(val) > float(limit):
+            problems.append(f"{name or metric}: {val} > {limit}")
+
+    delta_lim = th.get("task_count_delta_pct")
+    if q.get("task_count_prev") is not None and delta_lim is not None:
+        check_max("task_count_delta_pct", delta_lim)
+    check_max("segments_negative", 0)
+    check_max("segments_absurd", 0)
+    check_max("tasks_without_history", 0)
+    check_max("gap_hours", th.get("gap_hours"))  # N1: webhook delivery loss
+    check_max("drift_days", th.get("drift_days"))  # N2: collector vs Segments
+    check_max("a19_conflicts", 0)  # A19: concurrent close collisions
+
+    for m in WARN_ONLY:
+        v = q.get(m)
+        if v and (isinstance(v, (int, float)) and v > 0 or isinstance(v, list) and v):
+            print(f"warning (non-blocking): {m} = {v if not isinstance(v, list) else v[:10]}", file=sys.stderr)
+    return ("FAIL" if problems else "PASS"), problems
+
+
+def main(argv: list) -> int:
+    if len(argv) == 2 and argv[1] == "selftest":
+        return selftest()
+    if len(argv) != 2:
+        print(__doc__, file=sys.stderr)
+        return 2
+    try:
+        payload = json.loads(open(argv[1], encoding="utf-8").read())
+    except (OSError, ValueError) as e:
+        print(f"FAIL cannot read snapshot: {e}", file=sys.stderr)
+        return 1
+    verdict, problems = evaluate(payload)
+    for p in problems:
+        print(f"FAIL {p}", file=sys.stderr)
+    print(json.dumps({"ok": verdict != "FAIL", "gate": verdict, "problems": problems}))
+    return 1 if verdict == "FAIL" else 0
+
+
+def selftest() -> int:
+    th = {"task_count_delta_pct": 10.0, "gap_hours": 6.0, "drift_days": 1.0}
+
+    def q(**kw):
+        base = {"thresholds": th, "segments_negative": 0, "segments_absurd": 0,
+                "tasks_without_history": 0, "task_count_prev": 100,
+                "task_count_delta_pct": 0.0, "truncated_titles": 0,
+                "fixtures_excluded": 0, "unknown_statuses": []}
+        base.update(kw)
+        return {"ok": True, "task_count": 100, "quality": base}
+
+    cases = [
+        ("PASS", q()),
+        ("PASS", q(truncated_titles=8)),  # WARN-only
+        ("PASS", q(unknown_statuses=["Code Freeze"])),  # WARN-only (listed)
+        ("FAIL", q(task_count_delta_pct=15.0)),
+        ("FAIL", q(segments_negative=1)),
+        ("FAIL", q(segments_absurd=1)),
+        ("FAIL", q(tasks_without_history=2)),
+        ("FAIL", q(gap_hours=7.5)),  # N1
+        ("FAIL", q(drift_days=2.0)),  # N2
+        ("FAIL", q(a19_conflicts=1)),  # A19
+        ("FAIL", {"ok": True, "task_count": 100}),  # quality missing
+        ("FAIL", {"ok": False, "task_count": 100, "quality": q()["quality"]}),
+        ("SKIP", {"ok": True, "task_count": 0, "quality": q()["quality"]}),
+    ]
+    for want, payload in cases:
+        got, problems = evaluate(payload)
+        assert got == want, (want, got, problems, payload)
+    print(json.dumps({"ok": True, "mode": "selftest", "cases": len(cases)}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

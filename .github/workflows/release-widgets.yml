@@ -50,6 +50,7 @@ jobs:
           python3 -m py_compile backend/log-statistics-sync.py
           python3 backend/log-statistics-sync.py selftest
           python3 backend/release-widget-sync.py dry
+          python3 backend/quality-gate.py selftest
           test ! -f config/notion.json
           test ! -f config/gitlab.env
           test ! -f config/github.env
@@ -89,6 +90,11 @@ jobs:
         run: QA_WWW="" bash backend/publish-release-widgets.sh
       - name: assert no token in JSON
         run: python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+      # A27 quality gate (board #183): block a bad snapshot BEFORE Pages deploy.
+      # Hard: delta %, segments_negative/absurd, tasks_without_history, gap_hours (N1),
+      # drift_days (N2), a19_conflicts. WARN-only: truncated_titles etc.
+      - name: quality gate (A27)
+        run: python3 backend/quality-gate.py frontend/public/release-data.json
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
