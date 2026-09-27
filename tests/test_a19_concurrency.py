@@ -7,6 +7,7 @@ Deterministic — no network, no sleeps beyond the module's bounded retry.
 Run: python3 tests/test_a19_concurrency.py
 """
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -89,6 +90,52 @@ def test_race_then_merge_winner():
     assert fake.patch_calls == 1, fake.patch_calls  # unverified read never PATCHed
     assert len(seen) == 1 and seen[0]["last_edited_time"] == "2026-09-27T11:00:00.000Z", seen
     assert ljs.A19_CONFLICTS == 1, ljs.A19_CONFLICTS
+
+
+def test_webhook_build_merges_winner_close():
+    """Webhook writer (board #185): recompute from the fresh row PRESERVES the
+    concurrent winner's closed segment and appends the new transition."""
+    swe_spec = importlib.util.spec_from_file_location(
+        "swe", LJS_PATH.parent / "status-webhook-event.py"
+    )
+    swe = importlib.util.module_from_spec(swe_spec)
+    swe_spec.loader.exec_module(swe)
+    # fresh row (winner already closed Development→Ready For QA at 11:30)
+    fresh_props = {
+        "Collected Status": {"rich_text": [{"plain_text": "Ready For QA"}]},
+        "Status since": {"date": {"start": "2026-09-27T11:30:00.000Z"}},
+        "Segments": {"type": "rich_text", "rich_text": [{"plain_text": json.dumps(
+            [{"s": "Development", "from": "2026-09-27T10:00:00.000Z",
+              "to": "2026-09-27T11:30:00.000Z"}])}]},
+    }
+    fresh = {"last_edited_time": "2026-09-27T11:30:05.000Z", "properties": fresh_props}
+    # our stale baseline: nothing closed yet
+    baseline = {
+        "last_edited_time": "2026-09-27T10:00:05.000Z",
+        "properties": {
+            "Collected Status": {"rich_text": [{"plain_text": "Development"}]},
+            "Status since": {"date": {"start": "2026-09-27T10:00:00.000Z"}},
+        },
+    }
+    fake = FakeNotion({"p1": fresh})
+    ljs._req, ljs.A19_CONFLICTS = fake, 0
+
+    def build(row):
+        return swe.plan_event(
+            (row or {}).get("properties") or {}, "Testing", "2026-09-27T12:00:00.000Z"
+        )
+
+    code, info = ljs.patch_with_a19("p1", build, baseline)
+    assert code == 200, (code, info)
+    assert fake.patch_calls == 1, fake.patch_calls
+    assert ljs.A19_CONFLICTS == 1, ljs.A19_CONFLICTS  # baseline drift → recompute
+    written = fake.patch_props[0]
+    segs = ljs.segments_from_props(written)
+    names = [(x["s"], x["from"][11:16], x["to"][11:16]) for x in segs]
+    # winner's close is MERGED (kept) and our transition appended after it
+    assert ("Development", "10:00", "11:30") in names, names
+    assert names[-1][0] == "Ready For QA" and names[-1][2] == "12:00", names
+    assert ljs.rich_text_plain(written["Collected Status"]) == "Testing"
 
 
 def test_persistent_race_never_blind_writes():

@@ -204,15 +204,24 @@ def main() -> int:
         run_state_note("noop", ev.get("timestamp"))
         print(json.dumps({"ok": True, "noop": True, "status": status}))
         return 0
-    code, obj = LJS._req("PATCH", f"/v1/pages/{log_row['id']}", {"properties": patch})
+    # A19 (board #185): optimistic concurrent write — recompute the patch from
+    # the VERIFIED fresh row on every attempt (a concurrent collector close is
+    # merged, never clobbered); bounded retry, then fail-visible 409.
+    def build(row: dict) -> dict:
+        return plan_event((row or {}).get("properties") or {}, str(status), ev.get("timestamp"))
+
+    with LJS.a19_lock():
+        code, obj = LJS.patch_with_a19(log_row["id"], build, log_row)
     ok = code == 200
     run_state_note("processed" if ok else "error", ev.get("timestamp"))
+    conflict = code == 409 and str(obj).startswith("a19:")
     print(json.dumps({
         "ok": ok,
         "status": status,
         "patched": sorted(patch.keys()),
-        "error": None if ok else str(obj.get("message") or obj),
-    }))
+        "a19_conflict": conflict,
+        "error": None if ok else (obj if conflict else str((obj or {}).get("message") or obj)),
+    }, default=str))
     return 0 if ok else 1
 
 
