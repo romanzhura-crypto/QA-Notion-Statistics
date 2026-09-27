@@ -500,6 +500,14 @@ def attach_quality(payload: dict, prev_count: int | None = None, truncated: int 
         q.setdefault("task_count_prev", None)
         q.setdefault("task_count_delta_pct", None)
     q["unknown_statuses"] = list(payload.get("unknown_statuses") or [])
+    # A19 (board #185): collector conflict counter lives in the LOG run-state
+    # (written by log-statistics-sync.py before enrich in the same workspace).
+    try:
+        rs_path = Path(os.environ.get("LOG_STATS_RUN_STATE") or (ROOT / "config" / "log-statistics-run.json"))
+        rs = json.loads(rs_path.read_text(encoding="utf-8"))
+        q.setdefault("a19_conflicts", int((rs or {}).get("a19_conflicts") or 0))
+    except (OSError, ValueError, TypeError):
+        q.setdefault("a19_conflicts", 0)
     # N1 webhook observability (board #184.3): recomputed when the run-state is
     # readable here (same CI workspace); preserved from the snapshot pass when not.
     wh = webhook_from_run_state()
@@ -886,6 +894,7 @@ def selftest() -> dict:
         ],
     }
     q = attach_quality(qpayload, prev_count=100, truncated=3)["quality"]
+    assert q.get("a19_conflicts") == 0, q  # from LOG run-state (default 0)
     assert q["tasks_without_history"] == 1, q
     assert q["segments_negative"] == 2, q  # -1.0 days + to<from
     assert q["segments_absurd"] == 1, q

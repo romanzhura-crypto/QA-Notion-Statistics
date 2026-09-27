@@ -116,6 +116,7 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `drift_days` | number | N2 (board #184.1): worst per-task deficit `sum(segment days) − status column days` over all statuses; 0.0 when segments never exceed their columns (legacy accrual above columns is not drift) |
 | `drift_items` | number | Count of (row, status) pairs with deficit > `DRIFT_DAYS_MIN` (1.0 day) |
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
+| `a19_conflicts` | number | A19 (board #185): concurrent-close collisions of the last collector run (from `config/log-statistics-run.json` `a19_conflicts`; 0 when absent). Webhook-writer collisions surface via `webhook.events_error` |
 | `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0 |
 | `webhook` | object\|null | Webhook observability (board #177.2/#184.3): `events_total`, `events_processed`, `events_noop`, `events_skipped`, `events_error`, `last_event_at`, `gap_hours` (N1 — hours from the last delivered+applied event to the snapshot, `null` when unknown). `null`/absent when no run-state is available |
 
