@@ -30,6 +30,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -68,6 +69,12 @@ UNKNOWN_STATUSES: dict = {}
 # None = permissive (pure/selftest use: every status gets its number patch).
 WRITABLE_NUMBER_COLS: set | None = None
 _NOTED_SEGMENTS: set = set()
+
+# A19 optimistic concurrency (board #182/#185), shared by both LOG writers:
+# conditional update on last_edited_time + re-read + recompute + bounded retry.
+A19_RETRIES = int(os.environ.get("LOG_STATS_A19_RETRIES") or "2")
+A19_LOCK = Path(os.environ.get("LOG_STATS_LOCK") or (ROOT / "config" / ".log-write.lock"))
+A19_CONFLICTS = 0
 
 
 def _cfg():
@@ -133,6 +140,80 @@ def load_run_state() -> dict:
 def save_run_state(data: dict) -> None:
     RUN_STATE.parent.mkdir(parents=True, exist_ok=True)
     RUN_STATE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+@contextmanager
+def a19_lock():
+    """Local flock fallback (A19): serialize LOG writers sharing one machine.
+
+    Covers the verify→PATCH critical section when the collector and the webhook
+    handler run on the same host. Unavailable FS → degraded to optimistic
+    re-read/retry alone (never raises)."""
+    fh = None
+    try:
+        import fcntl
+
+        A19_LOCK.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(A19_LOCK, "a+")
+        fcntl.flock(fh, fcntl.LOCK_EX)
+    except OSError:
+        fh = None
+    try:
+        yield fh
+    finally:
+        if fh is not None:
+            try:
+                import fcntl
+
+                fcntl.flock(fh, fcntl.LOCK_UN)
+            except OSError:
+                pass
+            fh.close()
+
+
+def patch_with_a19(page_id: str, build_props, baseline_row: dict | None) -> tuple[int, object]:
+    """Optimistic-concurrent PATCH (A19) — shared by collector and webhook writer.
+
+    build_props(row) must RECOMPUTE the property patch against the given LOG row,
+    so a concurrent winner's segments/numbers are merged, never overwritten.
+    Conditional on `last_edited_time`: before every PATCH the row is re-read; on
+    drift the attempt is retried with a fresh recompute (bounded by A19_RETRIES),
+    then fail-visible 409 — never a silent skip and never a blind write.
+    Notion REST has no server-side CAS: the guard is verify→write with a
+    one-hop GET→PATCH window (plus a19_lock locally)."""
+    global A19_CONFLICTS
+    conflicts = 0
+    expected = (baseline_row or {}).get("last_edited_time")
+    last_code, last_info = 0, "a19: no attempt"
+    for _ in range(A19_RETRIES + 1):
+        code_r, fresh = _req("GET", f"/v1/pages/{page_id}")
+        if code_r != 200:
+            A19_CONFLICTS += conflicts
+            return code_r, f"a19: re-read failed ({(fresh or {}).get('code')})"
+        fresh_edited = fresh.get("last_edited_time")
+        if expected is not None and fresh_edited != expected:
+            # Lost the race with a concurrent writer: recompute from the fresh
+            # row on the next attempt — the winner's close is preserved.
+            conflicts += 1
+            expected = fresh_edited
+            continue
+        expected = fresh_edited
+        props = build_props(fresh)
+        if not props:
+            A19_CONFLICTS += conflicts
+            return 200, "noop"
+        code, obj = _req("PATCH", f"/v1/pages/{page_id}", {"properties": props})
+        if code == 200:
+            A19_CONFLICTS += conflicts
+            return 200, obj.get("id")
+        last_code, last_info = code, f"{obj.get('code')}: {obj.get('message')}"
+        if code not in (409, 412, 429) and code < 500:
+            break
+        time.sleep(0.5)
+    A19_CONFLICTS += conflicts
+    if last_code:
+        return last_code, last_info
+    return 409, f"a19: row changed under writer {conflicts}x — skip to protect concurrent close"
 
 
 def next_run_number(github_run_number: int | None) -> int:
@@ -583,18 +664,28 @@ def needs_update(task: dict, log_row: dict, now: datetime | None = None) -> bool
 
 
 def upsert(task: dict, title: str | None, page_id: str | None, now: datetime | None = None, log_row: dict | None = None) -> tuple[str, int, str | None]:
-    props = page_properties(task, title, now=now, log_row=log_row)
-    if page_id:
-        code, obj = _req("PATCH", f"/v1/pages/{page_id}", {"properties": props})
-        return "updated", code, obj.get("id") if code == 200 else f"{obj.get('code')}: {obj.get('message')}"
-    body = {
-        "parent": {"type": "data_source_id", "data_source_id": LOG_DSID},
-        "properties": props,
-    }
-    if "Name" not in props:
-        props["Name"] = title_prop(title or "Sprit")
-    code, obj = _req("POST", "/v1/pages", body)
-    return "created", code, obj.get("id") if code == 200 else f"{obj.get('code')}: {obj.get('message')}"
+    if not page_id:
+        props = page_properties(task, title, now=now, log_row=None)
+        body = {
+            "parent": {"type": "data_source_id", "data_source_id": LOG_DSID},
+            "properties": props,
+        }
+        if "Name" not in props:
+            props["Name"] = title_prop(title or "Sprit")
+        code, obj = _req("POST", "/v1/pages", body)
+        return "created", code, obj.get("id") if code == 200 else f"{obj.get('code')}: {obj.get('message')}"
+
+    def build(row: dict) -> dict:
+        # A19: always recompute against the VERIFIED row — a concurrent close
+        # (webhook winner) is merged into the patch, never clobbered.
+        return page_properties(task, title, now=now, log_row=row)
+
+    with a19_lock():
+        code, info = patch_with_a19(page_id, build, log_row)
+    if code == 200:
+        return "updated", code, info if isinstance(info, str) else None
+    action = "conflict" if code == 409 and str(info).startswith("a19:") else "updated"
+    return action, code, str(info)
 
 
 def archive_page(page_id: str) -> tuple[int, str]:
@@ -710,7 +801,9 @@ def main():
                 updated += 1
             mapping[task["id"]] = {"id": info, "properties": {}}
         else:
-            record_err({"id": task.get("id"), "n": task.get("n")}, code, info)
+            # A19 conflict is fail-visible (counts as failed + a19_conflicts),
+            # never a silent skip.
+            record_err({"id": task.get("id"), "n": task.get("n"), "kind": action}, code, info)
         write_sleep()
         if (i + 1) % 50 == 0:
             print(json.dumps({
@@ -740,6 +833,7 @@ def main():
         "last_archived_dup": archived_dup,
         "last_archived_unlinked": archived_unlinked,
         "last_unknown_statuses": sorted(UNKNOWN_STATUSES),
+        "a19_conflicts": A19_CONFLICTS,
         "mode": "full" if full else ("skip_existing" if skip_existing else "incremental"),
         "snapshot_generated_at": generated_at,
     })
@@ -765,6 +859,7 @@ def main():
         "status_dwell": "collector_closed_segments",
         "unknown_statuses": sorted(UNKNOWN_STATUSES),
         "unknown_status_days": {k: UNKNOWN_STATUSES[k] for k in sorted(UNKNOWN_STATUSES)},
+        "a19_conflicts": A19_CONFLICTS,
     }
     if UNKNOWN_STATUSES:
         print(
