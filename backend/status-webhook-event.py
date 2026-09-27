@@ -36,6 +36,51 @@ def _ljs():
 
 LJS = _ljs()
 
+# Webhook run-state (board #184.2): durable counters + last event timestamp.
+# GH Actions FS is ephemeral — CI restores/saves this file via actions/cache
+# (board #184.4); on QA VM it just lives on disk. Additive observability for
+# quality.webhook (N1 gap detection); never contains tokens.
+WEBHOOK_RUN_STATE_DEFAULT = HERE.parent / "config" / "status-webhook-run.json"
+
+
+def _state_path() -> Path:
+    # env resolved per call: tests may redirect; CI restores/saves via actions/cache
+    return Path(os.environ.get("WEBHOOK_RUN_STATE") or WEBHOOK_RUN_STATE_DEFAULT)
+
+
+def run_state_read() -> dict:
+    try:
+        data = json.loads(_state_path().read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def run_state_note(outcome: str, event_ts=None) -> dict:
+    """Merge one handled event into the run-state. outcome: processed|noop|skipped|error.
+
+    event_ts = the Notion event timestamp (exact), not handler wall-clock:
+    gap_hours must measure webhook DELIVERY lag from the source of truth.
+    Always returns the fresh state (for logging); never raises."""
+    state = run_state_read()
+    state["events_total"] = int(state.get("events_total") or 0) + 1
+    state[f"events_{outcome}"] = int(state.get(f"events_{outcome}") or 0) + 1
+    ts = LJS.iso_z(LJS.parse_ts(event_ts)) if event_ts else None
+    if ts and outcome in ("processed", "noop"):
+        # noop still proves delivery alive — only errors do not refresh the gap
+        prev = state.get("last_event_at")
+        if not prev or ts > str(prev):
+            state["last_event_at"] = ts
+    try:
+        target = _state_path()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(target.name + ".tmp")
+        tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(target)  # atomic: readers see full JSON only
+    except OSError:
+        pass  # degraded: metrics lost, event handling itself must not fail
+    return state
+
 
 def _status_name(prop) -> str | None:
     """Status/select name from a Notion property (keep in sync with
@@ -130,6 +175,7 @@ def main() -> int:
     entity_id = str(ev.get("entity_id") or "")
     entity_type = str(ev.get("entity_type") or "page")
     if not entity_id or entity_type != "page":
+        run_state_note("skipped", ev.get("timestamp"))
         print(json.dumps({"ok": True, "skipped": "not a page event"}))
         return 0
 
@@ -138,11 +184,13 @@ def main() -> int:
     mapping, _empties, _dups = LJS.index_log_rows(rows)
     log_row = mapping.get(entity_id)
     if not log_row:
+        run_state_note("skipped", ev.get("timestamp"))
         print(json.dumps({"ok": True, "skipped": "no LOG row for page"}))
         return 0
 
     code, page = LJS._req("GET", f"/v1/pages/{entity_id}")
     if code != 200:
+        run_state_note("error", ev.get("timestamp"))
         print(json.dumps({"ok": False, "error": f"page fetch {code}"}))
         return 1
     props = page.get("properties") or {}
@@ -153,10 +201,12 @@ def main() -> int:
     )
     patch = plan_event(log_row.get("properties") or {}, str(status), ev.get("timestamp"))
     if not patch:
+        run_state_note("noop", ev.get("timestamp"))
         print(json.dumps({"ok": True, "noop": True, "status": status}))
         return 0
     code, obj = LJS._req("PATCH", f"/v1/pages/{log_row['id']}", {"properties": patch})
     ok = code == 200
+    run_state_note("processed" if ok else "error", ev.get("timestamp"))
     print(json.dumps({
         "ok": ok,
         "status": status,
@@ -226,6 +276,40 @@ def selftest() -> None:
     msegs = LJS.segments_from_props(mono)
     assert msegs[-1]["from"] == "2026-09-25T11:58:57.000Z", msegs  # clamped to previous to
     assert msegs[-1]["to"].startswith("2026-09-25T12:00"), msegs
+
+    # 9) webhook run-state (board #184.2): counters + last_event_at monotonic,
+    # atomic write, never raises; errors do not refresh the gap clock.
+    import os, tempfile
+    old_state = os.environ.get("WEBHOOK_RUN_STATE")
+    with tempfile.TemporaryDirectory() as td:
+        os.environ["WEBHOOK_RUN_STATE"] = str(Path(td) / "run.json")
+        try:
+            s = run_state_note("processed", ts1)
+            assert s["events_total"] == 1 and s["events_processed"] == 1, s
+            assert s["last_event_at"] == ts1, s
+            # duplicate/repeat with older ts must NOT move last_event_at back
+            s = run_state_note("noop", "2026-09-25T09:30:00.000Z")
+            assert s["events_noop"] == 1 and s["last_event_at"] == ts1, s
+            # newer event moves the clock forward
+            s = run_state_note("processed", ts2)
+            assert s["last_event_at"] == ts2 and s["events_total"] == 3, s
+            # error counts but does NOT refresh the gap clock (N1 semantics)
+            s = run_state_note("error", "2026-09-26T10:00:00.000Z")
+            assert s["events_error"] == 1 and s["last_event_at"] == ts2, s
+            s2 = run_state_read()  # durable across reads
+            assert s2 == s, (s2, s)
+            # skipped events count but never move the clock (nothing was applied)
+            s = run_state_note("skipped", "2026-09-26T11:00:00.000Z")
+            assert s["events_skipped"] == 1 and s["last_event_at"] == ts2, s
+            # corrupt/unreadable file degrades to fresh state, never raises
+            Path(os.environ["WEBHOOK_RUN_STATE"]).write_text("not json", encoding="utf-8")
+            s = run_state_note("processed", ts1)
+            assert s["events_total"] == 1, s  # restart from zero after corruption
+        finally:
+            if old_state is None:
+                os.environ.pop("WEBHOOK_RUN_STATE", None)
+            else:
+                os.environ["WEBHOOK_RUN_STATE"] = old_state
     print(json.dumps({"ok": True, "mode": "selftest"}))
 
 
