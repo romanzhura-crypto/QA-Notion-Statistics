@@ -36,6 +36,17 @@ log = _load("log_statistics_sync", HERE / "log-statistics-sync.py")
 CHECKS = 0
 
 
+def seg_sum(items) -> dict:
+    """Total days per status across history items. Since board #165 every
+    interval is its own item, so totals must be summed (not last-wins)."""
+    out = {}
+    for h in items or []:
+        if not isinstance(h, dict):
+            continue
+        out[h.get("s")] = round(out.get(h.get("s"), 0.0) + (h.get("days") or 0.0), 6)
+    return out
+
+
 def check(cond, msg: str) -> None:
     global CHECKS
     CHECKS += 1
@@ -59,7 +70,7 @@ def test_read_side() -> None:
     }
     unknown: set = set()
     hist = rel.history_from_log_row(props, now=now, unknown=unknown)
-    seg = {h["s"]: h["days"] for h in hist}
+    seg = seg_sum(hist)
     check(seg.get("New") == 1.0, "known status dwell kept")
     check(seg.get("Blocked") == 4.5, f"unknown status time kept in history (2.5 closed + 2.0 open): {seg}")
     check("Blocked" in unknown, f"unknown collected status surfaced: {sorted(unknown)}")
@@ -72,7 +83,7 @@ def test_read_side() -> None:
     }
     u2: set = set()
     hist2 = rel.history_from_log_row(open_only, now=now, unknown=u2)
-    check({h["s"]: h["days"] for h in hist2}.get("QA Hold") == 1.0,
+    check(seg_sum(hist2).get("QA Hold") == 1.0,
           "open interval of unknown status kept (1.0d)")
     check(u2 == {"QA Hold"}, "unknown name surfaced without number column")
 
@@ -102,7 +113,7 @@ def test_read_side() -> None:
     check(payload["unknown_statuses"] == ["Blocked", "Code Freeze"],
           f"unknown statuses listed (LOG cols + current statuses): {payload['unknown_statuses']}")
     t2 = next(t for t in payload["tasks"] if t["id"].endswith("002"))
-    t2seg = {h["s"]: h["days"] for h in t2.get("history") or []}
+    t2seg = seg_sum(t2.get("history"))
     check(t2seg.get("Blocked", 0.0) > 2.5,
           f"task history keeps unknown status time (closed 2.5 + open interval): {t2seg}")
     check("unknown_statuses" in err.getvalue().lower() or "LOG_STATUS_COLS" in err.getvalue(),

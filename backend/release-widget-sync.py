@@ -50,6 +50,14 @@ STATUS_DWELL_NOTE = (
 # synthetic snapshot placeholder for a missing Status — not a Notion status.
 KNOWN_STATUSES = set(LOG_STATUS_COLS) | {"Done", "Unknown"}
 
+# A27 quality metrics (board #177.1/#177.3): computed into payload["quality"].
+# Thresholds below are the inputs for the GH Actions quality gate.
+QUALITY_DELTA_PCT_MAX = 10.0  # task_count drift vs previous snapshot, ±%
+QUALITY_GAP_HOURS_MAX = 6.0  # no webhook events this long → delivery loss suspect (N1)
+SEGMENT_ABSURD_DAYS = 366.0  # a dwell segment longer than this = absurd data
+DRIFT_DAYS_MIN = 1.0  # collector columns vs Segments disagreement tolerance (N2)
+TITLE_MAX = 140  # tasks[].n truncation length
+
 
 def resolve_dsid(cfg: dict | None = None) -> str:
     env = (os.environ.get("NOTION_DATA_SOURCE_ID") or "").strip()
@@ -346,6 +354,92 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
     return payload
 
 
+def quality_from_tasks(payload: dict) -> dict:
+    """Live quality metrics computed from tasks[].history (A27, additive).
+
+    segments_negative: items with days < 0, to < from or unparseable duration.
+    segments_absurd: closed intervals longer than SEGMENT_ABSURD_DAYS.
+    tasks_without_history: tasks[] items with no dwell history at all.
+    """
+    segs_neg = 0
+    segs_abs = 0
+    without = 0
+    for task in payload.get("tasks") or []:
+        hist = task.get("history")
+        if not hist:
+            without += 1
+            continue
+        for h in hist:
+            if not isinstance(h, dict) or h.get("s") == "Done":
+                continue  # Done diamond carries no duration
+            days = h.get("days")
+            if days is not None:
+                try:
+                    fdays = float(days)
+                except (TypeError, ValueError):
+                    segs_neg += 1
+                    continue
+                if fdays < 0:
+                    segs_neg += 1
+                elif fdays > SEGMENT_ABSURD_DAYS:
+                    segs_abs += 1
+            a = parse_ts(h.get("from"))
+            b = parse_ts(h.get("to"))
+            if h.get("from") and h.get("to") and a and b and b < a:
+                segs_neg += 1
+    return {
+        "tasks_without_history": without,
+        "segments_negative": segs_neg,
+        "segments_absurd": segs_abs,
+    }
+
+
+def _prev_task_count() -> int | None:
+    """task_count of the previously published snapshot (for delta)."""
+    try:
+        data = json.loads(WS_JSON.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("quality") is not None:
+            prev = data.get("task_count")
+            return int(prev) if isinstance(prev, (int, float)) else None
+        if isinstance(data, dict):
+            prev = data.get("task_count")
+            return int(prev) if isinstance(prev, (int, float)) else None
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def attach_quality(payload: dict, prev_count: int | None = None, truncated: int | None = None) -> dict:
+    """payload["quality"] (A27, strictly additive). Fields that cannot be
+    recomputed at enrich time (truncated_titles, delta) are preserved as-is."""
+    q = dict(payload.get("quality") or {})
+    q.update(quality_from_tasks(payload))
+    if truncated is not None:
+        q["truncated_titles"] = int(truncated)
+    else:
+        q.setdefault("truncated_titles", 0)
+    q["fixtures_excluded"] = int(payload.get("fixtures_excluded") or 0)
+    if prev_count is not None:
+        q["task_count_prev"] = prev_count
+        count = int(payload.get("task_count") or 0)
+        q["task_count_delta_pct"] = (
+            round((count - prev_count) * 100.0 / prev_count, 2) if prev_count else None
+        )
+    else:
+        q.setdefault("task_count_prev", None)
+        q.setdefault("task_count_delta_pct", None)
+    q["unknown_statuses"] = list(payload.get("unknown_statuses") or [])
+    q["thresholds"] = {
+        "task_count_delta_pct": QUALITY_DELTA_PCT_MAX,
+        "gap_hours": QUALITY_GAP_HOURS_MAX,
+        "segments_negative": 0,
+        "segments_absurd": 0,
+        "drift_days": DRIFT_DAYS_MIN,
+    }
+    payload["quality"] = q
+    return payload
+
+
 def _atomic_write(path: Path, text: str) -> None:
     """tmp+rename: readers never see a truncated/partial JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -368,6 +462,8 @@ def enrich_existing() -> dict:
     """Dry-merge LOG dwell onto the current Sprint JSON without re-querying the Sprint DS."""
     payload = json.loads(WS_JSON.read_text(encoding="utf-8"))
     payload = enrich_with_log_statistics(payload)
+    # quality: live fields recomputed; delta/truncated preserved from snapshot().
+    payload = attach_quality(payload)
     payload["generated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return write_payload(payload)
 
@@ -475,6 +571,8 @@ def snapshot() -> dict:
     tasks = []
     from_tasks = set()
     fixtures_excluded = 0
+    truncated_titles = 0
+    prev_count = _prev_task_count()
     for row in rows:
         if is_fixture_row(row):
             fixtures_excluded += 1
@@ -494,6 +592,8 @@ def snapshot() -> dict:
             except Exception:
                 spent_h = None
         title = "".join(x.get("plain_text", "") for x in (p.get("Documentation") or {}).get("title") or [])
+        if len(title) > TITLE_MAX:
+            truncated_titles += 1
         status = ((p.get("Status") or {}).get("status") or {}).get("name") or "Unknown"
         uid = (p.get("ID") or {}).get("unique_id") or {}
         uid_num = uid.get("number")
@@ -531,6 +631,7 @@ def snapshot() -> dict:
         "tasks": tasks,
     }
     payload = enrich_with_log_statistics(payload)
+    payload = attach_quality(payload, prev_count=prev_count, truncated=truncated_titles)
     return write_payload(payload)
 
 
@@ -689,6 +790,38 @@ def selftest() -> dict:
     # boundaries (it is always its own item)
     legacy_items = [h for h in hist if "from" not in h and h.get("s") != "Done"]
     assert legacy_items and all("to" not in h for h in legacy_items), hist
+
+    # A27 quality block (board #177.1): live metrics + delta + preserved fields
+    qpayload = {
+        "task_count": 110,
+        "fixtures_excluded": 2,
+        "unknown_statuses": ["Blocked"],
+        "tasks": [
+            {"id": "x1", "history": [{"s": "New", "days": -1.0}]},              # negative
+            {"id": "x2", "history": [{"s": "New", "days": 400.0}]},             # absurd
+            {"id": "x3", "history": [{"s": "New", "days": 1.0,
+                                       "from": "2026-09-22T00:00:00Z",
+                                       "to": "2026-09-21T00:00:00Z"}]},          # to < from
+            {"id": "x4", "history": [{"s": "Done", "at": "2026-09-21T00:00:00Z"}]},  # diamond, not counted
+            {"id": "x5"},                                                        # no history
+            {"id": "x6", "history": [{"s": "New", "days": 1.0}]},              # clean
+        ],
+    }
+    q = attach_quality(qpayload, prev_count=100, truncated=3)["quality"]
+    assert q["tasks_without_history"] == 1, q
+    assert q["segments_negative"] == 2, q  # -1.0 days + to<from
+    assert q["segments_absurd"] == 1, q
+    assert q["truncated_titles"] == 3, q
+    assert q["task_count_prev"] == 100 and q["task_count_delta_pct"] == 10.0, q
+    assert q["fixtures_excluded"] == 2, q
+    assert q["unknown_statuses"] == ["Blocked"], q
+    assert q["thresholds"]["task_count_delta_pct"] == QUALITY_DELTA_PCT_MAX, q
+    # enrich pass preserves snapshot-only fields (delta/truncated)
+    q2 = attach_quality(qpayload)["quality"]
+    assert q2["task_count_prev"] == 100 and q2["truncated_titles"] == 3, q2
+    # first snapshot ever (no previous file): delta fields are null, not fake
+    q3 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
+    assert q3["task_count_prev"] is None and q3["task_count_delta_pct"] is None, q3
     return {"ok": True, "mode": "selftest"}
 
 

@@ -98,3 +98,32 @@ If JSON is absent, Frontend must not look like an empty sprint. Show the Russian
 
 - Statuses outside the hardcoded `LOG_STATUS_COLS` / `STATUS_COLS` lists (+ `Done`) are **never silently lost**. Read side collects dwell columns and the open interval dynamically from LOG row data; write side accounts closed elapsed for them in `unknown_statuses` and writes their own number column when LOG has one (schema check — never PATCHes a missing column).
 - `unknown_statuses`: sorted list of unknown status names (LOG number columns, `Collected Status`, task current status). Warning is printed to stderr when non-empty. `Done` and the synthetic `Unknown` placeholder (missing Status) are not reported.
+
+## Board #177 (phase 3, A27): `quality` block (additive)
+
+Top-level `quality` object — snapshot self-diagnostics for the GH Actions quality
+gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `task_count_prev` | number\|null | `task_count` of the previously published snapshot; `null` on first ever snapshot |
+| `task_count_delta_pct` | number\|null | Delta vs previous snapshot, ±% (round 2); `null` when no previous |
+| `fixtures_excluded` | number | Copy of top-level `fixtures_excluded` |
+| `tasks_without_history` | number | `tasks[]` items with no dwell `history` at all |
+| `segments_negative` | number | History items with `days < 0`, `to < from` or unparseable duration (Done diamond excluded) |
+| `segments_absurd` | number | Closed dwell intervals longer than 366 days (`SEGMENT_ABSURD_DAYS`) |
+| `truncated_titles` | number | Titles longer than 140 chars (truncated into `tasks[].n`) |
+| `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
+| `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0 |
+| `webhook` | object\|null | Webhook observability (board #177.2): `events_processed`, `events_noop_stale`, `events_dupes`, `last_event_at`, `gap_hours` (N1 — hours since last event, `null` when unknown), `collector_vs_webhook_drift` (N2). `null`/absent when no run-state is available |
+
+Rules:
+
+- The quality gate (GH Actions step, board #177.3) FAILs the run when a metric
+  exceeds `thresholds` — a red run IS the alert (no new runtime services on QA).
+- Fields that cannot be recomputed at `enrich` time (`task_count_prev`,
+  `task_count_delta_pct`, `truncated_titles`) are preserved from the snapshot
+  pass, not zeroed by re-enrich.
+- `collector_vs_webhook_drift` (N2): disagreement between LOG number-column
+  aggregates and `Segments` coverage (webhook-written intervals) per LOG row;
+  measured in days (`max`/`rows_over`) with tolerance `DRIFT_DAYS_MIN`.
