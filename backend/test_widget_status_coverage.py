@@ -382,12 +382,111 @@ def test_journal() -> None:
         shutil.rmtree(jdir, ignore_errors=True)
 
 
+def test_resume_main() -> None:
+    print("log-statistics-sync main(): checkpoint resume (board #225)")
+    d = Path("/tmp") / f"a172-resume-{id(object())}"
+    d.mkdir(parents=True, exist_ok=True)
+    tasks = [{"id": "T1", "n": "a"}, {"id": "T2", "n": "b"}, {"id": "T3", "n": "c"}]
+    saved = {k: getattr(log, k) for k in ("RUN_STATE", "JOURNAL", "WRITE_SLEEP_S")}
+    saved_env = {k: log.os.environ.get(k) for k in ("LOG_STATS_RUN", "LOG_STATS_JOB")}
+    orig = {k: getattr(log, k) for k in (
+        "load_tasks", "query_all", "log_number_cols", "index_log_rows",
+        "upsert", "needs_update", "archive_page",
+    )}
+    calls = []
+    try:
+        log.RUN_STATE = d / "run-state.json"
+        log.JOURNAL = d / "journal.jsonl"
+        log.WRITE_SLEEP_S = 0.0
+        log.os.environ["LOG_STATS_RUN"] = "1"
+        log.os.environ["LOG_STATS_JOB"] = "selftest"
+        log.load_tasks = lambda: (list(tasks), "2026-09-28T00:00:00Z", 3)
+        log.query_all = lambda dsid: []
+        log.log_number_cols = lambda: set()
+        log.index_log_rows = lambda rows: ({}, [], [])
+        log.needs_update = lambda *a, **k: True
+        log.archive_page = lambda pid: (200, "archived")
+
+        def upsert_crash(task, title, page_id, now=None, log_row=None):
+            calls.append(task["id"])
+            if len(calls) >= 3:
+                raise RuntimeError("simulated crash mid-batch")
+            return "created", 200, "P-" + task["id"]
+
+        log.upsert = upsert_crash
+        crashed = False
+        with contextlib.redirect_stdout(io.StringIO()):
+            try:
+                log.main()
+            except RuntimeError:
+                crashed = True
+        check(crashed, "A17.2: crash mid-batch propagates (no journal end -> next run resumes)")
+        jlines = [json.loads(x) for x in (d / "journal.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()]
+        dones = [r for r in jlines if r.get("type") == "done"]
+        check(
+            len(dones) == 2 and {r["id"] for r in dones} == {"T1", "T2"},
+            f"A17.2: journal holds 2 done after crash at 3rd of 3: {[(r.get('id'), r.get('result')) for r in dones]}",
+        )
+
+        def upsert_count(task, title, page_id, now=None, log_row=None):
+            calls.append(task["id"])
+            return "created", 200, "P-" + task["id"]
+
+        log.upsert = upsert_count
+        calls.clear()
+        buf2 = io.StringIO()
+        with contextlib.redirect_stdout(buf2):
+            log.main()
+        check(calls == ["T3"], f"A17.2: resume upserts exactly the remaining task once: {calls}")
+        out = json.loads(buf2.getvalue().strip().splitlines()[-1])
+        check(
+            out.get("resumed") is True and out.get("resume_skipped") == 2 and out.get("created") == 1,
+            f"A17.2: output carries resumed/resume_skipped: resumed={out.get('resumed')} skip={out.get('resume_skipped')} created={out.get('created')}",
+        )
+        rs = json.loads((d / "run-state.json").read_text(encoding="utf-8"))
+        check(
+            rs.get("resumed") is True and rs.get("resume_skipped") == 2,
+            "A17.2: run-state carries resumed/resume_skipped",
+        )
+
+        # b) rerun after a COMPLETED run is idempotent: journal zeroed -> fresh run,
+        #    needs_update False -> all skipped, zero repeated writes.
+        log.index_log_rows = lambda rows: (
+            {t["id"]: {"id": "P-" + t["id"], "properties": {}} for t in tasks}, [], [],
+        )
+        log.needs_update = lambda *a, **k: False
+        calls.clear()
+        buf3 = io.StringIO()
+        with contextlib.redirect_stdout(buf3):
+            log.main()
+        out3 = json.loads(buf3.getvalue().strip().splitlines()[-1])
+        check(
+            calls == [] and out3.get("skipped") == 3 and out3.get("resumed") is False and out3.get("resume_skipped") == 0,
+            f"A17.2: rerun after completed run is idempotent (0 writes): calls={calls} "
+            f"skipped={out3.get('skipped')} resumed={out3.get('resumed')} resume_skipped={out3.get('resume_skipped')}",
+        )
+    finally:
+        for k, v in orig.items():
+            setattr(log, k, v)
+        for k, v in saved.items():
+            setattr(log, k, v)
+        for k, v in saved_env.items():
+            if v is None:
+                log.os.environ.pop(k, None)
+            else:
+                log.os.environ[k] = v
+        for p in d.iterdir():
+            p.unlink()
+        d.rmdir()
+
+
 def main() -> int:
     test_read_side()
     test_write_side()
     test_timestamps()
     test_a10_titles_and_diff()
     test_journal()
+    test_resume_main()
     print(json.dumps({"ok": True, "result": "PASS", "checks": CHECKS}, ensure_ascii=False))
     print("PASS")
     return 0

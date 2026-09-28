@@ -827,7 +827,11 @@ def main():
     rows = query_all(LOG_DSID)
     log_number_cols()  # schema check: only existing LOG number columns get PATCHed
     mapping, empties, dups = index_log_rows(rows)
-    created = updated = failed = skipped = 0
+    created = updated = failed = skipped = resume_skipped = 0
+    # A17.2 (board #225): checkpoint resume — a run killed mid-batch (SIGTERM /
+    # exception) leaves no "end" line, so the next main() resumes this run and
+    # skips every task already journaled as processed (attempted = done).
+    jrun = journal_begin()
     archived_empty = archived_dup = archived_unlinked = 0
     errors = []
     reuse_empty = list(empties)
@@ -864,11 +868,15 @@ def main():
         write_sleep()
 
     for i, task in enumerate(tasks):
+        if task["id"] in jrun["done"]:
+            resume_skipped += 1
+            continue
         log_row = mapping.get(task["id"])
         page_id = log_row.get("id") if log_row else None
         was_empty = False
         if page_id and skip_existing and not full:
             skipped += 1
+            journal_done(jrun, task["id"], "skipped")
             if (i + 1) % 50 == 0:
                 print(json.dumps({
                     "progress": i + 1, "created": created, "updated": updated,
@@ -877,6 +885,7 @@ def main():
             continue
         if page_id and not full and not needs_update(task, log_row, now=now_utc):
             skipped += 1
+            journal_done(jrun, task["id"], "skipped")
             if (i + 1) % 50 == 0:
                 print(json.dumps({
                     "progress": i + 1, "created": created, "updated": updated,
@@ -894,10 +903,12 @@ def main():
             else:
                 updated += 1
             mapping[task["id"]] = {"id": info, "properties": {}}
+            journal_done(jrun, task["id"], action)
         else:
             # A19 conflict is fail-visible (counts as failed + a19_conflicts),
             # never a silent skip.
             record_err({"id": task.get("id"), "n": task.get("n"), "kind": action}, code, info)
+            journal_done(jrun, task["id"], "conflict" if action == "conflict" else "failed")
         write_sleep()
         if (i + 1) % 50 == 0:
             print(json.dumps({
@@ -913,6 +924,10 @@ def main():
             record_err({"id": pid, "kind": "empty"}, code, msg)
         write_sleep()
 
+    journal_end(jrun, "ok" if failed == 0 else "errors", counts={
+        "created": created, "updated": updated, "skipped": skipped, "failed": failed,
+        "resume_skipped": resume_skipped,
+    })
     st = load_run_state()
     st.update({
         "last_run": run_no,
@@ -930,6 +945,8 @@ def main():
         "a19_conflicts": A19_CONFLICTS,
         "mode": "full" if full else ("skip_existing" if skip_existing else "incremental"),
         "snapshot_generated_at": generated_at,
+        "resumed": jrun["resumed"],
+        "resume_skipped": resume_skipped,
     })
     save_run_state(st)
     out = {
@@ -944,6 +961,8 @@ def main():
         "created": created,
         "updated": updated,
         "skipped": skipped,
+        "resumed": jrun["resumed"],
+        "resume_skipped": resume_skipped,
         "archived_empty": archived_empty,
         "archived_dup": archived_dup,
         "archived_unlinked": archived_unlinked,
