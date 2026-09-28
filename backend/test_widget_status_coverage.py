@@ -341,11 +341,53 @@ console.log(JSON.stringify({ pair: pair.addedTasks, swap: swap.addedTasks, legac
     check(ok, msg)
 
 
+def test_journal() -> None:
+    """A17 (board #202/#224) — checkpoint journal: resume / stale / end."""
+    import shutil
+    import tempfile
+    import time as _time
+
+    jdir = Path(tempfile.mkdtemp(prefix="journal-cov-"))
+    try:
+        # 1) crash without end -> resume restores done ids
+        jp = jdir / "j.jsonl"
+        j1 = log.journal_begin(jp)
+        log.journal_done(j1, "aaa", "created")
+        log.journal_done(j1, "bbb", {"page": "p1"})
+        j2 = log.journal_begin(jp)
+        check(
+            j2["resumed"] is True and j2["run_id"] == j1["run_id"] and j2["done"] == {"aaa", "bbb"},
+            "A17 journal: begin→done→(crash, no end)→begin = resume with done ids restored",
+        )
+        # 2) abandoned stale run (started_at 25h ago) is not resumed
+        old = _time.time() - 25 * 3600
+        jp2 = jdir / "old.jsonl"
+        log._journal_append(jp2, {"type": "run", "t": old, "run_id": "oldrun000001", "started_at": old})
+        log._journal_append(jp2, {"type": "done", "t": old, "run_id": "oldrun000001", "id": "zzz", "result": None})
+        j3 = log.journal_begin(jp2)
+        check(
+            j3["resumed"] is False and j3["run_id"] != "oldrun000001" and j3["done"] == set(),
+            "A17 journal: stale abandoned run (started_at 25h ago) NOT resumed — fresh run_id",
+        )
+        # 3) after end the journal is zeroed -> next begin is a fresh run
+        log.journal_end(j2, "ok", counts={"done": 2})
+        j4 = log.journal_begin(jp)
+        check(
+            jp.read_text(encoding="utf-8").startswith("{\"type\": \"run\"")
+            and j4["resumed"] is False
+            and j4["run_id"] != j2["run_id"],
+            "A17 journal: journal_end zeroes the journal, next begin = fresh run",
+        )
+    finally:
+        shutil.rmtree(jdir, ignore_errors=True)
+
+
 def main() -> int:
     test_read_side()
     test_write_side()
     test_timestamps()
     test_a10_titles_and_diff()
+    test_journal()
     print(json.dumps({"ok": True, "result": "PASS", "checks": CHECKS}, ensure_ascii=False))
     print("PASS")
     return 0

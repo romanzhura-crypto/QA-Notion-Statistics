@@ -29,6 +29,7 @@ import re
 import sys
 import time
 import urllib.error
+import uuid
 import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -39,6 +40,7 @@ ROOT = Path(os.environ.get("ROOT") or "/home/chuck/.openclaw/workspace")
 CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json"))
 SNAPSHOT = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "widgets" / "release-data.json"))
 RUN_STATE = Path(os.environ.get("LOG_STATS_RUN_STATE") or (ROOT / "config" / "log-statistics-run.json"))
+JOURNAL = Path(os.environ.get("LOG_STATS_JOURNAL") or (ROOT / "config" / "log-statistics-journal.jsonl"))
 LOG_DSID = os.environ.get("LOG_STATISTICS_DSID") or "3dee17b6-8482-80a3-9fc4-000bafe19b46"
 MINSK = ZoneInfo("Europe/Minsk")
 WRITE_SLEEP_S = float(os.environ.get("LOG_STATS_WRITE_SLEEP_S") or "0.35")
@@ -140,6 +142,98 @@ def load_run_state() -> dict:
 def save_run_state(data: dict) -> None:
     RUN_STATE.parent.mkdir(parents=True, exist_ok=True)
     RUN_STATE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+# A17 (board #202/#224): checkpoint journal primitives — resume a crashed run
+# without redoing already-done items. Journal = resume checkpoint only, NOT an
+# audit log (audit = run-state above); it is zeroed on journal_end.
+# Keep in sync with release-widget-sync.py (board #226)
+JOURNAL_MAX_AGE_S = 86400
+
+
+def _journal_append(path, rec) -> None:
+    """Append one JSONL record (single atomic line) + flush + fsync."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(rec, ensure_ascii=False) + "\n"
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(line)
+        fh.flush()
+        os.fsync(fh.fileno())
+
+
+def journal_begin(path=None) -> dict:
+    """Return {run_id, done: set, resumed: bool, path}.
+
+    Resume the unfinished run (last "run" line without a following "end") when
+    its started_at is fresh (age <= JOURNAL_MAX_AGE_S): done = item ids from the
+    "done" lines of that run. Otherwise (finished / missing / stale) start a new
+    run (uuid4 hex[:12]) and append its "run" line.
+    """
+    path = Path(path) if path is not None else JOURNAL
+    open_run = None
+    done_ids: set = set()
+    if path.exists():
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                rec = json.loads(raw)
+            except ValueError:
+                continue  # torn tail line from a crash — ignore
+            if not isinstance(rec, dict):
+                continue
+            kind = rec.get("type")
+            if kind == "run":
+                open_run = rec
+                done_ids = set()
+            elif kind == "done" and open_run is not None and rec.get("run_id") == open_run.get("run_id"):
+                done_ids.add(rec.get("id"))
+            elif kind == "end":
+                open_run = None
+                done_ids = set()
+    now = time.time()
+    if open_run is not None:
+        started = open_run.get("started_at")
+        if isinstance(started, (int, float)) and 0 <= now - float(started) <= JOURNAL_MAX_AGE_S:
+            return {
+                "run_id": open_run.get("run_id"),
+                "done": done_ids,
+                "resumed": True,
+                "path": path,
+            }
+    run_id = uuid.uuid4().hex[:12]
+    _journal_append(path, {"type": "run", "t": now, "run_id": run_id, "started_at": now})
+    return {"run_id": run_id, "done": set(), "resumed": False, "path": path}
+
+
+def journal_done(j: dict, item_id, result=None) -> None:
+    """Checkpoint one finished item: "done" line {t, run_id, id, result} + set."""
+    _journal_append(j["path"], {
+        "type": "done",
+        "t": time.time(),
+        "run_id": j.get("run_id"),
+        "id": item_id,
+        "result": result,
+    })
+    j.setdefault("done", set()).add(item_id)
+
+
+def journal_end(j: dict, status, counts=None) -> None:
+    """Close the run: "end" line {t, run_id, status, counts, at}, then ZERO the
+    journal file (journal = resume checkpoint, not an audit log; audit =
+    run-state)."""
+    now = time.time()
+    _journal_append(j["path"], {
+        "type": "end",
+        "t": now,
+        "run_id": j.get("run_id"),
+        "status": status,
+        "counts": counts,
+        "at": iso_z(datetime.fromtimestamp(now, tz=timezone.utc)),
+    })
+    Path(j["path"]).write_text("", encoding="utf-8")
 
 
 @contextmanager
@@ -1082,6 +1176,33 @@ def selftest() -> None:
     )
     rep2_segs = segments_from_props(rep2)
     assert [x["s"] for x in rep2_segs] == ["Development", "Ready For QA", "Development"], rep2_segs
+
+    # --- A17 journal (board #202/#224): resume checkpoints -----------------
+    import tempfile
+
+    jdir = Path(tempfile.mkdtemp(prefix="logstat-journal-"))
+    jp = jdir / "journal.jsonl"
+    j1 = journal_begin(jp)
+    assert j1["resumed"] is False and j1["done"] == set(), j1
+    journal_done(j1, "aaa", "created")
+    journal_done(j1, "bbb", {"page": "p1"})
+    # crash before journal_end -> next begin RESUMES with done ids restored
+    j2 = journal_begin(jp)
+    assert j2["resumed"] is True and j2["run_id"] == j1["run_id"], j2
+    assert j2["done"] == {"aaa", "bbb"}, j2["done"]
+    # abandoned STALE run (started_at 25h ago) is NOT resumed -> fresh run_id
+    old = time.time() - 25 * 3600
+    jp2 = jdir / "old.jsonl"
+    _journal_append(jp2, {"type": "run", "t": old, "run_id": "oldrun000001", "started_at": old})
+    _journal_append(jp2, {"type": "done", "t": old, "run_id": "oldrun000001", "id": "zzz", "result": None})
+    j3 = journal_begin(jp2)
+    assert j3["resumed"] is False and j3["run_id"] != "oldrun000001", j3
+    assert j3["done"] == set(), j3["done"]
+    # after journal_end the journal is ZEROED -> next begin is a fresh run
+    journal_end(j2, "ok", counts={"done": 2})
+    assert jp.read_text(encoding="utf-8") == "", jp.read_text(encoding="utf-8")
+    j4 = journal_begin(jp)
+    assert j4["resumed"] is False and j4["run_id"] != j2["run_id"], j4
 
     print(json.dumps({"ok": True, "mode": "selftest", "days": days}, ensure_ascii=False))
 
