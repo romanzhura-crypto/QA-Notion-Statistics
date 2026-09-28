@@ -433,9 +433,12 @@
       const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
       return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
     }
-    function taskKey(t, useId) {
-      if (useId && t && t.id) return "id:" + t.id;
-      return "k:" + (t && t.n || "") + "|" + (t && t.d || "") + "|" + ((t && t.r) || []).join(",");
+    // A10 (board #197): the diff keys tasks by Notion page id ONLY. The old
+    // n|d|r fallback is gone by design — titles are stored truncated (n), so
+    // two different tasks can share n|d|r and would falsely match. A task
+    // without an id counts as added (fail-visible), never silently matched.
+    function taskKey(t) {
+      return t && t.id ? "id:" + t.id : null;
     }
     function diffAdded(prevData, nextData) {
       const prevRel = new Set((prevData && prevData.releases) || []);
@@ -443,12 +446,12 @@
       const prevTasks = (prevData && prevData.tasks) || [];
       const nextTasks = (nextData && nextData.tasks) || [];
       const hadPrev = prevTasks.length > 0 || prevRel.size > 0;
-      const useId = prevTasks.some(t => t && t.id) && nextTasks.some(t => t && t.id);
-      const prevSet = new Set(prevTasks.map(t => taskKey(t, useId)));
+      const prevSet = new Set(prevTasks.map(t => taskKey(t)).filter(Boolean));
       let addedTasks = 0;
       if (hadPrev) {
         nextTasks.forEach(t => {
-          if (!prevSet.has(taskKey(t, useId))) addedTasks += 1;
+          const k = taskKey(t);
+          if (!k || !prevSet.has(k)) addedTasks += 1;
         });
       }
       return { addedRel: hadPrev ? addedRel : [], addedTasks: hadPrev ? addedTasks : 0, first: !hadPrev };

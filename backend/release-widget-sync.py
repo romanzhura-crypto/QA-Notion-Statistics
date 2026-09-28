@@ -745,6 +745,7 @@ def snapshot() -> dict:
             "e": parse_estimate(est_txt),
             "t": spent_h,
             "n": title[:140],
+            "n_full": title,  # A10 (board #197): full title in the snapshot; display-truncation is UI-only
             "start": prop_date_start(p.get("Start date")),
             "created": row.get("created_time"),
             "edited": row.get("last_edited_time"),

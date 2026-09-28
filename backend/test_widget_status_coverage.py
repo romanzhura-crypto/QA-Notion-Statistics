@@ -259,10 +259,93 @@ def test_timestamps() -> None:
             rel.WS_JSON, rel.OUT_JSON = old_ws, old_out
 
 
+def test_a10_titles_and_diff() -> None:
+    print("A10 (board #197): full title in n_full + diffAdded keyed by id only")
+    import shutil
+    import subprocess
+    import tempfile
+
+    # case 1: title > TITLE_MAX lands in n_full IN FULL; n keeps the trimmed form
+    long_title = "Release widget title edge case " * 9  # 288 chars > 140
+    assert len(long_title) > rel.TITLE_MAX
+    row = {
+        "id": "3c8e17b6-8482-8166-0000-0000000000aa",
+        "url": "https://notion.so/x",
+        "created_time": "2026-09-20T10:00:00.000Z",
+        "last_edited_time": "2026-09-21T10:00:00.000Z",
+        "properties": {
+            "Documentation": {"type": "title", "title": [{"plain_text": long_title}]},
+            "Status": {"type": "status", "status": {"name": "New"}},
+            "DEV": {"type": "select", "select": {"name": "Ivan"}},
+            "Release": {"type": "multi_select", "multi_select": [{"name": "1.0"}]},
+        },
+    }
+    old = (rel.query_pages, rel._req, rel.write_payload, rel.WS_JSON, rel.OUT_JSON)
+    with tempfile.TemporaryDirectory() as td:
+        try:
+            rel.query_pages = lambda dsid, fetch=None: (([row], 0) if dsid == rel.DSID else ([], 0))
+            rel._req = lambda method, path, body=None: {
+                "properties": {"Status": {"status": {"options": [{"name": "New", "color": "default"}]}}}
+            }
+            rel.write_payload = lambda payload: payload
+            rel.WS_JSON = Path(td) / "release-data.json"
+            rel.OUT_JSON = Path(td) / "out.json"
+            payload = rel.snapshot()
+        finally:
+            (rel.query_pages, rel._req, rel.write_payload, rel.WS_JSON, rel.OUT_JSON) = old
+    t = payload["tasks"][0]
+    check(t.get("n_full") == long_title and t.get("n") == long_title[:rel.TITLE_MAX]
+          and len(t["n_full"]) > rel.TITLE_MAX,
+          f"A10: title > {rel.TITLE_MAX} chars lands in n_full in full, n stays trimmed")
+
+    # case 2: diffAdded (frontend/release-charts.html) keys tasks by id ONLY —
+    # two different tasks sharing the same truncated n|d|r must never false-match.
+    # Executed for real (the shipped JS) via node; static source fallback when
+    # node is unavailable. Offline either way.
+    html_path = next(
+        (p for p in (HERE.parent / "frontend" / "release-charts.html",
+                     HERE.parent / "widgets" / "release-charts.html") if p.is_file()),
+        None,
+    )
+    ok = False
+    if html_path is not None:
+        html = html_path.read_text(encoding="utf-8")
+        src = html[html.index("function taskKey"):html.index("function applyPayload")]
+        node = shutil.which("node")
+        if node:
+            harness = """
+const X = { n: "Одинаково обрезанное длинное название задачи…", d: "Ivan", r: ["1.0"] };
+const A = Object.assign({ id: "aaa" }, X);
+const B = Object.assign({ id: "bbb" }, X);
+const pair = diffAdded({ releases: ["1.0"], tasks: [A] }, { releases: ["1.0"], tasks: [A, B] });
+const swap = diffAdded({ releases: ["1.0"], tasks: [A] }, { releases: ["1.0"], tasks: [B] });
+const legacy = diffAdded({ releases: ["1.0"], tasks: [Object.assign({}, X)] },
+                         { releases: ["1.0"], tasks: [A, B] });
+console.log(JSON.stringify({ pair: pair.addedTasks, swap: swap.addedTasks, legacy: legacy.addedTasks }));
+"""
+            with tempfile.TemporaryDirectory() as td:
+                js = Path(td) / "diffadded-case.js"
+                js.write_text(src + harness, encoding="utf-8")
+                out = subprocess.run([node, str(js)], capture_output=True, text=True, timeout=30)
+            try:
+                got = json.loads(out.stdout.strip().splitlines()[-1])
+            except Exception:
+                got = {"error": (out.stderr or out.stdout)[-200:]}
+            ok = got == {"pair": 1, "swap": 1, "legacy": 2}
+            msg = f"A10: diffAdded by id only — same truncated n|d|r, different id is NOT a match (got {got})"
+        else:
+            ok = "useId" not in src and ".n ||" not in src and "t.id" in src
+            msg = "A10: diffAdded source is id-only (static check, node unavailable)"
+    else:
+        msg = "A10: release-charts.html not found next to the tree root"
+    check(ok, msg)
+
+
 def main() -> int:
     test_read_side()
     test_write_side()
     test_timestamps()
+    test_a10_titles_and_diff()
     print(json.dumps({"ok": True, "result": "PASS", "checks": CHECKS}, ensure_ascii=False))
     print("PASS")
     return 0

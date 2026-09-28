@@ -49,11 +49,17 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `s` | string | Status name |
 | `e` | number\|null | Estimate hours (`1d=8h`) |
 | `t` | number\|null | Time spent hours |
-| `n` | string | Title (trimmed) |
+| `n` | string | Title (trimmed to ≤140 chars) |
+| `n_full` | string | **Full** untruncated title (board #197, A10), same source as `n`. Display truncation happens in the UI only; `n` keeps its ≤140-char form for backward compatibility |
 | `start` | string\|null | Start date |
 | `created` | string\|null | `created_time` |
 | `edited` | string\|null | `last_edited_time` |
 | `history` | object[] | Status dwell timeline (board #165) — see below |
+
+> **Identity note (board #197, A10):** task identity in diffs (e.g. the widget
+> «Добавлены новые данные» block) is `tasks[].id` **only**. Never match tasks by
+> `n`/`d`/`r` — truncated titles collide across different tasks. Use `n_full`
+> for display of complete titles, not for identity.
 
 ## `tasks[].history` (board #165, 2026-09-25)
 
