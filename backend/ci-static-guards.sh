@@ -62,6 +62,48 @@ print("html guards ok")
 EOF
 fi
 
+# 5) cross-tree sync (board #194/A22): workspace scripts/ ↔ repo backend/ are
+#    mirrored BY HAND — diverged copies mean different stats on QA vs Pages with
+#    no symptoms. SYNC_ROOT = root holding the mirrored trees (scripts/ and
+#    backend/); default = current tree root. Each tree resolves locally first,
+#    then under SYNC_ROOT. Examples:
+#      SYNC_ROOT=/tmp/ns-git/repo bash scripts/ci-static-guards.sh            # from workspace
+#      SYNC_ROOT=/home/chuck/.openclaw/workspace backend/ci-static-guards.sh  # from repo clone
+#    NOTE: publish-release-widgets.sh is intentionally layout-divergent
+#    (widgets/ vs frontend/) — not a mirror pair, keep it out of SYNC_PAIRS.
+SYNC_PAIRS="release-widget-sync.py log-statistics-sync.py quality-gate.py status-webhook-event.py test_widget_status_coverage.py ci-static-guards.sh"
+SYNC_A_ROOT=""
+SYNC_B_ROOT=""
+for t in scripts backend; do
+  loc=""
+  if [ -d "$t" ]; then
+    loc="$t"
+  elif [ -n "${SYNC_ROOT:-}" ] && [ -d "$SYNC_ROOT/$t" ]; then
+    loc="$SYNC_ROOT/$t"
+  fi
+  if [ "$t" = "scripts" ]; then
+    SYNC_A_ROOT="$loc"
+  else
+    SYNC_B_ROOT="$loc"
+  fi
+done
+if [ -n "$SYNC_A_ROOT" ] && [ -n "$SYNC_B_ROOT" ]; then
+  for f in $SYNC_PAIRS; do
+    if [ ! -f "$SYNC_A_ROOT/$f" ]; then
+      echo "FAIL: sync pair $f missing on scripts side ($SYNC_A_ROOT/$f) — re-mirror before push" >&2
+      fail=1
+    elif [ ! -f "$SYNC_B_ROOT/$f" ]; then
+      echo "FAIL: sync pair $f missing on backend side ($SYNC_B_ROOT/$f) — re-mirror before push" >&2
+      fail=1
+    elif ! cmp -s "$SYNC_A_ROOT/$f" "$SYNC_B_ROOT/$f"; then
+      echo "FAIL: sync pair $f diverged: $SYNC_A_ROOT/$f != $SYNC_B_ROOT/$f — re-mirror before push" >&2
+      fail=1
+    fi
+  done
+else
+  echo "note: only one tree visible — cross-tree sync check skipped (set SYNC_ROOT to the root holding scripts/ and backend/)" >&2
+fi
+
 if [ "$fail" = 0 ]; then
   echo "ci-static-guards: CLEAN"
 fi
