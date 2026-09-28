@@ -203,9 +203,66 @@ def test_write_side() -> None:
           "Done stays a date marker, not a dwell column")
 
 
+def test_timestamps() -> None:
+    print("A31/A6 (board #196): split timestamps + timezone normalization")
+    # A6: date-only = midnight Europe/Minsk in BOTH collectors (+3h vs UTC midnight)
+    for mod in (rel, log):
+        d = mod.parse_ts("2026-09-20")
+        check(d is not None and d.strftime("%Y-%m-%dT%H:%M:%S%z") == "2026-09-20T00:00:00+0300",
+              f"{mod.__name__}: date-only parsed as midnight Europe/Minsk (+03)")
+        check(d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") == "2026-09-19T21:00:00Z",
+              f"{mod.__name__}: explicit +3h shift vs UTC midnight (21:00Z previous day)")
+
+    # A6: day aggregate with a date-only boundary follows the Minsk midnight:
+    # open interval 2026-09-20 (Minsk) -> 2026-09-22T00:00Z = 2.125 days, not 2.0.
+    hist = rel.history_from_log_row({
+        "Collected Status": {"rich_text": [{"plain_text": "Blocked"}]},
+        "Status since": {"date": {"start": "2026-09-20"}},
+        "Done at": {"date": None},
+    }, now=rel.parse_ts("2026-09-22T00:00:00Z"), unknown=set())
+    op = [h for h in hist if h.get("to") is None][0]
+    check(op["from"] == "2026-09-19T21:00:00.000Z",
+          "A6: date-only Status since -> 2026-09-19T21:00Z (Minsk midnight)")
+    check(abs(op["days"] - 2.125) < 1e-9,
+          "A6: open-interval day aggregate uses the Minsk midnight boundary (2.125d)")
+
+    # A31: enrich must not move generated_at (Sprint data time); enriched_at is
+    # the LOG-merge stamp and refreshes on re-enrich. A6: timezone +
+    # generated_at_local travel with the payload.
+    import tempfile
+    old_ws, old_out = rel.WS_JSON, rel.OUT_JSON
+    with tempfile.TemporaryDirectory() as td:
+        rel.WS_JSON = Path(td) / "release-data.json"
+        rel.OUT_JSON = Path(td) / "out.json"
+        try:
+            rel.WS_JSON.write_text(json.dumps({
+                "generated_at": "2026-09-28T06:00:00Z",
+                "task_count": 1,
+                "tasks": [{"id": "t1", "s": "Done"}],
+            }), encoding="utf-8")
+            p1 = rel.enrich_existing(now=rel.parse_ts("2026-09-28T07:00:00Z"), log_rows=[])
+            check(p1["generated_at"] == "2026-09-28T06:00:00Z",
+                  "A31: enrich keeps generated_at (Sprint data time)")
+            check(p1["enriched_at"] == "2026-09-28T07:00:00Z",
+                  "A31: enriched_at stamped at LOG-merge time")
+            check(p1["timezone"] == "Europe/Minsk", "A6: payload.timezone present")
+            check(p1["generated_at_local"] == "2026-09-28T09:00:00+03:00",
+                  "A6: generated_at_local is the same instant in Minsk (+3h)")
+            p2 = rel.enrich_existing(now=rel.parse_ts("2026-09-28T08:00:00Z"), log_rows=[])
+            check(p2["generated_at"] == "2026-09-28T06:00:00Z",
+                  "A31: re-enrich still keeps generated_at")
+            check(p2["enriched_at"] == "2026-09-28T08:00:00Z",
+                  "A31: re-enrich refreshes enriched_at")
+            check(p2["generated_at_local"] == "2026-09-28T09:00:00+03:00",
+                  "A6: generated_at_local follows generated_at, not the enrich moment")
+        finally:
+            rel.WS_JSON, rel.OUT_JSON = old_ws, old_out
+
+
 def main() -> int:
     test_read_side()
     test_write_side()
+    test_timestamps()
     print(json.dumps({"ok": True, "result": "PASS", "checks": CHECKS}, ensure_ascii=False))
     print("PASS")
     return 0

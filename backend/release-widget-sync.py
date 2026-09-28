@@ -17,6 +17,7 @@ import traceback
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(os.environ.get("ROOT") or os.environ.get("WIDGETS_ROOT") or "/home/chuck/.openclaw/workspace")
 CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json"))
@@ -60,6 +61,9 @@ TITLE_MAX = 140  # tasks[].n truncation length
 # A24 (board #195): stable sort for data-source pagination — without it rows can
 # shift between pages and a row may arrive twice (or be skipped) at page seams.
 STABLE_SORTS = [{"timestamp": "last_edited_time", "direction": "ascending"}]
+# A6 (board #196): the payload is normalized to Europe/Minsk (UTC+3, no DST).
+MINSK = ZoneInfo("Europe/Minsk")
+TZ_LABEL = "Europe/Minsk"
 
 
 def resolve_dsid(cfg: dict | None = None) -> str:
@@ -138,6 +142,16 @@ def iso_z(dt) -> str | None:
     if d.tzinfo is None:
         d = d.replace(tzinfo=timezone.utc)
     return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def iso_local(dt) -> str | None:
+    """A6: same instant as dt rendered in Europe/Minsk (ISO-8601 +03:00); None-safe."""
+    d = dt if isinstance(dt, datetime) else parse_ts(dt)
+    if not d:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(MINSK).isoformat(timespec="seconds")
 
 
 def segments_from_props(props: dict) -> list:
@@ -339,7 +353,7 @@ def log_history_by_task(rows: list, unknown: set | None = None) -> dict:
     return mapping
 
 
-def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> dict:
+def enrich_with_log_statistics(payload: dict, log_rows: list | None = None, now=None) -> dict:
     """Attach tasks[].history from LOG STATISTICS. Tasks without LOG rows keep calendar fallback."""
     rows = log_rows if log_rows is not None else query_log_rows()
     unknown: set = set()
@@ -377,6 +391,12 @@ def enrich_with_log_statistics(payload: dict, log_rows: list | None = None) -> d
             + ", ".join(sorted(unknown)),
             file=sys.stderr,
         )
+    # A31/A6 (board #196): split timestamps. generated_at (Sprint data moment)
+    # is NEVER touched here — only enriched_at (this LOG-merge moment) moves on
+    # every re-enrich. timezone/generated_at_local normalize the same instants.
+    payload["enriched_at"] = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    payload["timezone"] = TZ_LABEL
+    payload["generated_at_local"] = iso_local(payload.get("generated_at"))
     return payload
 
 
@@ -580,13 +600,16 @@ def write_payload(payload: dict) -> dict:
     return payload
 
 
-def enrich_existing() -> dict:
+def enrich_existing(now=None, log_rows: list | None = None) -> dict:
     """Dry-merge LOG dwell onto the current Sprint JSON without re-querying the Sprint DS."""
     payload = json.loads(WS_JSON.read_text(encoding="utf-8"))
-    payload = enrich_with_log_statistics(payload)
+    # A31 (board #196): generated_at is the Sprint DATA moment (set at snapshot)
+    # and must survive every re-enrich unchanged. Only a legacy payload without
+    # the field gets stamped once (with the enrich moment).
+    payload.setdefault("generated_at", (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    payload = enrich_with_log_statistics(payload, log_rows=log_rows, now=now)
     # quality: live fields recomputed; delta/truncated preserved from snapshot().
     payload = attach_quality(payload)
-    payload["generated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return write_payload(payload)
 
 
@@ -1045,6 +1068,52 @@ def selftest() -> dict:
          "quality": {"duplicate_rows": 1}},
     )["quality"]
     assert q8["duplicate_rows"] == 1 and q8["task_count_mismatch"] == 0, q8
+
+    # A31/A6 (board #196): split timestamps + timezone normalization.
+    # date-only = midnight Europe/Minsk, explicit +3h vs UTC midnight.
+    d_only = parse_ts("2026-09-20")
+    assert d_only is not None and d_only.strftime("%Y-%m-%dT%H:%M:%S%z") == "2026-09-20T00:00:00+0300", d_only
+    assert d_only.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") == "2026-09-19T21:00:00Z", d_only
+    # day aggregate with a date-only boundary uses the Minsk midnight:
+    # open interval 2026-09-20 (Minsk) → 2026-09-22T00:00Z = 2.125 days
+    # (a UTC-midnight reading would give the wrong 2.0).
+    date_only_props = {
+        "Collected Status": {"rich_text": [{"plain_text": "Blocked"}]},
+        "Status since": {"date": {"start": "2026-09-20"}},
+        "Done at": {"date": None},
+    }
+    hdo = history_from_log_row(date_only_props, now=parse_ts("2026-09-22T00:00:00Z"), unknown=set())
+    open_it = [h for h in hdo if h.get("to") is None][0]
+    assert open_it["from"] == "2026-09-19T21:00:00.000Z", open_it  # Minsk midnight, not UTC
+    assert abs(open_it["days"] - 2.125) < 1e-9, open_it  # aggregate follows the Minsk boundary
+    # enrich never moves generated_at (Sprint data time); enriched_at = LOG-merge
+    # moment and refreshes on re-enrich; timezone/generated_at_local present.
+    global WS_JSON, OUT_JSON
+    old_ws, old_out = WS_JSON, OUT_JSON
+    with tempfile.TemporaryDirectory() as td:
+        WS_JSON = Path(td) / "release-data.json"
+        OUT_JSON = Path(td) / "out.json"
+        try:
+            WS_JSON.write_text(json.dumps({
+                "generated_at": "2026-09-28T06:00:00Z",
+                "task_count": 1,
+                "tasks": [{"id": "t1", "s": "Done"}],
+            }), encoding="utf-8")
+            p1 = enrich_existing(now=parse_ts("2026-09-28T07:00:00Z"), log_rows=[])
+            assert p1["generated_at"] == "2026-09-28T06:00:00Z", p1["generated_at"]  # A31: kept
+            assert p1["enriched_at"] == "2026-09-28T07:00:00Z", p1["enriched_at"]  # A31: LOG-merge stamp
+            assert p1["timezone"] == "Europe/Minsk", p1.get("timezone")  # A6
+            assert p1["generated_at_local"] == "2026-09-28T09:00:00+03:00", p1.get("generated_at_local")
+            p2 = enrich_existing(now=parse_ts("2026-09-28T08:00:00Z"), log_rows=[])
+            assert p2["generated_at"] == "2026-09-28T06:00:00Z", p2["generated_at"]  # re-enrich keeps it
+            assert p2["enriched_at"] == "2026-09-28T08:00:00Z", p2["enriched_at"]  # ...and refreshes this
+            # legacy payload without generated_at: stamped once (fallback), then stable
+            WS_JSON.write_text(json.dumps({"task_count": 0, "tasks": []}), encoding="utf-8")
+            p3 = enrich_existing(now=parse_ts("2026-09-28T09:00:00Z"), log_rows=[])
+            assert p3["generated_at"] == "2026-09-28T09:00:00Z", p3["generated_at"]
+            assert p3["generated_at_local"] == "2026-09-28T12:00:00+03:00", p3.get("generated_at_local")
+        finally:
+            WS_JSON, OUT_JSON = old_ws, old_out
     return {"ok": True, "mode": "selftest"}
 
 

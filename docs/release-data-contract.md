@@ -18,7 +18,10 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `ok` | boolean | yes | `true` for a usable snapshot |
-| `generated_at` | string ISO-8601 UTC `…Z` | yes | Shown in UI |
+| `generated_at` | string ISO-8601 UTC `…Z` | yes | Shown in UI. Since board #196: the **Sprint data moment** (snapshot time) — never moved by re-enrich |
+| `enriched_at` | string ISO-8601 UTC `…Z` | yes (board #196) | LOG-merge moment; refreshed on every `enrich` pass |
+| `timezone` | string | yes (board #196) | Always `Europe/Minsk` — the payload display/aggregation timezone |
+| `generated_at_local` | string ISO-8601 with offset (e.g. `2026-09-28T09:00:00+03:00`) | yes (board #196) | Same instant as `generated_at`, rendered in `Europe/Minsk` |
 | `source` | string | yes | e.g. `Estimate vs Time tracking` |
 | `data_source_id` | string UUID | yes | Notion data source (not a secret) |
 | `task_count` | number | yes | `len(tasks)` |
@@ -92,6 +95,27 @@ Rules:
 - Invariant: `task_count == len(unique tasks[].id)`. A violation sets
   `quality.task_count_mismatch = 1` (plus `quality.task_count_unique` for
   diagnosis) — the gate/alert path sees it; nothing is silently skipped.
+
+## Board #196 (A31+A6): split timestamps + timezone normalization (additive)
+
+- **A31 — timestamp roles are separated:**
+  - `generated_at` = moment the **Sprint data** was taken (`snapshot()`). It is
+    immutable for the payload lifetime: `enrich` (LOG merge) must never move it.
+    A legacy payload without the field is stamped once as a fallback.
+  - `enriched_at` = moment of the **LOG merge**. It is refreshed on every
+    `enrich`/re-enrich pass (and equals `generated_at` right after a snapshot,
+    which merges LOG in the same run). Together they answer «данные от …,
+    история от …» without overloading one field.
+- **A6 — timezone normalization:**
+  - `timezone: "Europe/Minsk"` and `generated_at_local` (same instant as
+    `generated_at`, ISO-8601 with `+03:00`) travel with every payload.
+  - `parse_ts` (both collectors) treats date-only `YYYY-MM-DD` as midnight
+    **Europe/Minsk** (UTC+3, no DST) — never midnight UTC. Day aggregates and
+    calendar day-boundaries are computed from these Minsk-midnight instants.
+  - **Expected numeric shift:** tasks whose boundaries are date-only contribute
+    durations differing by up to ±3 h (≈ ±0.05 day) from a UTC-midnight reading.
+    This shift is by design — day boundaries now land at 21:00 `…Z` of the
+    previous day (midnight Minsk).
 
 ## Cache-bust
 
