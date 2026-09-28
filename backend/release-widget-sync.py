@@ -57,6 +57,9 @@ QUALITY_GAP_HOURS_MAX = 6.0  # no webhook events this long → delivery loss sus
 SEGMENT_ABSURD_DAYS = 366.0  # a dwell segment longer than this = absurd data
 DRIFT_DAYS_MIN = 1.0  # collector columns vs Segments disagreement tolerance (N2)
 TITLE_MAX = 140  # tasks[].n truncation length
+# A24 (board #195): stable sort for data-source pagination — without it rows can
+# shift between pages and a row may arrive twice (or be skipped) at page seams.
+STABLE_SORTS = [{"timestamp": "last_edited_time", "direction": "ascending"}]
 
 
 def resolve_dsid(cfg: dict | None = None) -> str:
@@ -284,20 +287,38 @@ def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> l
     return history
 
 
-def query_log_rows(dsid: str | None = None) -> list:
-    target = dsid or LOG_DSID
-    rows = []
+def query_pages(dsid: str, fetch=None) -> tuple[list, int]:
+    """Paginate POST /v1/data_sources/{dsid}/query with a stable sort (A24) and
+    dedup rows by row.id across page seams (first occurrence wins). Returns
+    (rows, duplicates) — duplicates is surfaced, never a silent drop.
+    `fetch` overrides the HTTP call (offline tests)."""
+    call = fetch or (lambda body: _req("POST", f"/v1/data_sources/{dsid}/query", body))
+    rows: list = []
+    seen: set = set()
+    duplicates = 0
     cursor = None
     while True:
-        body = {"page_size": 100}
+        body = {"page_size": 100, "sorts": [dict(s) for s in STABLE_SORTS]}
         if cursor:
             body["start_cursor"] = cursor
-        q = _req("POST", f"/v1/data_sources/{target}/query", body)
-        rows.extend(q.get("results") or [])
+        q = call(body) or {}
+        for row in q.get("results") or []:
+            rid = row.get("id")
+            if rid is not None and rid in seen:
+                duplicates += 1
+                continue
+            if rid is not None:
+                seen.add(rid)
+            rows.append(row)
         if not q.get("has_more"):
             break
         cursor = q.get("next_cursor")
         time.sleep(0.2)
+    return rows, duplicates
+
+
+def query_log_rows(dsid: str | None = None) -> list:
+    rows, _ = query_pages(dsid or LOG_DSID)
     return rows
 
 
@@ -480,9 +501,15 @@ def webhook_from_run_state(now=None) -> dict | None:
     }
 
 
-def attach_quality(payload: dict, prev_count: int | None = None, truncated: int | None = None) -> dict:
+def attach_quality(
+    payload: dict,
+    prev_count: int | None = None,
+    truncated: int | None = None,
+    duplicates: int | None = None,
+) -> dict:
     """payload["quality"] (A27, strictly additive). Fields that cannot be
-    recomputed at enrich time (truncated_titles, delta) are preserved as-is."""
+    recomputed at enrich time (truncated_titles, delta, duplicate_rows) are
+    preserved as-is."""
     q = dict(payload.get("quality") or {})
     q.update(quality_from_tasks(payload))
     if truncated is not None:
@@ -490,6 +517,15 @@ def attach_quality(payload: dict, prev_count: int | None = None, truncated: int 
     else:
         q.setdefault("truncated_titles", 0)
     q["fixtures_excluded"] = int(payload.get("fixtures_excluded") or 0)
+    # A24 (board #195): task_count == number of unique tasks[].id is an
+    # invariant. Violation is a quality flag, never a silent skip.
+    uniq = len({str(t.get("id") or "") for t in payload.get("tasks") or [] if isinstance(t, dict)})
+    q["task_count_unique"] = uniq
+    q["task_count_mismatch"] = 1 if int(payload.get("task_count") or 0) != uniq else 0
+    if duplicates is not None:
+        q["duplicate_rows"] = int(duplicates)
+    else:
+        q.setdefault("duplicate_rows", 0)
     if prev_count is not None:
         q["task_count_prev"] = prev_count
         count = int(payload.get("task_count") or 0)
@@ -642,17 +678,8 @@ def prop_date_start(prop) -> str | None:
 
 
 def snapshot() -> dict:
-    rows = []
-    cursor = None
-    while True:
-        body = {"page_size": 100}
-        if cursor:
-            body["start_cursor"] = cursor
-        q = _req("POST", f"/v1/data_sources/{DSID}/query", body)
-        rows.extend(q.get("results") or [])
-        if not q.get("has_more"):
-            break
-        cursor = q.get("next_cursor")
+    # A24: stable sort + dedup by row.id across pages (duplicates surfaced).
+    rows, duplicate_rows = query_pages(DSID)
 
     tasks = []
     from_tasks = set()
@@ -717,7 +744,9 @@ def snapshot() -> dict:
         "tasks": tasks,
     }
     payload = enrich_with_log_statistics(payload)
-    payload = attach_quality(payload, prev_count=prev_count, truncated=truncated_titles)
+    payload = attach_quality(
+        payload, prev_count=prev_count, truncated=truncated_titles, duplicates=duplicate_rows
+    )
     return write_payload(payload)
 
 
@@ -979,6 +1008,43 @@ def selftest() -> dict:
                 os.environ["WEBHOOK_RUN_STATE"] = old_ws
     q5 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
     assert q5.get("webhook") is None, q5  # no run-state → null, gate skips N1
+
+    # A24 (board #195): stable sort + dedup by row.id across pages; a row that
+    # arrives in two pages is counted once, the seam duplicate is surfaced in
+    # quality.duplicate_rows — never a silent drop.
+    pages = [
+        {"results": [{"id": "a"}, {"id": "b"}], "has_more": True, "next_cursor": "c1"},
+        {"results": [{"id": "b"}, {"id": "c"}], "has_more": False},
+    ]
+    calls = []
+
+    def fake_fetch(body):
+        calls.append(dict(body))
+        return pages[len(calls) - 1]
+
+    rows4, dups4 = query_pages("ds-test", fetch=fake_fetch)
+    assert [r["id"] for r in rows4] == ["a", "b", "c"], rows4  # seam row counted once
+    assert dups4 == 1, dups4  # duplicate surfaced, not silently dropped
+    assert all(c.get("sorts") == STABLE_SORTS for c in calls), calls  # stable order
+    assert calls[1].get("start_cursor") == "c1", calls  # pagination intact
+    # invariant task_count == len(unique ids): violation → quality flag (A27 format)
+    q6 = attach_quality(
+        {"task_count": 3, "tasks": [{"id": "a"}, {"id": "b"}, {"id": "a"}]},
+        prev_count=None, truncated=0, duplicates=1,
+    )["quality"]
+    assert q6["task_count_unique"] == 2 and q6["task_count_mismatch"] == 1, q6
+    assert q6["duplicate_rows"] == 1, q6
+    q7 = attach_quality(
+        {"task_count": 2, "tasks": [{"id": "a"}, {"id": "b"}]},
+        prev_count=None, truncated=0,
+    )["quality"]
+    assert q7["task_count_mismatch"] == 0 and q7["duplicate_rows"] == 0, q7
+    # enrich re-run preserves the snapshot-only duplicate_rows counter
+    q8 = attach_quality(
+        {"task_count": 2, "tasks": [{"id": "a"}, {"id": "b"}],
+         "quality": {"duplicate_rows": 1}},
+    )["quality"]
+    assert q8["duplicate_rows"] == 1 and q8["task_count_mismatch"] == 0, q8
     return {"ok": True, "mode": "selftest"}
 
 

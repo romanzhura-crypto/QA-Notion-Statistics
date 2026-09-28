@@ -80,6 +80,19 @@ Rules:
   intervals without timestamps as-is (no invented dates).
 - `days` is always ≥ 0; a >0 duration is never dropped (minute precision).
 
+## Board #195 (A24): stable pagination + dedup (additive)
+
+- The data-source query (`POST /v1/data_sources/{id}/query`) is sent with a
+  stable sort — `sorts: [{"timestamp": "last_edited_time", "direction":
+  "ascending"}]` — so row order does not shift between pages.
+- Rows arriving twice across a page seam are deduplicated by `row.id` (first
+  occurrence wins) in **both** collectors (`snapshot()` Sprint rows and
+  `query_log_rows()` LOG rows). The seam duplicate is counted, not dropped
+  silently: `quality.duplicate_rows`.
+- Invariant: `task_count == len(unique tasks[].id)`. A violation sets
+  `quality.task_count_mismatch = 1` (plus `quality.task_count_unique` for
+  diagnosis) — the gate/alert path sees it; nothing is silently skipped.
+
 ## Cache-bust
 
 Query `?t=<epoch-ms>` plus `Cache-Control: no-store` on fetch. Pages may still CDN-cache the file; busting avoids stale iframe data after a new snapshot.
@@ -113,6 +126,9 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `segments_negative` | number | History items with `days < 0`, `to < from` or unparseable duration (Done diamond excluded) |
 | `segments_absurd` | number | Closed dwell intervals longer than 366 days (`SEGMENT_ABSURD_DAYS`) |
 | `truncated_titles` | number | Titles longer than 140 chars (truncated into `tasks[].n`) |
+| `task_count_unique` | number | A24 (board #195): number of unique `tasks[].id` values |
+| `task_count_mismatch` | number | A24: invariant flag — `1` when `task_count` ≠ `task_count_unique`, else `0`. Never a silent skip |
+| `duplicate_rows` | number | A24: page-seam duplicate rows dropped by the pagination dedup (first occurrence kept); snapshot-only, preserved by re-enrich |
 | `drift_days` | number | N2 (board #184.1): worst per-task deficit `sum(segment days) − status column days` over all statuses; 0.0 when segments never exceed their columns (legacy accrual above columns is not drift) |
 | `drift_items` | number | Count of (row, status) pairs with deficit > `DRIFT_DAYS_MIN` (1.0 day) |
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
