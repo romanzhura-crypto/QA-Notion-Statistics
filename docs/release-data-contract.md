@@ -211,3 +211,31 @@ Rules:
 - **CI persistence:** in `release-widgets.yml` both journal files survive
   ephemeral runners via `actions/cache` restore/save (key `resume-journal-*`,
   restore-keys prefix, last-write-wins).
+
+## Board #205 (A26 остаток): staleness + reconciliation window (additive)
+
+`quality` (дополнительно к A27):
+- `staleness_hours` — возраст counts-снимка (`generated_at`, момент данных
+  Sprint) в момент вычисления quality. `null` для payload без `generated_at`
+  (никогда не подменяется на 0). Новые задачи/метрики (counts) старше окна —
+  видимый quality-флаг, не тихая устаревшость.
+- `staleness_warn_hours` (3.0) — порог WARN (non-blocking warning в gate).
+- Порог `thresholds.staleness_hours = 12.0` — hard FAIL старше 12ч. Обоснование:
+  штатный темп снимков = GH schedule `*/10` + кнопка + QA cron `2-59/10`, но
+  GitHub schedule best-effort (наблюдались gap 2–5ч). WARN от 3ч (выше
+  типичного gap), FAIL от 12ч (ночной простой + два неудачных прогона подряд —
+  это уже потеря актуальности counts, релиз-гейт должен светиться).
+- `recon_drift_hours` / `recon_window_hours` (6.0) — явное reconciliation-окно
+  сверки двух писателей истории (webhook vs collector): модуль расхождения
+  `last_delivery_at` (webhook run-state) и `last_at` (LOG run-state) в часах.
+  Оба пишут Segments; расхождение > окна = дрейф источников = quality-флаг
+  (fail-visible). `null` при ненаблюдаемой цепочке — проверка пропускается
+  (правило как для `webhook: null`). Окно 6.0ч = тот же ритм, что N1 `gap_hours`.
+- `recon_collector_last_at` / `recon_webhook_last_at` — опорные таймстампы для
+  отладки расхождений.
+
+Gate (`quality-gate.py`):
+- `staleness_hours > thresholds.staleness_hours` → FAIL; между warn и max →
+  non-blocking warning; `recon_drift_hours > thresholds.recon_drift_hours` → FAIL.
+- Отсутствие полей (legacy-снимок) → проверка пропускается (никогда не
+  false-fail).

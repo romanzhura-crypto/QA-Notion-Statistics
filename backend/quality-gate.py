@@ -19,11 +19,18 @@ Hard rules (no silent quality debt):
   - a19_conflicts (when present) > 0                               -> FAIL (A19)
   - quality.webhook.gap_hours   > thresholds.gap_hours              -> FAIL (N1)
   - quality.webhook.events_error > 0                               -> FAIL
+  - staleness_hours (when present) > thresholds.staleness_hours     -> FAIL (A26)
+  - recon_drift_hours (when present) > thresholds.recon_drift_hours -> FAIL (A26)
   - quality.webhook == null (or gap_hours == null) -> N1 check SKIPPED (webhook not observed yet)
 N1 gap_hours is DELIVERY-based (board #229): hours since the last delivered
 event incl. synthetic worker pings (last_delivery_at; fallback last_event_at for
 old run-state). A silent Notion with a live delivery chain never FAILs; a dead
 chain (no deliveries > gap limit) does.
+A26 (board #205): staleness_hours = age of generated_at (counts moment) at
+gate time — WARN band (staleness_warn_hours) is non-blocking, past
+thresholds.staleness_hours is FAIL. recon_drift_hours = |webhook last delivery −
+collector last run| (two Segments writers); past thresholds.recon_drift_hours =
+writers diverged = FAIL. Missing fields (legacy snapshot) -> check SKIPPED.
 WARN-only: truncated_titles (cosmetic), fixtures_excluded (informational),
 unknown_statuses (listed, dwell kept — see contract).
 Empty placeholder payload (task_count == 0) is SKIP (exit 0): nothing to gate.
@@ -74,6 +81,22 @@ def evaluate(payload: dict) -> tuple[str, list]:
         if int(wh.get("events_error") or 0) > 0:
             problems.append(f"webhook.events_error: {wh.get('events_error')} > 0")
 
+    # A26 (board #205): counts-snapshot staleness — WARN band is non-blocking,
+    # past the hard limit is FAIL. Absent field (legacy snapshot) -> skipped.
+    st = q.get("staleness_hours")
+    if st is not None:
+        st_lim = th.get("staleness_hours")
+        st_warn = q.get("staleness_warn_hours") or th.get("staleness_warn_hours")
+        if st_lim is not None and float(st) > float(st_lim):
+            problems.append(f"staleness_hours: {st} > {st_lim}")
+        elif st_warn is not None and float(st) > float(st_warn):
+            print(
+                f"warning (non-blocking): staleness_hours = {st} > warn {st_warn}",
+                file=sys.stderr,
+            )
+    # A26: webhook<->collector writer drift (reconciliation window)
+    check_max("recon_drift_hours", th.get("recon_drift_hours"))
+
     for m in WARN_ONLY:
         v = q.get(m)
         if v and (isinstance(v, (int, float)) and v > 0 or isinstance(v, list) and v):
@@ -100,14 +123,17 @@ def main(argv: list) -> int:
 
 
 def selftest() -> int:
-    th = {"task_count_delta_pct": 10.0, "gap_hours": 6.0, "drift_days": 1.0}
+    th = {"task_count_delta_pct": 10.0, "gap_hours": 6.0, "drift_days": 1.0,
+          "staleness_hours": 12.0, "recon_drift_hours": 6.0}
 
     def q(**kw):
         base = {"thresholds": th, "segments_negative": 0, "segments_absurd": 0,
                 "tasks_without_history": 0, "task_count_prev": 100,
                 "task_count_delta_pct": 0.0, "truncated_titles": 0,
                 "fixtures_excluded": 0, "unknown_statuses": [],
-                "drift_days": 0.0, "drift_items": 0, "webhook": None}
+                "drift_days": 0.0, "drift_items": 0, "webhook": None,
+                "staleness_hours": 1.0, "staleness_warn_hours": 3.0,
+                "recon_drift_hours": 0.5, "recon_window_hours": 6.0}
         base.update(kw)
         return {"ok": True, "task_count": 100, "quality": base}
 
@@ -131,6 +157,14 @@ def selftest() -> int:
             events_ping=12, gap_hours=1.0))),
         ("PASS", q(webhook=wh(  # old run-state (no last_delivery_at) → fallback, same verdict
             last_delivery_at=None, events_ping=0, gap_hours=1.0))),
+        ("PASS", q(staleness_hours=3.5)),  # A26: WARN band -> non-blocking
+        ("PASS", q(staleness_hours=None, recon_drift_hours=None)),  # A26: unobserved -> skip
+        ("PASS", dict(ok=True, task_count=100, quality={  # legacy quality block, no A26 fields
+            "thresholds": {"task_count_delta_pct": 10.0},
+            "segments_negative": 0, "segments_absurd": 0,
+            "tasks_without_history": 0, "webhook": None})),
+        ("FAIL", q(staleness_hours=13.0)),  # A26: counts snapshot stale
+        ("FAIL", q(recon_drift_hours=7.0)),  # A26: writers diverged
         ("FAIL", q(task_count_delta_pct=15.0)),
         ("FAIL", q(segments_negative=1)),
         ("FAIL", q(segments_absurd=1)),

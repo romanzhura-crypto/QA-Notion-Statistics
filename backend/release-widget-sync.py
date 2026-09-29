@@ -58,6 +58,16 @@ QUALITY_DELTA_PCT_MAX = 10.0  # task_count drift vs previous snapshot, ±%
 QUALITY_GAP_HOURS_MAX = 6.0  # no webhook events this long → delivery loss suspect (N1)
 SEGMENT_ABSURD_DAYS = 366.0  # a dwell segment longer than this = absurd data
 DRIFT_DAYS_MIN = 1.0  # collector columns vs Segments disagreement tolerance (N2)
+# A26 (board #205): snapshot staleness + webhook<->collector reconciliation.
+# Staleness = age of generated_at (Sprint counts moment) at gate time. The
+# schedule is GH best-effort with observed 2-5h gaps, so WARN starts at 3h and
+# FAIL only at 12h (night gap + two consecutive failed runs must not gate).
+STALE_SNAPSHOT_HOURS_WARN = 3.0
+STALE_SNAPSHOT_HOURS_MAX = 12.0
+# Reconciliation window: the webhook and the collector are the two writers of
+# Segments history. |webhook last delivery - collector last run| beyond this
+# window = the writers diverged (drift is a quality flag, never silent).
+RECON_WINDOW_HOURS = 6.0  # same rhythm as N1 gap_hours (QUALITY_GAP_HOURS_MAX)
 TITLE_MAX = 140  # tasks[].n truncation length
 # A24 (board #195): stable sort for data-source pagination — without it rows can
 # shift between pages and a row may arrive twice (or be skipped) at page seams.
@@ -647,6 +657,45 @@ def webhook_from_run_state(now=None) -> dict | None:
     }
 
 
+def staleness_and_recon(payload: dict, now=None) -> dict:
+    """A26 (board #205): snapshot staleness + webhook<->collector reconciliation.
+
+    staleness_hours: age of generated_at (Sprint counts moment) at computation
+    time — how old the new tasks/counts data behind the payload is. None when
+    the payload predates generated_at (never faked as 0).
+    recon_drift_hours: |webhook last_delivery_at - collector last_at| in hours
+    — how far the two Segments-history writers are apart. None when either
+    side is unobserved (check skipped, same rule as webhook: null).
+    """
+    now = now or datetime.now(timezone.utc)
+    out = {
+        "staleness_hours": None,
+        "staleness_warn_hours": STALE_SNAPSHOT_HOURS_WARN,
+        "recon_drift_hours": None,
+        "recon_window_hours": RECON_WINDOW_HOURS,
+        "recon_collector_last_at": None,
+        "recon_webhook_last_at": None,
+    }
+    gen = parse_ts(payload.get("generated_at"))
+    if gen:
+        out["staleness_hours"] = round((now - gen).total_seconds() / 3600.0, 2)
+    wh = webhook_from_run_state(now=now)
+    web_last = (wh or {}).get("last_delivery_at") or (wh or {}).get("last_event_at")
+    web_ts = parse_ts(web_last)
+    col_ts = None
+    try:
+        rs_path = Path(os.environ.get("LOG_STATS_RUN_STATE") or (ROOT / "config" / "log-statistics-run.json"))
+        rs = json.loads(rs_path.read_text(encoding="utf-8"))
+        col_ts = parse_ts((rs or {}).get("last_at"))
+    except (OSError, ValueError, TypeError):
+        pass
+    out["recon_webhook_last_at"] = web_last
+    out["recon_collector_last_at"] = iso_z(col_ts) if col_ts else None
+    if web_ts and col_ts:
+        out["recon_drift_hours"] = round(abs((web_ts - col_ts).total_seconds()) / 3600.0, 2)
+    return out
+
+
 def attach_quality(
     payload: dict,
     prev_count: int | None = None,
@@ -697,12 +746,18 @@ def attach_quality(
         q["webhook"] = wh
     else:
         q.setdefault("webhook", None)
+    # A26 (board #205): staleness of the counts snapshot + explicit
+    # reconciliation window between the two history writers (webhook vs
+    # collector). Unobserved chains -> None -> gate skips, never false-fails.
+    q.update(staleness_and_recon(payload))
     q["thresholds"] = {
         "task_count_delta_pct": QUALITY_DELTA_PCT_MAX,
         "gap_hours": QUALITY_GAP_HOURS_MAX,
         "segments_negative": 0,
         "segments_absurd": 0,
         "drift_days": DRIFT_DAYS_MIN,
+        "staleness_hours": STALE_SNAPSHOT_HOURS_MAX,
+        "recon_drift_hours": RECON_WINDOW_HOURS,
     }
     payload["quality"] = q
     return payload
@@ -1105,6 +1160,21 @@ def selftest() -> dict:
     # first snapshot ever (no previous file): delta fields are null, not fake
     q3 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
     assert q3["task_count_prev"] is None and q3["task_count_delta_pct"] is None, q3
+
+    # A26 (board #205): staleness + reconciliation window are additive and
+    # None-safe (unobserved chains -> gate skips downstream, never fake 0).
+    assert "staleness_hours" in q and "recon_drift_hours" in q and "recon_window_hours" in q, q
+    assert q["staleness_warn_hours"] == STALE_SNAPSHOT_HOURS_WARN, q
+    assert q["thresholds"]["staleness_hours"] == STALE_SNAPSHOT_HOURS_MAX, q
+    assert q["thresholds"]["recon_drift_hours"] == RECON_WINDOW_HOURS, q
+    # fixture payload has no generated_at -> staleness is None, not 0/fake
+    assert q["staleness_hours"] is None, q
+    sr = staleness_and_recon(
+        {"generated_at": "2026-09-22T00:00:00Z"},
+        now=parse_ts("2026-09-22T12:00:00Z"),
+    )
+    assert sr["staleness_hours"] == 12.0, sr
+    assert sr["recon_window_hours"] == RECON_WINDOW_HOURS, sr
 
     # N2 drift (board #184.1): Segments vs status columns — deficit only
     def lrow(segs, dev_num, archived=False):
