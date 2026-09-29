@@ -14,6 +14,7 @@ import re
 import sys
 import time
 import traceback
+import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -64,6 +65,109 @@ STABLE_SORTS = [{"timestamp": "last_edited_time", "direction": "ascending"}]
 # A6 (board #196): the payload is normalized to Europe/Minsk (UTC+3, no DST).
 MINSK = ZoneInfo("Europe/Minsk")
 TZ_LABEL = "Europe/Minsk"
+# A17 (board #202/#226): checkpoint journal + fetch cache — a snapshot killed
+# mid-run resumes without re-fetching Notion. Keep in sync with
+# log-statistics-sync.py journal primitives (board #224/#225).
+WIDGETS_JOURNAL = Path(os.environ.get("WIDGETS_JOURNAL") or (ROOT / "config" / "release-widget-journal.jsonl"))
+# A fetched page-cache is reused on resume only when not older than this
+# (fetched_at age); older/missing cache → normal refetch (reads are idempotent).
+SNAP_CACHE_MAX_AGE_S = int(os.environ.get("SNAP_CACHE_MAX_AGE_S") or 3600)
+
+
+def _journal_append(path, rec) -> None:
+    """Append one JSONL record (single atomic line) + flush + fsync.
+    Keep in sync with log-statistics-sync.py (board #224)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(rec, ensure_ascii=False) + "\n"
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(line)
+        fh.flush()
+        os.fsync(fh.fileno())
+
+
+def journal_begin(path=None) -> dict:
+    """Return {run_id, resumed, path, cache}.
+
+    Resume the unfinished run (last "run" line without a following "end") when
+    its started_at is fresh (age <= SNAP_CACHE_MAX_AGE_S), restoring the fetched
+    page-caches ("cache" lines, latest per key). Otherwise start a new run.
+    Keep in sync with log-statistics-sync.py (board #224/#225); here the journal
+    checkpoints network fetch results ("cache" lines) instead of item dones.
+    """
+    path = Path(path) if path is not None else WIDGETS_JOURNAL
+    open_run = None
+    cache: dict = {}
+    if path.exists():
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                rec = json.loads(raw)
+            except ValueError:
+                continue  # torn tail line from a crash — ignore
+            if not isinstance(rec, dict):
+                continue
+            kind = rec.get("type")
+            if kind == "run":
+                open_run = rec
+                cache = {}
+            elif kind == "cache" and open_run is not None and rec.get("run_id") == open_run.get("run_id"):
+                cache[rec.get("key")] = rec  # latest per key wins
+            elif kind == "end":
+                open_run = None
+                cache = {}
+    now = time.time()
+    if open_run is not None:
+        started = open_run.get("started_at")
+        if isinstance(started, (int, float)) and 0 <= now - float(started) <= SNAP_CACHE_MAX_AGE_S:
+            return {
+                "run_id": open_run.get("run_id"),
+                "resumed": True,
+                "path": path,
+                "cache": cache,
+            }
+    run_id = uuid.uuid4().hex[:12]
+    _journal_append(path, {"type": "run", "t": now, "run_id": run_id, "started_at": now})
+    return {"run_id": run_id, "resumed": False, "path": path, "cache": {}}
+
+
+def journal_cache(j: dict, key, rows: list, duplicates: int) -> None:
+    """Checkpoint one finished fetch: "cache" line + in-memory entry."""
+    now = time.time()
+    _journal_append(j["path"], {
+        "type": "cache",
+        "t": now,
+        "run_id": j.get("run_id"),
+        "key": key,
+        "fetched_at": now,
+        "rows": rows,
+        "duplicates": duplicates,
+    })
+    j.setdefault("cache", {})[key] = {
+        "fetched_at": now, "rows": rows, "duplicates": duplicates,
+    }
+
+
+def journal_end(j: dict, status, counts=None) -> None:
+    """Close the run: "end" line, then ZERO the journal file (checkpoint, not
+    an audit log). Keep in sync with log-statistics-sync.py (board #224)."""
+    now = time.time()
+    _journal_append(j["path"], {
+        "type": "end",
+        "t": now,
+        "run_id": j.get("run_id"),
+        "status": status,
+        "counts": counts,
+        "at": iso_z(datetime.fromtimestamp(now, tz=timezone.utc)),
+    })
+    Path(j["path"]).write_text("", encoding="utf-8")
+
+
+# Active snapshot run journal (set by snapshot()); None = no fetch caching
+# (selftests / enrich CLI / direct query_pages calls behave as before).
+_FETCH_JRUN = None
 
 
 def resolve_dsid(cfg: dict | None = None) -> str:
@@ -305,7 +409,16 @@ def query_pages(dsid: str, fetch=None) -> tuple[list, int]:
     """Paginate POST /v1/data_sources/{dsid}/query with a stable sort (A24) and
     dedup rows by row.id across page seams (first occurrence wins). Returns
     (rows, duplicates) — duplicates is surfaced, never a silent drop.
-    `fetch` overrides the HTTP call (offline tests)."""
+    `fetch` overrides the HTTP call (offline tests).
+    A17.3 (board #226): with an active snapshot journal and no `fetch` override,
+    the result is checkpointed ("cache" line) and reused on resume while fresh
+    (fetched_at age <= SNAP_CACHE_MAX_AGE_S) — a killed run does not re-fetch."""
+    j = _FETCH_JRUN
+    use_cache = fetch is None and j is not None
+    if use_cache:
+        c = (j.get("cache") or {}).get(dsid)
+        if c is not None and time.time() - float(c.get("fetched_at") or 0) <= SNAP_CACHE_MAX_AGE_S:
+            return [dict(r) for r in c.get("rows") or []], int(c.get("duplicates") or 0)
     call = fetch or (lambda body: _req("POST", f"/v1/data_sources/{dsid}/query", body))
     rows: list = []
     seen: set = set()
@@ -328,6 +441,8 @@ def query_pages(dsid: str, fetch=None) -> tuple[list, int]:
             break
         cursor = q.get("next_cursor")
         time.sleep(0.2)
+    if use_cache:
+        journal_cache(j, dsid, [dict(r) for r in rows], duplicates)
     return rows, duplicates
 
 
@@ -708,6 +823,23 @@ def prop_date_start(prop) -> str | None:
 
 
 def snapshot() -> dict:
+    """Full snapshot with the A17.3 (board #226) fetch checkpoint journal.
+
+    journal_end runs only on success; SIGTERM/exception before it leaves the
+    journal open — the next run resumes and reuses fresh fetch caches. SIGTERM
+    before a cache line = plain refetch next time (reads are idempotent)."""
+    global _FETCH_JRUN
+    jrun = journal_begin()
+    _FETCH_JRUN = jrun
+    try:
+        out = _snapshot_build()
+    finally:
+        _FETCH_JRUN = None
+    journal_end(jrun, "ok")
+    return out
+
+
+def _snapshot_build() -> dict:
     # A24: stable sort + dedup by row.id across pages (duplicates surfaced).
     rows, duplicate_rows = query_pages(DSID)
 

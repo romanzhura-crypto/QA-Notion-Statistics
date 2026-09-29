@@ -17,6 +17,8 @@ import importlib.util
 import io
 import json
 import sys
+import tempfile
+import time
 from datetime import timezone
 from pathlib import Path
 
@@ -480,6 +482,160 @@ def test_resume_main() -> None:
         d.rmdir()
 
 
+def test_widget_fetch_cache() -> None:
+    print("release-widget-sync snapshot(): fetch checkpoint cache (board #226)")
+    td = Path(tempfile.mkdtemp(prefix="a173-cache-"))
+    jp = td / "journal.jsonl"
+    # ids must be UUID-shaped: non-UUID ids are fixtures (is_fixture_row) and
+    # would be excluded from the payload
+    u1 = "11111111-1111-4111-8111-111111111111"
+    u2 = "22222222-2222-4222-8222-222222222222"
+    u3 = "33333333-3333-4333-8333-333333333333"
+    pages = [
+        {"results": [{"id": u1, "properties": {}}, {"id": u2, "properties": {}}],
+         "has_more": True, "next_cursor": "c1"},
+        # seam duplicate u2 across pages — cache must hold deduped rows (A24)
+        {"results": [{"id": u2, "properties": {}}, {"id": u3, "properties": {}}],
+         "has_more": False},
+    ]
+    meta = {"properties": {"Status": {"status": {"options": [{"name": "New", "color": "blue"}]}}}}
+
+    def make_req(state):
+        def _req(method, path, body=None):
+            if method == "GET":
+                state["meta"] += 1
+                if state.get("crash_at_meta") and state["meta"] >= state["crash_at_meta"]:
+                    raise RuntimeError("simulated crash after cache (board #226)")
+                return meta
+            key = "tasks" if "ds-test" in path else "log"
+            state[key] += 1
+            if state.get("crash_at_query") and state[key] >= state["crash_at_query"]:
+                raise RuntimeError("simulated crash before cache (board #226)")
+            if key == "log":
+                return {"results": [], "has_more": False}
+            return pages[0] if "start_cursor" not in (body or {}) else pages[1]
+        return _req
+
+    def fresh_state(**kw):
+        s = {"tasks": 0, "log": 0, "meta": 0}
+        s.update(kw)
+        return s
+
+    def snapshot_ok():
+        with contextlib.redirect_stdout(io.StringIO()):
+            payload = rel.snapshot()
+        return json.loads(json.dumps(payload))
+
+    missing = object()
+    saved = {k: getattr(rel, k, missing) for k in
+             ("WIDGETS_JOURNAL", "WS_JSON", "OUT_JSON", "DSID", "LOG_DSID",
+              "SNAP_CACHE_MAX_AGE_S", "_req", "_FETCH_JRUN")}
+    try:
+        rel.WIDGETS_JOURNAL = jp
+        rel.WS_JSON = td / "release-data.json"
+        rel.OUT_JSON = td / "out.json"
+        rel.DSID = "ds-test"
+        rel.LOG_DSID = "log-test"
+        rel.SNAP_CACHE_MAX_AGE_S = 3600
+        rel._FETCH_JRUN = None
+
+        # --- A: crash after the tasks cache line -> resume must NOT re-fetch
+        state = fresh_state(crash_at_meta=1)
+        rel._req = make_req(state)
+        crashed = False
+        try:
+            rel.snapshot()
+        except RuntimeError:
+            crashed = True
+        jlines = [json.loads(x) for x in jp.read_text(encoding="utf-8").splitlines() if x.strip()]
+        kinds = [r.get("type") for r in jlines]
+        cache_keys = [r.get("key") for r in jlines if r.get("type") == "cache"]
+        check(
+            crashed and kinds.count("run") == 1 and "end" not in kinds and cache_keys == ["ds-test"],
+            f"A17.3: crash after tasks cache -> journal open with 1 cache line ds-test: {kinds} {cache_keys}",
+        )
+        check(
+            state["tasks"] == 2,
+            f"A17.3: run-1 tasks fetch = 2 pages: {state['tasks']}",
+        )
+        # resume run: cache fresh -> tasks NOT re-fetched (page counter stays 2)
+        state["crash_at_meta"] = None
+        out = snapshot_ok()
+        check(
+            state["tasks"] == 2 and state["log"] == 1,
+            f"A17.3: resume reuses tasks cache (no re-fetch): tasks_pages={state['tasks']} log_pages={state['log']}",
+        )
+        q = out.get("quality") or {}
+        uniq = {t.get("id") for t in out.get("tasks") or []}
+        check(
+            out.get("task_count") == 3 and uniq == {u1, u2, u3}
+            and q.get("task_count_mismatch") == 0 and q.get("duplicate_rows") == 1,
+            f"A17.3: payload from cache: task_count={out.get('task_count')} unique={sorted(uniq)} "
+            f"mismatch={q.get('task_count_mismatch')} dups={q.get('duplicate_rows')}",
+        )
+        check(
+            jp.read_text(encoding="utf-8") == "",
+            "A17.3: journal_end zeroes the journal after a successful run",
+        )
+
+        # --- B: cache older than SNAP_CACHE_MAX_AGE_S -> fetch again
+        state2 = fresh_state(crash_at_meta=1)
+        rel._req = make_req(state2)
+        try:
+            rel.snapshot()
+        except RuntimeError:
+            pass
+        old = time.time() - 7200  # twice the 3600s limit
+        aged = []
+        for raw in jp.read_text(encoding="utf-8").splitlines():
+            if not raw.strip():
+                continue
+            r = json.loads(raw)
+            if r.get("type") == "cache":
+                r["fetched_at"] = old
+            aged.append(json.dumps(r, ensure_ascii=False))
+        jp.write_text("\n".join(aged) + "\n", encoding="utf-8")
+        state2["crash_at_meta"] = None
+        snapshot_ok()
+        check(
+            state2["tasks"] == 4,
+            f"A17.3: stale cache (fetched_at 2h ago > 3600s) -> fetch repeats: tasks_pages={state2['tasks']}",
+        )
+
+        # --- C: crash BEFORE any cache line -> fetch repeats, nothing lost
+        jp.write_text("", encoding="utf-8")
+        rel.WS_JSON.write_text('{"task_count": 0, "tasks": []}', encoding="utf-8")
+        state3 = fresh_state(crash_at_query=1)
+        rel._req = make_req(state3)
+        try:
+            rel.snapshot()
+        except RuntimeError:
+            pass
+        cache_lines = [x for x in jp.read_text(encoding="utf-8").splitlines() if '"cache"' in x]
+        check(
+            cache_lines == [],
+            "A17.3: crash before cache -> no cache line in the journal",
+        )
+        state3["crash_at_query"] = None
+        out3 = snapshot_ok()
+        uniq3 = {t.get("id") for t in out3.get("tasks") or []}
+        check(
+            state3["tasks"] == 3 and out3.get("task_count") == 3 and uniq3 == {u1, u2, u3},
+            f"A17.3: no cache -> refetch, no losses: pages={state3['tasks']} "
+            f"task_count={out3.get('task_count')} unique={sorted(uniq3)}",
+        )
+    finally:
+        for k, v in saved.items():
+            if v is missing:
+                if hasattr(rel, k):
+                    delattr(rel, k)
+            else:
+                setattr(rel, k, v)
+        for p in td.iterdir():
+            p.unlink()
+        td.rmdir()
+
+
 def main() -> int:
     test_read_side()
     test_write_side()
@@ -487,6 +643,7 @@ def main() -> int:
     test_a10_titles_and_diff()
     test_journal()
     test_resume_main()
+    test_widget_fetch_cache()
     print(json.dumps({"ok": True, "result": "PASS", "checks": CHECKS}, ensure_ascii=False))
     print("PASS")
     return 0
