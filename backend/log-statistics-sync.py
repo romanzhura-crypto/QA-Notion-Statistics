@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Sync Sprint snapshot → LOG STATISTICS (wide by-task table).
 
-Title format on CREATE (and empty-row reuse): Sprit №{run}({job}) {DD.MM.YYYY HH:MM:SS}
-  timezone Europe/Minsk. Orthography "Sprit" is required by owner.
+Row Name is deterministic per task (A18, board #203, owner 2026-09-29):
+  Sprint: <task name> [<task id>]  — no run number, no timestamp: a re-created
+  LOG row gets the same name (stable row key, no visual duplicates). Orthography
+  "Sprint" fixed by owner (the old "Sprit" was a typo). Legacy names are
+  migrated with LOG_STATS_REWRITE_TITLE=1.
+Run label (run-state last_title / output title only, never row Name):
+  Sprint №{run}({job}) {DD.MM.YYYY HH:MM:SS} timezone Europe/Minsk.
   Incremental PATCH does not rewrite Name every run.
 
 Default mode: incremental
@@ -319,9 +324,23 @@ def next_run_number(github_run_number: int | None) -> int:
 
 
 def format_title(run_no: int, job: str, when: datetime) -> str:
+    """Run label for run-state/output bookkeeping (NOT a row Name since A18)."""
     local = when.astimezone(MINSK)
     stamp = local.strftime("%d.%m.%Y %H:%M:%S")
-    return f"Sprit №{run_no}({job}) {stamp}"
+    return f"Sprint №{run_no}({job}) {stamp}"
+
+
+def row_title(task: dict) -> str:
+    """A18 (board #203): deterministic LOG row Name = Sprint: <name> [<id>].
+
+    Pure function of the task (no run number, no timestamp): re-created rows
+    get the identical name. The full task id is the unique part — a short
+    prefix is NOT unique inside a Notion database (ids share long prefixes),
+    so the full id is used as the stable key.
+    """
+    name = str(task.get("n_full") or task.get("n") or "").strip().replace("\n", " ")[:300]
+    tid = str(task.get("id") or "")
+    return f"Sprint: {name or '—'} [{tid}]"
 
 
 def parse_ts(v):
@@ -765,7 +784,7 @@ def upsert(task: dict, title: str | None, page_id: str | None, now: datetime | N
             "properties": props,
         }
         if "Name" not in props:
-            props["Name"] = title_prop(title or "Sprit")
+            props["Name"] = title_prop(title or row_title(task))
         code, obj = _req("POST", "/v1/pages", body)
         return "created", code, obj.get("id") if code == 200 else f"{obj.get('code')}: {obj.get('message')}"
 
@@ -816,6 +835,7 @@ def main():
     when = datetime.now(MINSK)
     now_utc = datetime.now(timezone.utc)
     title = (os.environ.get("LOG_STATS_TITLE") or "").strip() or format_title(run_no, job, when)
+    title_override = (os.environ.get("LOG_STATS_TITLE") or "").strip()
     skip_existing = env_flag("LOG_STATS_SKIP_EXISTING", "0")
     full = env_flag("LOG_STATS_FULL", "0")
     rewrite_title = env_flag("LOG_STATS_REWRITE_TITLE", "0")
@@ -895,7 +915,9 @@ def main():
         if not page_id and reuse_empty:
             page_id = reuse_empty.pop(0)
             was_empty = True
-        use_title = title if (not log_row or was_empty or rewrite_title or not page_id) else None
+        # A18 (board #203): row Name is per-task deterministic (row_title), not
+        # the run label. LOG_STATS_TITLE overrides it (manual/ops runs).
+        use_title = (title_override or row_title(task)) if (not log_row or was_empty or rewrite_title or not page_id) else None
         action, code, info = upsert(task, use_title, page_id, now=now_utc, log_row=None if was_empty else log_row)
         if code == 200:
             if action == "created":
@@ -1109,6 +1131,18 @@ def selftest() -> None:
     assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "Тест-драйв"}) is False
     assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "Итоги тестирования"}) is False
     assert is_fixture_row({"id": "3c8e17b6-8482-8166-0000-000000000000", "n": "Тестирование релиза"}) is False
+
+    # A18 (board #203): deterministic row Name = Sprint: <name> [<id>]
+    t_a = {"id": "3c8e17b6-8482-819b-a335-dfd0c4225052", "n": "Задача A", "n_full": "Задача A"}
+    t_b = {"id": "3c8e17b6-8482-8166-0000-000000000002", "n": "Задача A", "n_full": "Задача A"}
+    assert row_title(t_a) == "Sprint: Задача A [3c8e17b6-8482-819b-a335-dfd0c4225052]", row_title(t_a)
+    assert row_title(t_a) == row_title(t_a)  # deterministic: no run/time parts
+    assert row_title(t_b) != row_title(t_a)  # same name, different id -> different rows
+    assert row_title({"id": "x", "n": "A\nB"}) == "Sprint: A B [x]"  # newline folded
+    assert row_title({"id": "x", "n_full": "Полное имя", "n": "Краткое"}) == "Sprint: Полное имя [x]"  # n_full wins
+    assert row_title({"id": "x"}) == "Sprint: — [x]"  # missing name never crashes
+    assert "Sprit" not in row_title(t_a) and row_title(t_a).startswith("Sprint: ")
+    assert format_title(5, "local", parse_ts("2026-09-29T10:00:00Z")).startswith("Sprint №5(local) ")
 
     # immutable Done at: later last_edited_time must not move an existing value
     assert done_at_prop(task_done, previous="2026-09-21T08:00:00.000Z")["date"]["start"] == "2026-09-21T08:00:00.000Z"

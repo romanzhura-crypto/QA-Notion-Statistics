@@ -655,11 +655,35 @@ def test_widget_fetch_cache() -> None:
         td.rmdir()
 
 
+def test_a18_row_titles() -> None:
+    print("A18 (board #203): deterministic LOG row Name = Sprint: <name> [<id>]")
+    t_a = {"id": "3c8e17b6-8482-819b-a335-dfd0c4225052", "n": "Задача A", "n_full": "Задача A"}
+    t_b = {"id": "3c8e17b6-8482-8166-0000-000000000002", "n": "Задача A", "n_full": "Задача A"}
+    check(log.row_title(t_a) == "Sprint: Задача A [3c8e17b6-8482-819b-a335-dfd0c4225052]",
+          "A18: format = Sprint: <name> [<full id>]")
+    check(log.row_title(t_a) == log.row_title(t_a),
+          "A18: deterministic (no run number / timestamp in the name)")
+    check(log.row_title(t_b) != log.row_title(t_a),
+          "A18: same name + different id -> different row keys")
+    check("Sprit" not in log.row_title(t_a) and log.row_title(t_a).startswith("Sprint: "),
+          "A18: orthography Sprint (owner 2026-09-29)")
+    check(log.row_title({"id": "x", "n": "A\nB"}) == "Sprint: A B [x]",
+          "A18: newline in name folded to space")
+    check(log.row_title({"id": "x", "n_full": "Полное имя", "n": "Краткое"}) == "Sprint: Полное имя [x]",
+          "A18: n_full preferred over truncated n")
+    check(log.row_title({"id": "x"}) == "Sprint: — [x]",
+          "A18: missing name never crashes (explicit fallback)")
+    t_long = {"id": "y", "n": "q" * 500}
+    check(len(log.row_title(t_long)) == len("Sprint: ") + 300 + len(" [y]"),
+          "A18: name part capped (300) — Notion title limit safe")
+
+
 def main() -> int:
     test_read_side()
     test_write_side()
     test_timestamps()
     test_a10_titles_and_diff()
+    test_a18_row_titles()
     test_journal()
     test_resume_main()
     test_widget_fetch_cache()
