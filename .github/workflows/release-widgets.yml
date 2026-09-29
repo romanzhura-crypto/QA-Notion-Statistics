@@ -81,6 +81,19 @@ jobs:
           key: webhook-run-state-sync-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             webhook-run-state-
+      # Board #202 (A17): resume journals from actions/cache — a run killed on
+      # an ephemeral runner resumes without redoing finished items (collector)
+      # or re-fetching Notion (snapshot fetch cache). See
+      # docs/release-data-contract.md, section A17.
+      - name: restore resume journals (A17)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            config/log-statistics-journal.jsonl
+            config/release-widget-journal.jsonl
+          key: resume-journal-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            resume-journal-
       - name: snapshot JSON for frontend
         run: python3 backend/release-widget-sync.py snapshot
       - name: upsert LOG STATISTICS
@@ -92,6 +105,20 @@ jobs:
           LOG_STATS_FULL: "0"
           LOG_STATS_REWRITE_TITLE: "0"
         run: python3 backend/log-statistics-sync.py
+      # Board #202 (A17): persist resume journals even after a failed step — the
+      # next run on a fresh runner resumes instead of redoing work (unique key
+      # per run, last-write-wins via the restore-keys prefix).
+      - name: persist resume journals (A17)
+        if: ${{ always() }}
+        run: mkdir -p config && touch config/log-statistics-journal.jsonl config/release-widget-journal.jsonl
+      - name: save resume journals (A17)
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            config/log-statistics-journal.jsonl
+            config/release-widget-journal.jsonl
+          key: resume-journal-${{ github.run_id }}-${{ github.run_attempt }}
       - name: re-enrich JSON from LOG collector
         run: python3 backend/release-widget-sync.py enrich
       - name: stage static HTML+JSON

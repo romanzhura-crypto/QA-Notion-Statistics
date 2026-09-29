@@ -178,3 +178,36 @@ Rules:
   per status `sum(segment days) <= column` is the invariant; a deficit above
   `DRIFT_DAYS_MIN` (rounding tolerance) means a lost column credit.
   `quality.drift_days` > `thresholds.drift_days` fails the gate.
+
+## Board #202 (A17): checkpoint journal + resume (additive, NOT in payload)
+
+Journals are QA/CI-side resume checkpoints — they never enter `release-data.json`
+(no payload fields added). The audit trail remains run-state
+(`config/log-statistics-run.json`, webhook run-state), not the journal.
+
+| Journal | File (env override) | Written by | Entries |
+|---|---|---|---|
+| collector | `config/log-statistics-journal.jsonl` (`LOG_STATS_JOURNAL`) | `backend/log-statistics-sync.py` | `run` / `done` / `end` |
+| snapshot fetch cache | `config/release-widget-journal.jsonl` (`WIDGETS_JOURNAL`) | `backend/release-widget-sync.py` | `run` / `cache` / `end` |
+
+Rules:
+- **Resume:** an unfinished run (last `run` line without a following `end`) is
+  resumed when its `started_at` age ≤ 24h (`JOURNAL_MAX_AGE_S=86400`,
+  `WIDGETS_JOURNAL_MAX_AGE_S` for the snapshot journal); older or finished →
+  fresh `run_id`.
+- **Collector:** items journaled as `done` (any outcome — created / updated /
+  skipped / conflict / failed = attempted, no repeat needed) are skipped on
+  resume; surfaced additively as `resumed` (bool) / `resume_skipped` (int) in
+  the run-state/output. A19 winner-merge makes a replay safe anyway.
+- **Snapshot fetch cache:** `query_pages` results (deduped rows + duplicates,
+  A24) are checkpointed as `cache` lines and reused on resume only while fresh:
+  `fetched_at` age ≤ 3600s (`SNAP_CACHE_MAX_AGE_S`, env). Older or missing
+  cache → normal refetch (reads are idempotent). Applies to the task rows and
+  to the LOG STATISTICS rows used by enrich.
+- **`end` semantics:** the `end` line plus ZEROING the journal file = the run
+  checkpoint is complete (journal ≠ audit log). On SIGTERM / exception `end` is
+  NOT written — the next run resumes; a kill before a `cache` line just
+  re-fetches next time (nothing lost, nothing duplicated).
+- **CI persistence:** in `release-widgets.yml` both journal files survive
+  ephemeral runners via `actions/cache` restore/save (key `resume-journal-*`,
+  restore-keys prefix, last-write-wins).

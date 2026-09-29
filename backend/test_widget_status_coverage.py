@@ -624,6 +624,25 @@ def test_widget_fetch_cache() -> None:
             f"A17.3: no cache -> refetch, no losses: pages={state3['tasks']} "
             f"task_count={out3.get('task_count')} unique={sorted(uniq3)}",
         )
+
+        # --- D: run older than JOURNAL_MAX_AGE_S (24h) is NOT resumed — its
+        # cache lines are ignored too, the fresh run re-fetches
+        now = time.time()
+        jp.write_text(
+            json.dumps({"type": "run", "t": now - 90000, "run_id": "oldrun000001",
+                        "started_at": now - 90000}) + "\n"
+            + json.dumps({"type": "cache", "t": now, "run_id": "oldrun000001", "key": "ds-test",
+                          "fetched_at": now, "rows": [{"id": u1, "properties": {}}],
+                          "duplicates": 0}) + "\n",
+            encoding="utf-8")
+        state4 = fresh_state()
+        rel._req = make_req(state4)
+        out4 = snapshot_ok()
+        check(
+            state4["tasks"] == 2 and out4.get("task_count") == 3,
+            f"A17.3: stale run (started_at 25h ago) NOT resumed -> refetch: "
+            f"pages={state4['tasks']} task_count={out4.get('task_count')}",
+        )
     finally:
         for k, v in saved.items():
             if v is missing:

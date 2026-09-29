@@ -72,6 +72,9 @@ WIDGETS_JOURNAL = Path(os.environ.get("WIDGETS_JOURNAL") or (ROOT / "config" / "
 # A fetched page-cache is reused on resume only when not older than this
 # (fetched_at age); older/missing cache → normal refetch (reads are idempotent).
 SNAP_CACHE_MAX_AGE_S = int(os.environ.get("SNAP_CACHE_MAX_AGE_S") or 3600)
+# An unfinished run is resumed only when not older than this (same rule as
+# log-statistics-sync.py JOURNAL_MAX_AGE_S — board #202 contract).
+JOURNAL_MAX_AGE_S = int(os.environ.get("WIDGETS_JOURNAL_MAX_AGE_S") or 86400)
 
 
 def _journal_append(path, rec) -> None:
@@ -90,8 +93,9 @@ def journal_begin(path=None) -> dict:
     """Return {run_id, resumed, path, cache}.
 
     Resume the unfinished run (last "run" line without a following "end") when
-    its started_at is fresh (age <= SNAP_CACHE_MAX_AGE_S), restoring the fetched
-    page-caches ("cache" lines, latest per key). Otherwise start a new run.
+    its started_at is fresh (age <= JOURNAL_MAX_AGE_S), restoring the fetched
+    page-caches ("cache" lines, latest per key; reuse is gated at use time by
+    SNAP_CACHE_MAX_AGE_S). Otherwise start a new run.
     Keep in sync with log-statistics-sync.py (board #224/#225); here the journal
     checkpoints network fetch results ("cache" lines) instead of item dones.
     """
@@ -121,7 +125,7 @@ def journal_begin(path=None) -> dict:
     now = time.time()
     if open_run is not None:
         started = open_run.get("started_at")
-        if isinstance(started, (int, float)) and 0 <= now - float(started) <= SNAP_CACHE_MAX_AGE_S:
+        if isinstance(started, (int, float)) and 0 <= now - float(started) <= JOURNAL_MAX_AGE_S:
             return {
                 "run_id": open_run.get("run_id"),
                 "resumed": True,
