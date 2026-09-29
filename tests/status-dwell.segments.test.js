@@ -1,21 +1,31 @@
-// jsdom tests for status-dwell.html board #165/#167:
+// jsdom tests for status-dwell.html board #165/#167/#218:
 // - each interval rendered as its own segment (repeats never merged)
 // - sub-hour intervals stay visible (minute precision)
 // - hover tooltip: total + per-interval info (ДД.MM.ГГГГ ЧЧ:MM), all same-status
 //   segments highlighted together
 // - caption "Источник — таблица задач…" removed
+// - board #218 freshness hint: «Данные от …» (generated_at, Europe/Minsk) and
+//   «История от …» (enriched_at), ДД.MM.ГГГГ ЧЧ:MM; legacy payload without
+//   enriched_at shows «История от —»
 // Run: NODE_PATH=/tmp/sdtest/node_modules node tests/status-dwell.segments.test.js
 "use strict";
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
 
-const HTML = fs.readFileSync(path.join(__dirname, "..", "widgets", "status-dwell.html"), "utf8");
+// layout-agnostic: workspace tree keeps HTML in widgets/, repo tree in frontend/
+const HTML_PATH = ["widgets", "frontend"]
+  .map(d => path.join(__dirname, "..", d, "status-dwell.html"))
+  .find(p => fs.existsSync(p));
+const HTML = fs.readFileSync(HTML_PATH, "utf8");
 
 const SEG = (s, days, from, to) => ({ s, days, from, to });
 const fixture = {
   ok: true,
   generated_at: "2026-09-25T09:00:00.000Z",
+  generated_at_local: "2026-09-25T12:00:00+03:00",
+  enriched_at: "2026-09-25T09:30:00.000Z",
+  timezone: "Europe/Minsk",
   source: "test",
   data_source_id: "3dee17b6-8482-80a3-9fc4-000bafe19b46",
   task_count: 1,
@@ -119,6 +129,45 @@ async function main() {
   ok(hl.length === 3, "mouseenter highlights all 3 Development segments, got " + hl.length);
   rects[1].dispatchEvent(new window.MouseEvent("mouseleave", { bubbles: false }));
   ok(svg.querySelectorAll("rect.hl").length === 0, "mouseleave clears highlight");
+
+  // board #218: freshness hint «Данные от …» / «История от …»
+  const syncLine = doc.getElementById("sync-time").textContent;
+  ok(/Данные от \d{2}\.\d{2}\.\d{4} \d{2}:\d{2}/.test(syncLine),
+    "hint «Данные от ДД.MM.ГГГГ ЧЧ:MM»: " + JSON.stringify(syncLine));
+  ok(/История от \d{2}\.\d{2}\.\d{4} \d{2}:\d{2}/.test(syncLine),
+    "hint «История от ДД.MM.ГГГГ ЧЧ:MM»: " + JSON.stringify(syncLine));
+  ok(syncLine.indexOf("Данные от 25.09.2026 12:00") !== -1,
+    "generated_at rendered in Europe/Minsk (09:00Z → 12:00): " + JSON.stringify(syncLine));
+  ok(syncLine.indexOf("История от 25.09.2026 12:30") !== -1,
+    "enriched_at rendered in Europe/Minsk (09:30Z → 12:30): " + JSON.stringify(syncLine));
+  ok(HTML.indexOf("Последняя синхронизация") === -1, "old label «Последняя синхронизация» removed");
+
+  // board #218: legacy payload without enriched_at/generated_at_local → «История от —»
+  {
+    const legacy = Object.assign({}, fixture);
+    delete legacy.enriched_at;
+    delete legacy.generated_at_local;
+    const dom2 = new JSDOM(HTML, {
+      runScripts: "dangerously",
+      pretendToBeVisual: true,
+      url: "https://romanzhura-crypto.github.io/QA-Notion-Statistics/status-dwell.html",
+      beforeParse(w2) {
+        w2.fetch = async () => ({
+          ok: true,
+          status: 200,
+          json: async () => JSON.parse(JSON.stringify(legacy))
+        });
+        w2.matchMedia = w2.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {} }));
+      }
+    });
+    await new Promise(r => setTimeout(r, 300));
+    const line2 = dom2.window.document.getElementById("sync-time").textContent;
+    ok(line2.indexOf("Данные от 25.09.2026 12:00") !== -1,
+      "legacy payload: hint still shows generated_at: " + JSON.stringify(line2));
+    ok(line2.indexOf("История от —") !== -1,
+      "legacy payload without enriched_at shows «История от —»: " + JSON.stringify(line2));
+    dom2.window.close();
+  }
 
   console.log(JSON.stringify({ pass, fail }));
   window.close();

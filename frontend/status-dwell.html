@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260923-sync-time-left">
+  <meta name="widget-build" content="20260929-freshness-hint">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -67,7 +67,7 @@
       font-size: 12px;
       color: var(--muted);
       text-align: start;
-      white-space: nowrap;
+      white-space: pre-line;
     }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
     label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
@@ -253,7 +253,7 @@
             <button type="button" class="primary" id="sync">Обновить данные</button>
           </div>
         </div>
-        <p class="sync-time" id="sync-time" aria-live="polite">Последняя синхронизация: —</p>
+        <p class="sync-time" id="sync-time" aria-live="polite">Данные от —<br>История от —</p>
         <p class="sync-status" id="sync-msg" aria-live="polite"></p>
       </div>
     </section>
@@ -298,7 +298,7 @@
     </section>
   </main>
   <script>
-    let DATA = { releases: [], tasks: [], generated_at: "", task_count: 0, status_meta: [], status_dwell_note: "" };
+    let DATA = { releases: [], tasks: [], generated_at: "", generated_at_local: "", enriched_at: "", task_count: 0, status_meta: [], status_dwell_note: "" };
     const NOTION_STATUS = {
       default: "#787774", gray: "#9b9a97", brown: "#64473a", orange: "#d9730d",
       yellow: "#dfab01", green: "#0f7b6c", blue: "#2383e2", purple: "#6940a5",
@@ -874,16 +874,28 @@
       const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
       return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
     }
+    // Board #218: freshness hint. «Данные от …» = generated_at (Sprint data
+    // moment, board #196) rendered in Europe/Minsk == generated_at_local;
+    // «История от …» = enriched_at (LOG-history merge moment). Missing field → «—».
     function updateSyncTime() {
-      document.getElementById("sync-time").textContent = DATA.generated_at
-        ? ("Последняя синхронизация: " + formatSyncTime(DATA.generated_at))
-        : "Последняя синхронизация: —";
+      const el = document.getElementById("sync-time");
+      const gen = DATA.generated_at || DATA.generated_at_local || "";
+      const hist = DATA.enriched_at || "";
+      el.textContent =
+        "Данные от " + (gen ? formatSyncTime(gen) : "—") + "\n" +
+        "История от " + (hist ? formatSyncTime(hist) : "—");
+      el.title = "generated_at: " + (DATA.generated_at || "—") +
+        " · generated_at_local: " + (DATA.generated_at_local || "—") +
+        " · enriched_at: " + (DATA.enriched_at || "—") +
+        " · timezone: " + "Europe/Minsk";
     }
     function applyPayload(p, keepRelease) {
       const prev = keepRelease ? releaseCombo.input.value : "";
       DATA = {
         source: p.source || DATA.source,
         generated_at: p.generated_at,
+        generated_at_local: p.generated_at_local,
+        enriched_at: p.enriched_at,
         task_count: p.task_count || (p.tasks || []).length,
         releases: p.releases || [],
         tasks: p.tasks || [],
