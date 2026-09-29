@@ -497,8 +497,9 @@ def webhook_from_run_state(now=None) -> dict | None:
     written by status-webhook-event.py (env WEBHOOK_RUN_STATE shared by both).
     None when no run-state is available — the gate then skips the gap check
     (webhook not deployed yet), never false-fails. gap_hours = hours from the
-    last delivered+applied event (processed/noop refresh it, error/skipped do not)
-    to the snapshot moment."""
+    last DELIVERY (last_delivery_at: processed/noop/ping/skipped refresh it,
+    errors do not — synthetic worker pings included, board #229) to the snapshot
+    moment; falls back to last_event_at for old run-state files."""
     path = Path(
         os.environ.get("WEBHOOK_RUN_STATE") or (ROOT / "config" / "status-webhook-run.json")
     )
@@ -509,15 +510,21 @@ def webhook_from_run_state(now=None) -> dict | None:
     if not isinstance(data, dict) or not data:
         return None
     now = now or datetime.now(timezone.utc)
-    last = parse_ts(data.get("last_event_at"))
+    last_ev = parse_ts(data.get("last_event_at"))
+    # N1 variant 1 (board #229): gap is DELIVERY-based — a silent Notion with
+    # fresh worker pings must not fail the gate; a dead chain must. Old
+    # run-state files without last_delivery_at fall back to last_event_at.
+    last_dl = parse_ts(data.get("last_delivery_at")) or last_ev
     return {
         "events_total": int(data.get("events_total") or 0),
         "events_processed": int(data.get("events_processed") or 0),
         "events_noop": int(data.get("events_noop") or 0),
         "events_skipped": int(data.get("events_skipped") or 0),
         "events_error": int(data.get("events_error") or 0),
+        "events_ping": int(data.get("events_ping") or 0),
         "last_event_at": data.get("last_event_at"),
-        "gap_hours": round((now - last).total_seconds() / 3600.0, 2) if last else None,
+        "last_delivery_at": data.get("last_delivery_at"),
+        "gap_hours": round((now - last_dl).total_seconds() / 3600.0, 2) if last_dl else None,
     }
 
 
@@ -1005,6 +1012,8 @@ def selftest() -> dict:
         try:
             # no run-state file → None (gate will skip the gap check, not false-fail)
             assert webhook_from_run_state() is None
+            # (a) old state WITHOUT last_delivery_at → gap falls back to
+            #     last_event_at (board #229 backward compatibility)
             Path(os.environ["WEBHOOK_RUN_STATE"]).write_text(json.dumps({
                 "events_total": 7, "events_processed": 5, "events_noop": 1,
                 "events_skipped": 0, "events_error": 1,
@@ -1013,9 +1022,24 @@ def selftest() -> dict:
             wh = webhook_from_run_state(
                 now=datetime(2026, 9, 27, 9, 0, tzinfo=timezone.utc)
             )
-            assert wh["gap_hours"] == 3.0, wh  # 3h since last applied event
+            assert wh["gap_hours"] == 3.0, wh  # 3h since last applied event (fallback)
             assert wh["events_processed"] == 5 and wh["events_error"] == 1, wh
             assert wh["last_event_at"] == "2026-09-27T06:00:00.000Z", wh
+            assert wh["last_delivery_at"] is None and wh["events_ping"] == 0, wh
+            # (b) last_delivery_at present → gap from DELIVERY; a stale
+            #     last_event_at (quiet Notion) never drags the gap to FAIL
+            Path(os.environ["WEBHOOK_RUN_STATE"]).write_text(json.dumps({
+                "events_total": 9, "events_processed": 5, "events_noop": 2,
+                "events_skipped": 0, "events_error": 0, "events_ping": 2,
+                "last_event_at": "2026-09-26T00:00:00.000Z",
+                "last_delivery_at": "2026-09-27T08:30:00.000Z",
+            }), encoding="utf-8")
+            wh = webhook_from_run_state(
+                now=datetime(2026, 9, 27, 9, 0, tzinfo=timezone.utc)
+            )
+            assert wh["gap_hours"] == 0.5, wh  # from delivery, not the 33h-old event
+            assert wh["last_delivery_at"] == "2026-09-27T08:30:00.000Z", wh
+            assert wh["events_ping"] == 2 and wh["last_event_at"] == "2026-09-26T00:00:00.000Z", wh
             # gap_hours null-safe: state without last_event_at → None, not fake 0
             Path(os.environ["WEBHOOK_RUN_STATE"]).write_text(
                 json.dumps({"events_total": 1}), encoding="utf-8"

@@ -20,6 +20,10 @@ Hard rules (no silent quality debt):
   - quality.webhook.gap_hours   > thresholds.gap_hours              -> FAIL (N1)
   - quality.webhook.events_error > 0                               -> FAIL
   - quality.webhook == null (or gap_hours == null) -> N1 check SKIPPED (webhook not observed yet)
+N1 gap_hours is DELIVERY-based (board #229): hours since the last delivered
+event incl. synthetic worker pings (last_delivery_at; fallback last_event_at for
+old run-state). A silent Notion with a live delivery chain never FAILs; a dead
+chain (no deliveries > gap limit) does.
 WARN-only: truncated_titles (cosmetic), fixtures_excluded (informational),
 unknown_statuses (listed, dwell kept — see contract).
 Empty placeholder payload (task_count == 0) is SKIP (exit 0): nothing to gate.
@@ -57,8 +61,10 @@ def evaluate(payload: dict) -> tuple[str, list]:
     check_max("tasks_without_history", 0)
     check_max("drift_days", th.get("drift_days"))  # N2: Segments vs columns
     check_max("a19_conflicts", 0)  # A19: concurrent close collisions
-    # N1: gap_hours lives in quality.webhook (board #184.3). webhook == null →
-    # the webhook pipeline is not deployed/observed yet → skip, never false-fail.
+    # N1: gap_hours lives in quality.webhook (board #184.3/#229). webhook == null
+    # → the webhook pipeline is not deployed/observed yet → skip, never
+    # false-fail. gap_hours is delivery-based (fresh pings keep it green while
+    # Notion is silent); FAIL when the delivery chain is dead.
     wh = q.get("webhook")
     if isinstance(wh, dict):
         gap = wh.get("gap_hours")
@@ -107,8 +113,9 @@ def selftest() -> int:
 
     def wh(**kw):
         base = {"events_total": 5, "events_processed": 4, "events_noop": 1,
-                "events_skipped": 0, "events_error": 0,
-                "last_event_at": "2026-09-27T06:00:00.000Z", "gap_hours": 1.0}
+                "events_skipped": 0, "events_error": 0, "events_ping": 0,
+                "last_event_at": "2026-09-27T06:00:00.000Z",
+                "last_delivery_at": "2026-09-27T08:00:00.000Z", "gap_hours": 1.0}
         base.update(kw)
         return base
 
@@ -118,11 +125,17 @@ def selftest() -> int:
         ("PASS", q(unknown_statuses=["Code Freeze"])),  # WARN-only (listed)
         ("PASS", q(webhook=wh())),  # N1 green
         ("PASS", q(webhook=wh(gap_hours=None, last_event_at=None))),  # unknown gap → skip
+        ("PASS", q(webhook=wh(  # N1 board #229: quiet Notion, fresh pings → PASS
+            last_event_at="2026-09-20T00:00:00.000Z",
+            last_delivery_at="2026-09-27T08:00:00.000Z",
+            events_ping=12, gap_hours=1.0))),
+        ("PASS", q(webhook=wh(  # old run-state (no last_delivery_at) → fallback, same verdict
+            last_delivery_at=None, events_ping=0, gap_hours=1.0))),
         ("FAIL", q(task_count_delta_pct=15.0)),
         ("FAIL", q(segments_negative=1)),
         ("FAIL", q(segments_absurd=1)),
         ("FAIL", q(tasks_without_history=2)),
-        ("FAIL", q(webhook=wh(gap_hours=7.5))),  # N1: delivery loss
+        ("FAIL", q(webhook=wh(gap_hours=7.5))),  # N1: delivery chain dead
         ("FAIL", q(webhook=wh(events_error=1))),  # handler failures
         ("FAIL", q(drift_days=2.0)),  # N2
         ("FAIL", q(a19_conflicts=1)),  # A19

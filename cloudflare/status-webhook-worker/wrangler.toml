@@ -11,3 +11,9 @@ compatibility_date = "2025-01-01"
 GH_OWNER = "romanzhura-crypto"
 GH_REPO = "QA-Notion-Statistics"
 SYNC_WORKFLOW = "release-widgets.yml"
+
+# Board #229 (N1 variant 1): hourly synthetic ping (client_payload type="ping")
+# through the same repository_dispatch chain as real events — keeps the webhook
+# run-state last_delivery_at fresh so gap_hours measures delivery, not silence.
+[triggers]
+crons = ["0 * * * *"]

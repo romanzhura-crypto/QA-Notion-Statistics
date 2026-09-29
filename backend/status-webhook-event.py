@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from datetime import datetime, timezone
 import os
 import sys
 from pathlib import Path
@@ -56,21 +57,36 @@ def run_state_read() -> dict:
         return {}
 
 
-def run_state_note(outcome: str, event_ts=None) -> dict:
+def run_state_note(outcome: str, event_ts=None, ping: bool = False, now=None) -> dict:
     """Merge one handled event into the run-state. outcome: processed|noop|skipped|error.
 
-    event_ts = the Notion event timestamp (exact), not handler wall-clock:
-    gap_hours must measure webhook DELIVERY lag from the source of truth.
+    event_ts = the Notion event timestamp (exact), not handler wall-clock.
+    ping = synthetic delivery heartbeat (worker cron, board #229): outcome is
+    "noop", plus additive events_ping; it is NOT a business event.
+    last_delivery_at = handler wall-clock of ANY delivered event
+    (processed/noop/ping/skipped — errors excluded), monotonic max: N1 gap
+    measures the DELIVERY chain, a silent Notion must not fail the gate.
+    last_event_at = real business events only (processed/noop, non-ping),
+    monotonic — unchanged semantics. now = ISO override for deterministic tests.
     Always returns the fresh state (for logging); never raises."""
     state = run_state_read()
     state["events_total"] = int(state.get("events_total") or 0) + 1
     state[f"events_{outcome}"] = int(state.get(f"events_{outcome}") or 0) + 1
+    if ping:
+        state["events_ping"] = int(state.get("events_ping") or 0) + 1
     ts = LJS.iso_z(LJS.parse_ts(event_ts)) if event_ts else None
-    if ts and outcome in ("processed", "noop"):
+    if ts and outcome in ("processed", "noop") and not ping:
         # noop still proves delivery alive — only errors do not refresh the gap
         prev = state.get("last_event_at")
         if not prev or ts > str(prev):
             state["last_event_at"] = ts
+    if outcome in ("processed", "noop", "skipped"):
+        # any DELIVERED event (incl. skipped + synthetic ping) proves the chain
+        # alive — only handler errors do not refresh the delivery clock
+        dl = LJS.iso_z(LJS.parse_ts(now)) if now else LJS.iso_z(datetime.now(timezone.utc))
+        prev_dl = state.get("last_delivery_at")
+        if not prev_dl or dl > str(prev_dl):
+            state["last_delivery_at"] = dl
     try:
         target = _state_path()
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +188,12 @@ def main() -> int:
         print(json.dumps({"ok": False, "error": "no EVENT_JSON"}))
         return 2
     ev = json.loads(raw)
+    if str(ev.get("type") or "").lower() == "ping" or ev.get("kind") == "ping":
+        # Synthetic heartbeat from the worker cron (board #229): proves the
+        # delivery chain alive. No Notion/Segments/A19 work — ever.
+        st = run_state_note("noop", ev.get("timestamp"), ping=True)
+        print(json.dumps({"ok": True, "ping": True, "state": st}))
+        return 0
     entity_id = str(ev.get("entity_id") or "")
     entity_type = str(ev.get("entity_type") or "page")
     if not entity_id or entity_type != "page":
@@ -310,6 +332,22 @@ def selftest() -> None:
             # skipped events count but never move the clock (nothing was applied)
             s = run_state_note("skipped", "2026-09-26T11:00:00.000Z")
             assert s["events_skipped"] == 1 and s["last_event_at"] == ts2, s
+            # board #229 (N1 variant 1): delivery clock + synthetic ping.
+            # Frozen future "now" values: the delivery clock is monotonic vs the
+            # real wall clock written by the calls above.
+            dl1 = "2030-01-01T00:00:00.000Z"
+            s = run_state_note("noop", None, ping=True, now=dl1)
+            assert s["events_ping"] == 1 and s["events_noop"] == 2, s
+            assert s["last_delivery_at"] == dl1, s  # ping refreshes the gap clock
+            assert s["last_event_at"] == ts2, s  # ping is NOT a business event
+            s = run_state_note("error", None, now="2030-01-01T01:00:00.000Z")
+            assert s["last_delivery_at"] == dl1, s  # errors do not prove delivery
+            s = run_state_note("skipped", "2026-09-26T11:30:00.000Z", now="2029-12-31T23:00:00.000Z")
+            assert s["last_delivery_at"] == dl1, s  # monotonic max: never moves back
+            assert s["last_event_at"] == ts2, s  # skipped is NOT a business event
+            s = run_state_note("processed", "2026-09-26T12:00:00.000Z", now="2030-01-01T02:00:00.000Z")
+            assert s["last_delivery_at"] == "2030-01-01T02:00:00.000Z", s
+            assert s["last_event_at"] == "2026-09-26T12:00:00.000Z", s
             # corrupt/unreadable file degrades to fresh state, never raises
             Path(os.environ["WEBHOOK_RUN_STATE"]).write_text("not json", encoding="utf-8")
             s = run_state_note("processed", ts1)

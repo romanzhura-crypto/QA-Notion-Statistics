@@ -74,6 +74,9 @@ jobs:
   # because snapshot always reads the full current Notion+LOG state.
   refresh_pages:
     needs: apply
+    # Board #229: synthetic delivery ping is not a business event — the
+    # snapshot is unchanged, never burn a Pages deploy on it.
+    if: github.event.client_payload.type != 'ping'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

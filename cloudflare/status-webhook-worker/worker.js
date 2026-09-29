@@ -141,4 +141,33 @@ export default {
     }
     return json({ ok: false, error: "unknown route" }, 404);
   },
+
+  // Board #229 (N1 variant 1): hourly synthetic heartbeat. Same chain as real
+  // events (repository_dispatch "notion-webhook"), marker client_payload
+  // {type: "ping", kind: "ping"} — the handler treats it as noop + events_ping
+  // and refreshes run-state last_delivery_at, so quality.webhook.gap_hours
+  // measures the DELIVERY chain, not Notion silence.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(handlePing(env));
+  },
 };
+
+async function handlePing(env) {
+  const dispatched = await ghApi(env, "POST", `/repos/${env.GH_OWNER || "romanzhura-crypto"}/${env.GH_REPO || "QA-Notion-Statistics"}/dispatches`, {
+    event_type: "notion-webhook",
+    client_payload: {
+      type: "ping",
+      kind: "ping",
+      timestamp: new Date().toISOString(),
+      entity_id: null,
+      entity_type: "synthetic",
+      attempt_number: 1,
+      authors: [],
+    },
+  });
+  if (dispatched.status !== 204) {
+    console.error("ping repository_dispatch failed", dispatched.status, JSON.stringify(dispatched.data));
+    return;
+  }
+  console.log("ping dispatched");
+}
