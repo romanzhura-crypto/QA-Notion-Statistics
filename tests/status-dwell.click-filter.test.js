@@ -1,4 +1,11 @@
-// jsdom tests for status-dwell.html board #233 (row click → task filter + detail mode):
+// jsdom tests for status-dwell.html board #233 + #234 (row click → task filter
+// + detail mode — table rows AND chart rows):
+// - board #234: click / Enter / Space anywhere on a chart row band in svg#chart
+//   (bar, segments, Done diamond, micro dots, empty row space via rect.row-hit)
+//   sets the «Задача» filter exactly like a table row (shared applyTaskFromRow);
+//   segments keep hover tooltips + focusability (bindTips), row groups are
+//   focusable (tabindex=0) with role=button and an aria-label naming the task
+// Original #233 scope:
 // - click on a table row sets the «Задача» filter (taskCombo) to that task and
 //   re-renders ONE task: chart redrawn in detail mode (full-width timeline,
 //   thick bar 40–64px, status name + duration labels on segments, time axis),
@@ -218,6 +225,77 @@ async function main() {
   ok(taskInput.value === "TASK-2 · Beta open", "Esc on open menu does NOT clear the filter");
   key(doc, "Escape");
   ok(taskInput.value === "", "Esc with closed menu clears the filter");
+
+  // ---- board #234: chart row (svg#chart) click → the same detail mode -------
+  const chartRows = () => Array.from(svg.querySelectorAll("g.chart-row[data-task]"));
+  ok(chartRows().length === 2, "chart: 2 activator row groups (g.chart-row), got " + chartRows().length);
+  const gA = chartRows()[0]; // rows sorted by dwell desc → TASK-1 Alpha
+  ok(gA.getAttribute("data-task") === "3c8e17b6-8482-8166-0000-0000000000a1",
+    "chart row carries the task id (data-task): " + gA.getAttribute("data-task"));
+  ok(gA.getAttribute("tabindex") === "0", "chart row keyboard-focusable (tabindex=0)");
+  ok(gA.getAttribute("role") === "button", "chart row has button role");
+  ok((gA.getAttribute("aria-label") || "").indexOf("Alpha detail") !== -1,
+    "chart row aria-label names the task: " + JSON.stringify(gA.getAttribute("aria-label")));
+  const hit = gA.querySelector("rect.row-hit");
+  ok(!!hit, "chart row has a transparent hit area (rect.row-hit) for the empty band");
+  ok(parseFloat(hit.getAttribute("height")) === 32,
+    "hit area covers the full row band (32px): " + hit.getAttribute("height"));
+
+  // hover tooltip machinery intact before the click (bindTips on segments)
+  const tipEl = doc.getElementById("tip");
+  const hoverSeg = svg.querySelectorAll("rect.seg")[1];
+  hoverSeg.dispatchEvent(new window.MouseEvent("mouseenter", { bubbles: false, cancelable: true }));
+  ok(tipEl.classList.contains("show") && tipEl.textContent.length > 0,
+    "hover tooltip on a segment still works: " + JSON.stringify(tipEl.textContent.slice(0, 40)));
+  hoverSeg.dispatchEvent(new window.MouseEvent("mouseleave", { bubbles: false, cancelable: true }));
+  ok(!tipEl.classList.contains("show"), "tooltip hides on mouseleave");
+
+  // click on the EMPTY row band (row-hit) → detail mode for that task
+  click(hit);
+  ok(taskInput.value === "TASK-1 · Alpha detail",
+    "chart row (empty band) click sets «Задача»: " + JSON.stringify(taskInput.value));
+  ok(!clearBtn.hidden, "chart row click: reset button appears");
+  ok(doc.querySelectorAll("#tbl tr[data-task]").length === 1, "chart row click: re-render = one task");
+  const dHeights = Array.from(svg.querySelectorAll("rect.seg")).map(r => parseFloat(r.getAttribute("height")));
+  ok(dHeights.length === 4 && dHeights.every(hh => hh >= 40 && hh <= 64),
+    "chart row click: detail mode thick bar (4 segments): " + JSON.stringify(dHeights));
+
+  // click on a SEGMENT → same detail mode (idempotent), tooltip data intact
+  const dSegs = Array.from(svg.querySelectorAll("rect.seg"));
+  ok(dSegs.every(s2 => (s2.getAttribute("data-tip") || "").length > 0), "detail: segment tooltips kept (data-tip)");
+  ok(dSegs.every(s2 => s2.getAttribute("tabindex") === "0"), "detail: segments stay focusable");
+  click(dSegs[0]);
+  ok(taskInput.value === "TASK-1 · Alpha detail", "segment click keeps detail mode (idempotent)");
+  ok(doc.querySelectorAll("#tbl tr[data-task]").length === 1, "segment click: still one task");
+
+  // click on the micro-dot and the Done diamond → detail mode too
+  const dot = svg.querySelector("circle.micro-dot");
+  ok(!!dot, "micro dot present in detail mode");
+  click(dot);
+  ok(taskInput.value === "TASK-1 · Alpha detail", "micro-dot click keeps detail mode");
+  const dia = svg.querySelector("polygon");
+  ok(!!dia, "Done diamond present in detail mode");
+  click(dia);
+  ok(taskInput.value === "TASK-1 · Alpha detail", "Done diamond click keeps detail mode");
+  ok(doc.querySelectorAll("#tbl tr[data-task]").length === 1, "diamond click: still one task");
+
+  // exit via «×», then keyboard activation on chart rows
+  click(clearBtn);
+  ok(taskInput.value === "", "«×» exits chart-click detail mode");
+  ok(chartRows().length === 2, "«×»: ordinary chart rows restored");
+  key(chartRows()[1], "Enter");
+  ok(taskInput.value === "TASK-2 · Beta open",
+    "Enter on chart row sets «Задача»: " + JSON.stringify(taskInput.value));
+  ok(doc.querySelectorAll("#tbl tr[data-task]").length === 1, "chart Enter: one task rendered");
+  key(doc, "Escape");
+  ok(taskInput.value === "", "Esc exits chart-row detail mode");
+  key(chartRows()[0], " ");
+  ok(taskInput.value === "TASK-1 · Alpha detail", "Space on chart row sets «Задача»");
+  ok(doc.querySelectorAll("#tbl tr[data-task]").length === 1, "chart Space: one task rendered");
+  key(doc, "Escape");
+  ok(taskInput.value === "", "Esc again: filter cleared");
+  ok(chartRows().length === 2 && doc.querySelectorAll("#tbl tr[data-task]").length === 2,
+    "chart + table back to ordinary mode");
 
   console.log(JSON.stringify({ pass, fail }));
   window.close();

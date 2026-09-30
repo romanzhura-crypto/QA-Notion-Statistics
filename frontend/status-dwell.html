@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260930-row-click-detail">
+  <meta name="widget-build" content="20260930-chart-row-click">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -118,6 +118,14 @@
       stroke: var(--ink);
       stroke-width: 2;
     }
+    /* Board #234: chart rows (svg#chart) are activators like table rows —
+       pointer cursor, hover tint over the row band, focus ring around it. */
+    #chart .chart-row { cursor: pointer; }
+    #chart .chart-row .row-hit { fill: none; }
+    #chart .chart-row:hover .row-hit { fill: var(--hover); }
+    #chart .chart-row:focus { outline: none; }
+    #chart .chart-row:focus .row-hit,
+    #chart .chart-row:focus-visible .row-hit { stroke: var(--focus); stroke-width: 2; }
     .tip::after {
       content: "";
       position: absolute;
@@ -752,20 +760,36 @@
       if (!value) return;
       taskCombo.pick(value);
     }
+    // Shared activator wiring (board #233 + #234): click / Enter / Space runs
+    // applyTaskFromRow. `skip(event)` may veto an event (Notion link in a table
+    // row). One implementation for table rows and chart rows — no duplicates.
+    function bindRowActivator(el, value, skip) {
+      el.addEventListener("click", (e) => { if (!(skip && skip(e))) applyTaskFromRow(value); });
+      el.addEventListener("keydown", (e) => {
+        if (skip && skip(e)) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); applyTaskFromRow(value); }
+      });
+    }
     function bindRowActions() {
       document.querySelectorAll("#tbl tr[data-task]").forEach(tr => {
         const value = tr.getAttribute("data-task") || "";
         const inLink = (e) => e.target && e.target.closest && e.target.closest("a");
-        tr.addEventListener("click", (e) => { if (!inLink(e)) applyTaskFromRow(value); });
-        tr.addEventListener("keydown", (e) => {
-          if (inLink(e)) return;
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); applyTaskFromRow(value); }
-        });
+        bindRowActivator(tr, value, inLink);
         const a = tr.querySelector("td .task-open");
         if (a) {
           a.addEventListener("click", (e) => e.stopPropagation());
           a.addEventListener("keydown", (e) => e.stopPropagation());
         }
+      });
+    }
+    // Board #234: chart rows (svg#chart) act exactly like table rows — click /
+    // Enter / Space anywhere in the row band (bar, segments, Done diamond, micro
+    // dots, empty row space) applies the «Задача» filter (detail mode). Segment
+    // clicks bubble up to the row group, so tooltips and highlighting stay as
+    // they were (bindTips) and the click still enters detail mode.
+    function bindChartRowActions(svg) {
+      svg.querySelectorAll("g.chart-row[data-task]").forEach(gEl => {
+        bindRowActivator(gEl, gEl.getAttribute("data-task") || "", null);
       });
     }
 
@@ -884,6 +908,13 @@
       rows.forEach((r, i) => {
         const y = pad.t + i * rowH + (detail ? 4 : 6);
         const bh = detail ? 48 : 18;
+        // Board #234: the whole chart row is one activator group. The
+        // transparent row-hit makes the empty part of the band clickable;
+        // segments/diamond/dots are drawn ON TOP so their hover tooltips
+        // (bindTips) keep working and their clicks bubble up to the group.
+        const rowLabel = "Показать на графике только задачу " + (r.tid ? r.tid + " " : "") + r.n;
+        g.push('<g class="chart-row" data-task="' + esc(r.id) + '" tabindex="0" role="button" aria-label="' + esc(rowLabel) + '">');
+        g.push('<rect class="row-hit" pointer-events="all" fill="none" x="0" y="' + (pad.t + i * rowH) + '" width="' + w + '" height="' + rowH + '" rx="4" />');
         if (detail) {
           const full = (r.tid ? r.tid + " · " : "") + r.n;
           const label = full.length > 60 ? full.slice(0, 59) + "…" : full;
@@ -956,9 +987,11 @@
             g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(lbl) + "</text>");
           }
         }
+        g.push("</g>");
       });
       svg.innerHTML = g.join("");
       bindTips(svg);
+      bindChartRowActions(svg);
       const used = {};
       rows.forEach(r => r.segs.forEach(seg => { used[seg.s] = true; }));
       const metaOrder = (DATA.status_meta || []).map(s => s.name).filter(Boolean);
