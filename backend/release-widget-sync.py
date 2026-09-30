@@ -390,8 +390,14 @@ def history_from_log_row(props: dict, now=None, unknown: set | None = None) -> l
         except (TypeError, ValueError):
             continue
         if days > 0:
-            rest = round_days(days - covered.get(col, 0.0))
-            if rest > 0:
+            cov = covered.get(col, 0.0)
+            rest = round_days(days - cov)
+            # Board #232: a column value that merely restates the closed segments
+            # (equal within a tenth of a day) is not a pre-Segments remainder — it
+            # is the same stay counted twice. Emitting it draws one status as two
+            # segments and double-counts the days. A genuinely larger column value
+            # still yields its uncovered part as a timestamp-free remainder.
+            if rest > 0 and (cov <= 0 or rest > 0.1):
                 # Legacy remainder (pre-Segments accrual): no timestamps known.
                 history.append({"s": col, "days": rest})
             if unknown is not None and col not in KNOWN_STATUSES:
@@ -1143,6 +1149,26 @@ def selftest() -> dict:
     opened = hist3[5]
     assert opened["s"] == "Testing" and opened["to"] is None and opened["from"].startswith("2026-09-21T11:00"), opened
     assert opened["days"] == 2.0, opened
+
+    # Board #232: a number column that only restates its closed segments (equal
+    # within 0.1 day) must not emit a second, timestamp-free copy of them.
+    echo_props = {
+        "Collected Status": {"rich_text": [{"plain_text": "Testing"}]},
+        "Status since": {"date": {"start": "2026-09-21T11:00:00Z"}},
+        "Segments": {"rich_text": [{"plain_text": json.dumps([
+            {"s": "Development", "from": "2026-09-21T09:00:00.000Z", "to": "2026-09-21T11:00:00.000Z"},
+        ])}]},
+        "Development": {"type": "number", "number": 2 / 24},  # exactly the covered 2h
+        "Done at": {"date": None},
+    }
+    echo = history_from_log_row(echo_props, now=parse_ts("2026-09-21T12:00:00Z"), unknown=set())
+    assert [h["s"] for h in echo].count("Development") == 1, echo  # no duplicate remainder
+    # a column genuinely larger than its segments still yields the uncovered part
+    extra_props = dict(echo_props)
+    extra_props["Development"] = {"type": "number", "number": 1.0 + 2 / 24}
+    extra = history_from_log_row(extra_props, now=parse_ts("2026-09-21T12:00:00Z"), unknown=set())
+    rems = [h for h in extra if h["s"] == "Development" and "from" not in h]
+    assert len(rems) == 1 and abs(rems[0]["days"] - 1.0) < 1e-9, extra
 
     # legacy rows (no Segments): closed aggregates stay timestamp-free (no
     # invented from/to); only the collector-known open interval carries exact
