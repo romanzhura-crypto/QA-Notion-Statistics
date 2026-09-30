@@ -567,16 +567,29 @@ def drift_from_rows(rows: list) -> dict:
 
 
 def quality_from_tasks(payload: dict) -> dict:
-    """Live quality metrics computed from tasks[].history (A27, additive).
+    """Live quality metrics computed from tasks[] (A27, additive).
 
     segments_negative: items with days < 0, to < from or unparseable duration.
     segments_absurd: closed intervals longer than SEGMENT_ABSURD_DAYS.
     tasks_without_history: tasks[] items with no dwell history at all.
+    multi_release_tasks / multi_release_hours (A11, board #214): the population
+    subject to variant B hours accounting — per-release aggregates get e/N, t/N
+    per task (N = max(1, len(r))), so summed per-release totals never double
+    count. Informational only, no thresholds.
     """
     segs_neg = 0
     segs_abs = 0
     without = 0
+    mr_tasks = 0
+    mr_hours = 0.0
     for task in payload.get("tasks") or []:
+        rels = task.get("r") or []
+        if len(rels) > 1:
+            mr_tasks += 1
+            try:
+                mr_hours += float(task.get("e") or 0) + float(task.get("t") or 0)
+            except (TypeError, ValueError):
+                pass
         hist = task.get("history")
         if not hist:
             without += 1
@@ -603,6 +616,8 @@ def quality_from_tasks(payload: dict) -> dict:
         "tasks_without_history": without,
         "segments_negative": segs_neg,
         "segments_absurd": segs_abs,
+        "multi_release_tasks": mr_tasks,
+        "multi_release_hours": round(mr_hours, 2),
     }
 
 
@@ -1175,6 +1190,35 @@ def selftest() -> dict:
     )
     assert sr["staleness_hours"] == 12.0, sr
     assert sr["recon_window_hours"] == RECON_WINDOW_HOURS, sr
+
+    # A11 (board #214): multi-release hours accounting — variant B (even
+    # split, owner decision 2026-09-30). quality counts the population and the
+    # hours the rule distributes; the split invariant: per-release shares
+    # (e/N, t/N, N = max(1, len(r))) summed over releases equal the full hours
+    # of released tasks once — no double counting.
+    mr_payload = {"tasks": [
+        {"id": "m1", "r": ["R1", "R2"], "e": 8.0, "t": 6.0},  # N=2 -> 7.0 per release
+        {"id": "m2", "r": ["R1"], "e": 4.0, "t": 2.0},        # N=1 -> full 6.0
+        {"id": "m3", "r": [], "e": 2.0, "t": 2.0},            # unreleased -> no release aggregate
+    ]}
+    qm = attach_quality(mr_payload)["quality"]
+    assert qm["multi_release_tasks"] == 1, qm
+    assert qm["multi_release_hours"] == 14.0, qm  # 8 + 6 of the multi-release task
+    per_release = {}
+    full_once = 0.0
+    for t in mr_payload["tasks"]:
+        rels = t.get("r") or []
+        n = max(1, len(rels))
+        share = (float(t["e"]) + float(t["t"])) / n
+        for r in rels:
+            per_release[r] = per_release.get(r, 0.0) + share
+        if rels:
+            full_once += float(t["e"]) + float(t["t"])
+    assert per_release == {"R1": 13.0, "R2": 7.0}, per_release  # 7+6 / 7
+    assert sum(per_release.values()) == full_once == 20.0, (per_release, full_once)
+    # live metrics are recomputed by the enrich pass, not preserved stale
+    qm2 = attach_quality(mr_payload)["quality"]
+    assert qm2["multi_release_tasks"] == 1 and qm2["multi_release_hours"] == 14.0, qm2
 
     # N2 drift (board #184.1): Segments vs status columns — deficit only
     def lrow(segs, dev_num, archived=False):

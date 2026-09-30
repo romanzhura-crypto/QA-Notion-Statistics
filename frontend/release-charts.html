@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Release — Estimate vs Time tracking</title>
-  <meta name="widget-build" content="20260929-freshness-hint">
+  <meta name="widget-build" content="20260930-multirelease-hours-split">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -203,6 +203,7 @@
       <div><dt>Time tracking, ч</dt><dd id="k-t">—</dd></div>
       <div><dt>DEV с данными</dt><dd id="k-d">—</dd></div>
     </section>
+    <p class="muted">Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.</p>
     <section class="card">
       <h2>По DEV</h2>
       <p class="muted">Ось X — DEV. Ось Y — часы. Столбцы Estimate и Time tracking стоят над своим DEV.</p>
@@ -325,13 +326,25 @@
       return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.value) !== -1);
     }
 
+    // A11 (board #214): multi-release hours accounting — variant B (even
+    // split, owner decision 2026-09-30). A task in N releases contributes
+    // hours/N to EACH release, so per-release totals summed across releases
+    // equal the true total — no double counting. e/t stay FULL task hours in
+    // the payload; the split is an aggregation rule (docs/release-data-contract.md).
+    // N = max(1, len(r)); sums use full precision, rounding is display-only.
+    function taskShare(t) {
+      const n = Math.max(1, (t.r || []).length);
+      return { est: (t.e || 0) / n, spent: (t.t || 0) / n };
+    }
+
     function byDev(tasks) {
       const m = {};
       tasks.forEach(t => {
         const d = t.d || "Unassigned";
         if (!m[d]) m[d] = { name: d, est: 0, spent: 0 };
-        if (t.e) m[d].est += t.e;
-        if (t.t) m[d].spent += t.t;
+        const sh = taskShare(t);
+        m[d].est += sh.est;
+        m[d].spent += sh.spent;
       });
       return Object.values(m)
         .filter(x => x.est || x.spent)
@@ -414,8 +427,8 @@
       errEl.hidden = m.ok || m.empty;
       const tasks = m.ok ? selected() : [];
       const rows = byDev(tasks);
-      const est = tasks.reduce((s, t) => s + (t.e || 0), 0);
-      const spent = tasks.reduce((s, t) => s + (t.t || 0), 0);
+      const est = tasks.reduce((s, t) => s + taskShare(t).est, 0);
+      const spent = tasks.reduce((s, t) => s + taskShare(t).spent, 0);
       document.getElementById("k-n").textContent = m.ok ? String(tasks.length) : "—";
       document.getElementById("k-e").textContent = m.ok ? String(round1(est)) : "—";
       document.getElementById("k-t").textContent = m.ok ? String(round1(spent)) : "—";
