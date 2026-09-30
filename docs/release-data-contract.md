@@ -202,7 +202,7 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `task_count_unique` | number | A24 (board #195): number of unique `tasks[].id` values |
 | `task_count_mismatch` | number | A24: invariant flag — `1` when `task_count` ≠ `task_count_unique`, else `0`. Never a silent skip |
 | `duplicate_rows` | number | A24: page-seam duplicate rows dropped by the pagination dedup (first occurrence kept); snapshot-only, preserved by re-enrich |
-| `drift_days` | number | N2 (board #184.1): worst per-task deficit `sum(segment days) − status column days` over all statuses; 0.0 when segments never exceed their columns (legacy accrual above columns is not drift) |
+| `drift_days` | number | N2 (board #184.1): worst per-task deficit `sum(segment days) − status column days` over statuses **with a number column** (a status without a column can never be credited — see the rule below); 0.0 when segments never exceed their columns (legacy accrual above columns is not drift) |
 | `drift_items` | number | Count of (row, status) pairs with deficit > `DRIFT_DAYS_MIN` (1.0 day) |
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
 | `a19_conflicts` | number | A19 (board #185): concurrent-close collisions of the last collector run (from `config/log-statistics-run.json` `a19_conflicts`; 0 when absent). Webhook-writer collisions surface via `webhook.events_error` |
@@ -223,6 +223,12 @@ Rules:
   per status `sum(segment days) <= column` is the invariant; a deficit above
   `DRIFT_DAYS_MIN` (rounding tolerance) means a lost column credit.
   `quality.drift_days` > `thresholds.drift_days` fails the gate.
+- N2 checks only statuses that HAVE a number column in the LOG schema. A status
+  without a number column (e.g. the synthetic `Unknown` placeholder for a
+  missing Status) can never receive a credit — the write side never PATCHes a
+  missing column (schema check) — so closed segments for it are NOT drift. They
+  stay visible in `tasks[].history` and `unknown_statuses`. Column present but
+  uncredited is real drift and still fails the gate.
 
 ## Board #202 (A17): checkpoint journal + resume (additive, NOT in payload)
 

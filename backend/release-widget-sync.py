@@ -537,6 +537,10 @@ def drift_from_rows(rows: list) -> dict:
     sum(segment days) <= number column (legacy accrual only ADDs to columns).
     deficit = segments > column = a lost column credit = drift.
     Per-minute rounding gives sub-minute epsilon — tolerated up to DRIFT_DAYS_MIN.
+    Only statuses WITH a number column are checked: a status without a column
+    (e.g. the synthetic "Unknown" placeholder for a missing Status) can never
+    be credited — the write side never PATCHes a missing column (schema check)
+    — so its closed segments are not drift (visible via history/unknown_statuses).
     """
     worst = 0.0
     items = 0
@@ -553,7 +557,10 @@ def drift_from_rows(rows: list) -> dict:
                     0.0, (b - a).total_seconds() / 86400.0
                 )
         for col, sdays in seg_days.items():
-            raw = (props.get(col) or {}).get("number")
+            col_prop = props.get(col)
+            if col_prop is None:
+                continue  # no number column for this status -> credit impossible, not lost
+            raw = col_prop.get("number")
             try:
                 coldays = float(raw) if raw is not None else 0.0
             except (TypeError, ValueError):
@@ -1241,6 +1248,24 @@ def selftest() -> dict:
     assert d == {"drift_days": 0.0, "drift_items": 0}, d
     # segments > column = lost credit = drift (2d segs vs 0.5d col)
     d = drift_from_rows([lrow(seg_ok, 0.5)])
+    assert d["drift_days"] > 1.4 and d["drift_items"] == 1, d
+    # N2 scope: a status WITHOUT a number column can never be credited (schema
+    # check never PATCHes a missing column) — closed segments for it are not
+    # drift. Production case 2026-09-30: synthetic "Unknown" (missing Status),
+    # 3.79d closed segment -> was a false FAIL of the quality gate.
+    d = drift_from_rows([lrow([{"s": "Unknown", "from": "2026-09-01T00:00:00Z", "to": "2026-09-04T18:53:00Z"}], 0.0)])
+    assert d == {"drift_days": 0.0, "drift_items": 0}, d
+    # ...but an unknown status WITH its own column and no credit is real drift
+    has_col = [dict(
+        archived=False,
+        properties={
+            "Segments": {"type": "rich_text", "rich_text": [{"plain_text": json.dumps(
+                [{"s": "Code Freeze", "from": "2026-09-01T00:00:00Z", "to": "2026-09-03T00:00:00Z"}],
+                ensure_ascii=False, separators=(",", ":"))}]},
+            "Code Freeze": {"type": "number", "number": 0.5},
+        },
+    )]
+    d = drift_from_rows(has_col)
     assert d["drift_days"] > 1.4 and d["drift_items"] == 1, d
     # sub-minute rounding epsilon is tolerated (below DRIFT_DAYS_MIN)
     d = drift_from_rows([lrow(seg_ok, 1.99)])
