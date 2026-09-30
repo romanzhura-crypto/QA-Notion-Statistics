@@ -47,8 +47,8 @@ Staged for Pages: `frontend/public/release-data.json` → CI `public/release-dat
 | `p` | string | Project (select name) or `""` when unset — «Проект» filter in status-dwell (board #153) |
 | `d` | string | DEV assignee or `Unassigned` |
 | `s` | string | Status name |
-| `e` | number\|null | Estimate hours (`1d=8h`) |
-| `t` | number\|null | Time spent hours |
+| `e` | number\|null | Estimate hours (`1d=8h`) — FULL task hours; per-release aggregation splits them by release count (board #214, variant B, see below) |
+| `t` | number\|null | Time spent hours — FULL task hours, same split rule as `e` (board #214) |
 | `n` | string | Title (trimmed to ≤140 chars) |
 | `n_full` | string | **Full** untruncated title (board #197, A10), same source as `n`. Display truncation happens in the UI only; `n` keeps its ≤140-char form for backward compatibility |
 | `start` | string\|null | Start date |
@@ -88,6 +88,49 @@ Rules:
 - `from`/`to` are only present when actually known; the Frontend must render
   intervals without timestamps as-is (no invented dates).
 - `days` is always ≥ 0; a >0 duration is never dropped (minute precision).
+
+## Board #214 (A11): multi-release hours accounting — variant B (even split)
+
+Owner decision (Роман, 2026-09-30): a task that lands in **several** releases
+must not count its hours fully into EACH of them (that double-counts the hours
+when per-release totals are aggregated). Variant B — the hours are split
+**evenly** across the task's releases.
+
+- Payload is unchanged: `tasks[].e` / `tasks[].t` stay the FULL task hours and
+  `tasks[].r` stays the release list. The split is an **aggregation rule**, not
+  a data change.
+- `N = max(1, len(tasks[].r))` — the task's release count (`N=1` when `r` is
+  empty or has one entry).
+- **Per-release aggregate** (release KPIs, per-DEV table/chart, any summary
+  grouped by release): a task contributes `e/N` and `t/N` to EACH of its
+  releases.
+- **Cross-release / global aggregate** (итог по всем релизам): each task
+  contributes full `e`/`t` **once** — equivalently the sum of its per-release
+  shares. Invariant: Σ (per-release shares) over releases = Σ (full `e`+`t`)
+  over tasks with ≥ 1 release. Multi-release tasks never double the totals.
+- A task with a single release keeps its full hours (`N=1`); a task without
+  releases appears in no release aggregate at all.
+- Sums are computed at full precision; rounding (1 decimal) happens at display
+  only — never round the share before summing.
+- The widget must show a methodology note near the numbers («часы / число
+  релизов») — the split is otherwise invisible in the UI.
+
+Example (до/после): task «X» = 8h Estimate + 6h Time tracking, `r = ["R1","R2"]`
+→ `N=2`, share per release = 4h Estimate / 3h Time tracking.
+
+| Aggregate | Before (double count) | After (variant B) |
+|---|---|---|
+| R1 Estimate | 8 | 4 |
+| R2 Estimate | 8 | 4 |
+| Σ Estimate over R1+R2 | 16 (≠ 8 real) | 8 |
+| R1 Time tracking | 6 | 3 |
+| R2 Time tracking | 6 | 3 |
+| Σ Time tracking over R1+R2 | 12 (≠ 6 real) | 6 |
+
+`quality` carries two informational fields for this rule (no thresholds):
+`multi_release_tasks` (tasks with `len(r) > 1` — the population subject to the
+split) and `multi_release_hours` (Σ `e + t` over those tasks — the hours the
+rule distributes).
 
 ## Board #195 (A24): stable pagination + dedup (additive)
 
@@ -164,6 +207,8 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
 | `a19_conflicts` | number | A19 (board #185): concurrent-close collisions of the last collector run (from `config/log-statistics-run.json` `a19_conflicts`; 0 when absent). Webhook-writer collisions surface via `webhook.events_error` |
 | `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0 |
+| `multi_release_tasks` | number | A11 (board #214): `tasks[]` items with `len(r) > 1` — their hours are split evenly across releases (variant B). Informational, no threshold |
+| `multi_release_hours` | number | A11 (board #214): Σ `e + t` over multi-release tasks — the hours distributed by the split rule. Informational, no threshold |
 | `webhook` | object\|null | Webhook observability (board #177.2/#184.3/#229): `events_total`, `events_processed`, `events_noop`, `events_skipped`, `events_error`, `events_ping` (synthetic worker heartbeats, additive), `last_event_at` (last real business event), `last_delivery_at` (last delivered event incl. ping/skipped), `gap_hours` (N1 — hours from the last delivery incl. synthetic ping to the snapshot; falls back to `last_event_at` for old run-state; `null` when unknown). `null`/absent when no run-state is available |
 
 Rules:
