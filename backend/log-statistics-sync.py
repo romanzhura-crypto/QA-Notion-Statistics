@@ -495,6 +495,34 @@ def segments_same(a: list, b: list) -> bool:
     return json.dumps(a or [], ensure_ascii=False, sort_keys=True) == json.dumps(b or [], ensure_ascii=False, sort_keys=True)
 
 
+def add_closed_segment(segs: list, status: str, seg_from: str, seg_to: str) -> list:
+    """Append a closed interval, absorbing same-status segments it overlaps.
+
+    A repeat visit (A -> B -> A) starts after the earlier interval ended, so it
+    never overlaps and stays its own segment. What overlaps is a re-close of
+    the SAME uninterrupted stay: `Status since` got rewritten to an earlier
+    date, so the new interval covers one already recorded. Keeping both
+    double-counts the days and draws one status as two segments. The
+    overlapping same-status intervals collapse into one span (union of
+    boundaries); days are never summed.
+    """
+    nf, nt = parse_ts(seg_from), parse_ts(seg_to)
+    if not nf or not nt:
+        return segs
+    span_from, span_to = nf, nt
+    kept = []
+    for x in segs:
+        if x.get("s") == status:
+            xf, xt = parse_ts(x.get("from")), parse_ts(x.get("to"))
+            if xf and xt and xf <= span_to and span_from <= xt:
+                span_from = min(span_from, xf)
+                span_to = max(span_to, xt)
+                continue
+        kept.append(x)
+    kept.append({"s": status, "from": iso_z(span_from), "to": iso_z(span_to)})
+    return kept
+
+
 def date_prop(dt) -> dict:
     parsed = dt if isinstance(dt, datetime) else parse_ts(dt)
     if not parsed:
@@ -704,8 +732,7 @@ def collector_transition(task: dict, log_row: dict | None, now: datetime | None 
         segs = segments_from_props(props)
         seg_from = iso_z(have_since or created)
         seg_to = iso_z(close_end)
-        if not any(x["s"] == have_collected and x["from"] == seg_from and x["to"] == seg_to for x in segs):
-            segs.append({"s": have_collected, "from": seg_from, "to": seg_to})
+        segs = add_closed_segment(segs, have_collected, seg_from, seg_to)
         out[SEGMENTS_PROP] = segments_prop(segs)
     new_status = "Done" if done else status
     note_unknown_status(new_status, key=("status", str(task.get("id") or ""), new_status))
@@ -1194,6 +1221,44 @@ def selftest() -> None:
         }
     }, now=parse_ts("2026-09-19T08:00:00Z"))
     assert "Done" not in {k for k, v in reopen.items() if is_number_prop(v)}, reopen
+
+    # Board #232: re-closing the same uninterrupted stay must not duplicate it.
+    # A wider interval of the same status absorbs the one it overlaps (union of
+    # boundaries, days not summed). A->B->A never overlaps, so it stays two.
+    reclose_row = {
+        "properties": {
+            "Collected Status": rich_text_prop("Analysis/Design"),
+            "Status since": date_prop(parse_ts("2026-04-09T08:20:00Z")),
+            SEGMENTS_PROP: segments_prop([
+                {"s": "Analysis/Design", "from": "2026-09-18T16:27:00.000Z", "to": "2026-09-28T14:21:00.000Z"},
+            ]),
+            "Done at": {"date": None},
+        }
+    }
+    reclose_task = {"id": "rc", "s": "Ready For Dev", "created": "2026-04-09T08:20:00Z", "edited": "2026-09-28T14:22:00Z"}
+    rc = collector_transition(reclose_task, reclose_row, now=parse_ts("2026-09-28T14:22:00Z"))
+    rc_segs = segments_from_props(rc)
+    assert len(rc_segs) == 1, rc_segs  # overlapping pair collapsed
+    assert rc_segs[0]["s"] == "Analysis/Design", rc_segs
+    assert rc_segs[0]["from"].startswith("2026-04-09T08:20"), rc_segs  # earliest boundary kept
+    assert rc_segs[0]["to"].startswith("2026-09-28T14:22"), rc_segs
+    # idempotent: closing again with the same boundaries adds nothing
+    rc2 = collector_transition(reclose_task, {"properties": {**reclose_row["properties"], SEGMENTS_PROP: rc[SEGMENTS_PROP]}}, now=parse_ts("2026-09-28T14:22:00Z"))
+    assert segments_from_props(rc2) == rc_segs, segments_from_props(rc2)
+    # a genuinely disjoint repeat (starts after the previous ended) stays separate
+    repeat_row = {
+        "properties": {
+            "Collected Status": rich_text_prop("Development"),
+            "Status since": date_prop(parse_ts("2026-09-22T08:00:00Z")),
+            SEGMENTS_PROP: segments_prop([
+                {"s": "Development", "from": "2026-09-20T08:00:00.000Z", "to": "2026-09-21T08:00:00.000Z"},
+            ]),
+            "Done at": {"date": None},
+        }
+    }
+    rp = collector_transition({"id": "rp", "s": "Ready For QA", "created": "2026-09-20T08:00:00Z", "edited": "2026-09-23T08:00:00Z"}, repeat_row, now=parse_ts("2026-09-23T08:00:00Z"))
+    rp_segs = segments_from_props(rp)
+    assert len(rp_segs) == 2 and [x["s"] for x in rp_segs] == ["Development", "Development"], rp_segs
 
     # repeats stay separate: Development → Ready For QA → Development
     # yields three segments, two of them Development (never merged)
