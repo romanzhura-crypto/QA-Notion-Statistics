@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260929-freshness-hint">
+  <meta name="widget-build" content="20260930-open-honesty">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -84,6 +84,10 @@
     .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0 12px; }
     .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink); }
     .swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 10px; }
+    .swatch-hatch {
+      background: repeating-linear-gradient(45deg, var(--muted) 0 2px, transparent 2px 4px);
+      border: 1px solid var(--border);
+    }
     .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
     .kpis div { background: var(--subtle); border-radius: 8px; padding: 10px 12px; }
     .kpis dt { font-size: 11px; color: var(--muted); }
@@ -348,9 +352,9 @@
       const done = isDoneName(t.s);
       const end = done ? (parseTs(t.edited) || new Date()) : new Date();
       const ms = Math.max(0, end.getTime() - start.getTime());
-      const days = ms / 86400000;
-      if (days < 1) return Math.round(days * 24) / 24;
-      return Math.round(days * 10) / 10;
+      // A9 (board #213): store at minute precision; display rounding lives only
+      // in fmtDur/round1 — no hour/day quantization here anymore.
+      return Math.round(ms / 60000) / 1440;
     }
     function fmtDate(v) {
       const d = v instanceof Date ? v : parseTs(v);
@@ -371,12 +375,15 @@
       const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
       return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
     }
+    // A9 (board #213): one display-rounding policy for both widgets:
+    // minutes → whole, hours → 0.1, days → 0.1 (round1).
+    function round1(n) { return Math.round((Number(n) || 0) * 10) / 10; }
     function fmtDur(days) {
       const n = Number(days) || 0;
       if (n <= 0) return "0 мин";
       if (n < 1 / 24) return Math.max(1, Math.round(n * 1440)) + " мин";
-      if (n < 1) return (Math.round(n * 24 * 10) / 10) + " ч";
-      return (Math.round(n * 10) / 10) + " дн";
+      if (n < 1) return round1(n * 24) + " ч";
+      return round1(n) + " дн";
     }
     function fmtDurParts(ms) {
       if (ms == null || isNaN(ms)) return "—";
@@ -394,22 +401,38 @@
       return (t && (t.history || t.segments)) || [];
     }
     function segRange(seg) {
-      if (!seg.from) return "получение статуса неизвестно (учтён агрегатом без таймстампа)";
+      if (!seg.from) {
+        // A7 (board #208): the no-history fallback is an OPEN interval measured
+        // from Start date/created to now — say so, never pretend it is closed.
+        if (seg.open && seg.approxFromTs) {
+          return "≈ от " + seg.approxBasis + " " + fmtDateTime(seg.approxFromTs) +
+            " → сейчас (открыт: fallback без истории, точка входа в статус неизвестна)";
+        }
+        if (seg.open) return "открытый интервал без истории: основание неизвестно (fallback)";
+        return "получение статуса неизвестно (учтён агрегатом без таймстампа)";
+      }
       const from = "получен " + fmtDateTime(seg.from);
-      return seg.to ? (from + " → ушёл " + fmtDateTime(seg.to)) : (from + " → сейчас");
+      return seg.to ? (from + " → ушёл " + fmtDateTime(seg.to)) : (from + " → сейчас (открыт)");
     }
     function tipFor(seg, same) {
       const dur = (s) => fmtDurParts((Number(s.days) || 0) * 86400000);
+      // A7/A9: open intervals always carry an explicit marker — the end «сейчас»
+      // is never substituted silently; «(< 1 ч)» flags micro durations.
+      const durLine = (s) => (s.open ? "≈ " : "") + dur(s) +
+        (s.open ? " (открыт, по сейчас)" : "") +
+        ((Number(s.days) || 0) > 0 && s.days < 1 / 24 ? " (< 1 ч)" : "");
       const lines = [];
       if (same.length > 1) {
         let totalMs = 0;
         same.forEach(s => { totalMs += (Number(s.days) || 0) * 86400000; });
-        lines.push(seg.s + " · участков: " + same.length + " · всего " + fmtDurParts(totalMs));
+        const anyOpen = same.some(s => s.open);
+        lines.push(seg.s + " · участков: " + same.length + " · всего " + (anyOpen ? "≈ " : "") +
+          fmtDurParts(totalMs) + (anyOpen ? " (по сейчас)" : ""));
         same.forEach((s, i) => {
-          lines.push((i + 1) + ") " + segRange(s) + " · " + dur(s));
+          lines.push((i + 1) + ") " + segRange(s) + " · " + durLine(s));
         });
       } else {
-        lines.push(seg.s + " · " + dur(seg));
+        lines.push(seg.s + " · " + durLine(seg));
         lines.push(segRange(seg));
       }
       return lines.join("\n");
@@ -428,17 +451,36 @@
             at: null,
             from: h.from || null,
             to: h.to || null,
-            legacy: !h.from
+            legacy: !h.from,
+            // A7 (board #208): to === null with a known from = OPEN interval.
+            // Legacy remainders ({s, days} only) are closed aggregates without
+            // timestamps — never open, never measured to «now».
+            open: !!h.from && !h.to
           };
         });
       }
       if (isDoneName(t.s)) {
         return [{ s: t.s || "Done", kind: "done", days: 0, at: t.edited || t.start || t.created || null }];
       }
-      return [{ s: t.s || "Unknown", kind: "dwell", days: daysInStatus(t), at: null, from: null, to: null, legacy: true }];
+      // A7 (board #208): no-history fallback = open interval from Start date
+      // (else created) to now. Marked honestly everywhere it is displayed.
+      const approxFromTs = t.start || t.created || null;
+      return [{
+        s: t.s || "Unknown", kind: "dwell", days: daysInStatus(t),
+        at: null, from: null, to: null, legacy: true, open: true,
+        approxFromTs: approxFromTs, approxBasis: t.start ? "Start date" : "создания"
+      }];
     }
     function dwellTotal(segs) {
       return segs.filter(s => s.kind === "dwell").reduce((sum, s) => sum + (s.days || 0), 0);
+    }
+    // A9 (board #213): standard median — mean of the two central values for an
+    // even count (the old floor((n-1)/2) lower-median bias is gone).
+    function medianDays(vals) {
+      if (!vals.length) return 0;
+      const s = vals.slice().sort((a, b) => a - b);
+      const mid = s.length >> 1;
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
     }
     function doneAt(segs) {
       const d = segs.find(s => s.kind === "done");
@@ -714,7 +756,9 @@
     }
     function renderTable(list) {
       document.getElementById("tbl").innerHTML = list.map(r => {
-        const sumCell = r.sumDoneMs != null ? fmtDurParts(r.sumDoneMs) : "—";
+        const sumCell = r.sumDoneMs != null
+          ? (r.sumOpen ? "≈ " + fmtDurParts(r.sumDoneMs) + " (по сейчас)" : fmtDurParts(r.sumDoneMs))
+          : "—";
         const createdCell = fmtDateTime(r.created);
         const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
         const attr = r.href ? " data-href=\"" + esc(r.href) + "\" tabindex=\"0\" role=\"link\"" : "";
@@ -752,11 +796,15 @@
       svg.setAttribute("width", String(w));
       svg.setAttribute("height", String(h));
       let g = [];
+      // A7 (board #208): open intervals get a hatch overlay (plus «открыт» in the
+      // tooltip and a legend entry) — the «сейчас» end is visually flagged.
+      g.push('<defs><pattern id="hatch-open" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+        '<line x1="0" y1="0" x2="0" y2="6" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" /></pattern></defs>');
       for (let i = 0; i <= 4; i++) {
         const x = pad.l + innerW * (i / 4);
         const val = maxX * (i / 4);
         g.push('<line x1="' + x + '" x2="' + x + '" y1="' + pad.t + '" y2="' + (h - pad.b) + '" stroke="' + border + '" />');
-        g.push('<text x="' + x + '" y="' + (h - 8) + '" font-size="11" fill="' + muted + '" text-anchor="middle">' + (maxX < 1 ? fmtDur(val) : (Math.round(val * 10) / 10)) + "</text>");
+        g.push('<text x="' + x + '" y="' + (h - 8) + '" font-size="11" fill="' + muted + '" text-anchor="middle">' + (maxX < 1 ? fmtDur(val) : round1(val)) + "</text>");
       }
       rows.forEach((r, i) => {
         const y = pad.t + i * rowH + 6;
@@ -777,14 +825,27 @@
             return;
           }
           const same = byStatus[seg.s] || [seg];
-          const bw = Math.max(seg.days ? 4 : 0, (seg.days / maxX) * innerW);
+          // A9 (board #213): proportional width only — no 4px min-width
+          // inflation. A micro segment (< 2px) stays truthful and gets a dot
+          // marker; the tooltip flags durations below an hour («< 1 ч»).
+          const bw = (seg.days / maxX) * innerW;
           const tip = tipFor(seg, same);
           const grp = same.length > 1 ? ' data-group="' + i + "::" + esc(seg.s) + '"' : "";
-          g.push('<rect tabindex="0" data-tip="' + esc(tip) + '"' + grp + ' x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + statusColor(seg.s) + '" />');
+          const openAttr = seg.open ? ' data-open="1"' : "";
+          const cls = "seg" + (seg.open ? " open-seg" : "");
+          g.push('<rect class="' + cls + '" tabindex="0" data-tip="' + esc(tip) + '"' + grp + openAttr + ' x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + statusColor(seg.s) + '" />');
+          if (seg.open) {
+            g.push('<rect class="open-hatch" pointer-events="none" x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="url(#hatch-open)" />');
+          }
+          if (seg.days > 0 && bw < 2) {
+            g.push('<circle class="micro-dot" data-tip="' + esc(tip) + '"' + grp + openAttr + ' cx="' + (x + 1) + '" cy="' + (y + bh / 2) + '" r="2.5" fill="' + statusColor(seg.s) + '" />');
+          }
           x += bw;
         });
         if (!r.doneAt) {
-          g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(fmtDur(r.totalDays)) + "</text>");
+          const anyOpen = r.segs.some(s => s.open);
+          const lbl = (anyOpen ? "≈ " : "") + fmtDur(r.totalDays) + (anyOpen ? " (по сейчас)" : "");
+          g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(lbl) + "</text>");
         }
       });
       svg.innerHTML = g.join("");
@@ -795,9 +856,14 @@
       const seen = [];
       metaOrder.forEach(s => { if (used[s] && seen.indexOf(s) === -1) seen.push(s); });
       Object.keys(used).forEach(s => { if (seen.indexOf(s) === -1) seen.push(s); });
-      document.getElementById("legend").innerHTML = seen.map(s =>
+      const anyOpen = rows.some(r => r.segs.some(s => s.open));
+      let legendHtml = seen.map(s =>
         "<span><i class=\"swatch\" style=\"background:" + statusColor(s) + "\"></i>" + esc(s) + (isDoneName(s) ? " (момент)" : "") + "</span>"
       ).join("");
+      if (anyOpen) {
+        legendHtml += "<span><i class=\"swatch swatch-hatch\"></i>открытый интервал (по сейчас)</span>";
+      }
+      document.getElementById("legend").innerHTML = legendHtml;
       lastRows = rows;
       renderTable(sortRows(rows));
     }
@@ -808,13 +874,17 @@
       const doneDate = parseTs(doneRaw);
       const firstDate = parseTs(t.created) || parseTs(t.start);
       let sumDoneMs = null;
+      let sumOpen = false;
       if (doneDate && firstDate && doneDate.getTime() >= firstDate.getTime()) {
         sumDoneMs = doneDate.getTime() - firstDate.getTime();
       } else if (isDoneName(t.s)) {
         const dwellMs = dwellTotal(segs) * 86400000;
         if (dwellMs > 0) sumDoneMs = dwellMs;
       } else if (firstDate) {
+        // A7 (board #208): the sum of a not-yet-Done task ends at «now» — that is
+        // marked (sumOpen), never shown as a closed number.
         sumDoneMs = Math.max(0, Date.now() - firstDate.getTime());
+        sumOpen = true;
       }
       const idStr = String(t.id || "");
       const href = t.u ? String(t.u) :
@@ -831,7 +901,8 @@
         doneAt: doneRaw,
         tid: t.tid || "",
         href: href,
-        sumDoneMs: sumDoneMs
+        sumDoneMs: sumDoneMs,
+        sumOpen: sumOpen
       };
     }
 
@@ -845,14 +916,23 @@
       const ok = m.ok && mp.ok && mt.ok;
       const live = ok ? selected() : [];
       const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
-      const days = rows.map(r => r.totalDays).sort((a, b) => a - b);
-      const med = days.length ? days[Math.floor((days.length - 1) / 2)] : 0;
+      const days = rows.map(r => r.totalDays);
+      const med = medianDays(days);
+      // A7 (board #208): aggregates that include open intervals (their end is
+      // «now») are flagged with «≈ … (по сейчас)» — never a silent substitution.
+      const anyOpen = rows.some(r => r.segs.some(s => s.open));
+      const approx = anyOpen ? "≈ " : "";
+      const openNote = anyOpen ? "включая открытые интервалы (по сейчас)" : "";
       const uniq = new Set();
       rows.forEach(r => r.segs.forEach(seg => uniq.add(seg.s)));
       document.getElementById("k-n").textContent = ok ? String(rows.length) : "—";
       document.getElementById("k-s").textContent = ok ? String(uniq.size) : "—";
-      document.getElementById("k-m").textContent = ok && days.length ? fmtDur(med) : "—";
-      document.getElementById("k-x").textContent = ok && days.length ? fmtDur(Math.max(0, ...days)) : "—";
+      const km = document.getElementById("k-m");
+      const kx = document.getElementById("k-x");
+      km.textContent = ok && days.length ? approx + fmtDur(med) : "—";
+      kx.textContent = ok && days.length ? approx + fmtDur(Math.max(0, ...days)) : "—";
+      km.title = openNote;
+      kx.title = openNote;
       updateSyncTime();
       if (ok) draw(rows);
       else {

@@ -1,6 +1,7 @@
-// jsdom tests for status-dwell.html board #165/#167/#218:
+// jsdom tests for status-dwell.html board #165/#167/#218/#208/#213:
 // - each interval rendered as its own segment (repeats never merged)
-// - sub-hour intervals stay visible (minute precision)
+// - sub-hour intervals stay visible WITHOUT min-width inflation (A9 dot marker)
+// - open interval (to=null) is explicitly marked: data-open + hatch + «открыт»
 // - hover tooltip: total + per-interval info (ДД.MM.ГГГГ ЧЧ:MM), all same-status
 //   segments highlighted together
 // - caption "Источник — таблица задач…" removed
@@ -87,16 +88,29 @@ async function main() {
   };
 
   const svg = doc.getElementById("chart");
-  const rects = Array.from(svg.querySelectorAll("rect"));
+  // SVG invariant: one rect.seg per dwell interval + rect.open-hatch overlays
+  // (decorative, pointer-events none) + polygon per Done diamond.
+  const rects = Array.from(svg.querySelectorAll("rect.seg"));
+  const hatches = Array.from(svg.querySelectorAll("rect.open-hatch"));
+  const dots = Array.from(svg.querySelectorAll("circle.micro-dot"));
   const polys = Array.from(svg.querySelectorAll("polygon"));
 
   ok(rects.length === 6, "6 dwell rects (5 intervals + 1 legacy remainder), got " + rects.length);
   ok(polys.length === 1, "1 Done diamond, got " + polys.length);
 
+  // A9 (board #213): no min-width inflation — widths stay strictly proportional;
+  // the 5-minute interval keeps a visible dot marker instead of a fake 4px bar.
   const widths = rects.map(r => parseFloat(r.getAttribute("width")));
-  ok(widths.every(w => w >= 4), "every segment visible (width >= 4px): " + JSON.stringify(widths));
+  ok(widths.every(w => w >= 0), "segment widths present: " + JSON.stringify(widths));
   const fiveMinRect = rects[1];
-  ok(parseFloat(fiveMinRect.getAttribute("width")) >= 4, "5-minute interval keeps a visible bar");
+  const fiveW = parseFloat(fiveMinRect.getAttribute("width"));
+  ok(fiveW > 0 && fiveW < 2, "5-minute interval NOT inflated (proportional width < 2px): " + fiveW);
+  ok(widths[4] > 100 && widths[4] > widths[0], "0.5-day remainder dominates proportionally: " + JSON.stringify(widths));
+  ok(dots.length === 1, "micro segment gets a dot marker, got " + dots.length);
+  ok((fiveMinRect.getAttribute("data-tip") || "").indexOf("(< 1 ч)") !== -1,
+    "5-minute interval tooltip flags «< 1 ч»");
+  ok((dots[0].getAttribute("data-tip") || "").indexOf("(< 1 ч)") !== -1,
+    "micro dot tooltip flags «< 1 ч»");
 
   const groups = rects.map(r => r.getAttribute("data-group"));
   const devGroups = [groups[1], groups[3], groups[4]];
@@ -115,6 +129,13 @@ async function main() {
 
   const tipOpen = rects[5].getAttribute("data-tip") || "";
   ok(tipOpen.indexOf("сейчас") !== -1, "open interval tooltip says 'сейчас': " + tipOpen.split("\n")[1]);
+  // A7 (board #208): open interval is explicitly marked, end=«now» never silent
+  ok(rects[5].getAttribute("data-open") === "1", "open interval rect marked data-open=\"1\"");
+  ok(hatches.length === 1, "open interval gets a hatch overlay, got " + hatches.length);
+  ok(tipOpen.indexOf("(открыт, по сейчас)") !== -1, "open tooltip duration marked «открыт, по сейчас»");
+  ok(/→ сейчас \(открыт\)/.test(tipOpen), "open interval range says «→ сейчас (открыт)»");
+  const legendHtml = doc.getElementById("legend").innerHTML;
+  ok(legendHtml.indexOf("открытый интервал (по сейчас)") !== -1, "legend explains the hatch marker");
 
   const tipDev1 = rects[3].getAttribute("data-tip") || "";
   ok(tipDev1.indexOf("→ ушёл") !== -1, "closed interval shows both boundaries");

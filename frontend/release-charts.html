@@ -84,7 +84,7 @@
     .series label.inline { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--ink); font-weight: 500; font-size: 13px; }
     input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
     input[type="color"] { width: 32px; height: 28px; padding: 2px; cursor: pointer; border: 1px solid var(--border); }
-    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .kpis { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; }
     .kpis div { background: var(--subtle); border-radius: 8px; padding: 10px 12px; }
     .kpis dt { font-size: 11px; color: var(--muted); }
     .kpis dd { margin: 3px 0 0; font-size: 1.2rem; font-weight: 700; }
@@ -202,6 +202,7 @@
       <div><dt>Estimate, ч</dt><dd id="k-e">—</dd></div>
       <div><dt>Time tracking, ч</dt><dd id="k-t">—</dd></div>
       <div><dt>DEV с данными</dt><dd id="k-d">—</dd></div>
+      <div><dt>Медиана dwell</dt><dd id="k-md" title="Медиана времени в статусах по задачам с историей">—</dd></div>
     </section>
     <p class="muted">Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.</p>
     <section class="card">
@@ -252,6 +253,37 @@
         .replace(/'/g, "&#39;");
     }
     function round1(n) { return Math.round((n || 0) * 10) / 10; }
+    // A9 (board #213): one display-rounding policy for both widgets:
+    // minutes → whole, hours → 0.1, days → 0.1 (round1).
+    function fmtDur(days) {
+      const n = Number(days) || 0;
+      if (n <= 0) return "0 мин";
+      if (n < 1 / 24) return Math.max(1, Math.round(n * 1440)) + " мин";
+      if (n < 1) return round1(n * 24) + " ч";
+      return round1(n) + " дн";
+    }
+    // A9 (board #213): standard median — mean of the two central values for an
+    // even count (the old floor((n-1)/2) lower-median bias is gone).
+    function medianDays(vals) {
+      if (!vals.length) return 0;
+      const s = vals.slice().sort((a, b) => a - b);
+      const mid = s.length >> 1;
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    }
+    // Dwell total of a task = sum of its history interval days (Done diamonds
+    // carry no days). Tasks without history yield null — excluded from the
+    // median instead of being counted as zero.
+    function taskDwellDays(t) {
+      const h = (t && (t.history || t.segments)) || [];
+      if (!h.length) return null;
+      return h.reduce((sum, x) => sum + (Number(x && x.days) || 0), 0);
+    }
+    // A7 (board #208): an interval with a known from and to === null is OPEN —
+    // its end is «now» and any aggregate including it must say so («≈»).
+    function hasOpenInterval(t) {
+      const h = (t && (t.history || t.segments)) || [];
+      return h.some(x => x && x.from && !x.to);
+    }
     function css(name, fb) {
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
     }
@@ -429,10 +461,18 @@
       const rows = byDev(tasks);
       const est = tasks.reduce((s, t) => s + taskShare(t).est, 0);
       const spent = tasks.reduce((s, t) => s + taskShare(t).spent, 0);
+      const dwells = tasks.map(taskDwellDays).filter(v => v != null);
+      const anyOpen = tasks.some(hasOpenInterval);
       document.getElementById("k-n").textContent = m.ok ? String(tasks.length) : "—";
       document.getElementById("k-e").textContent = m.ok ? String(round1(est)) : "—";
       document.getElementById("k-t").textContent = m.ok ? String(round1(spent)) : "—";
       document.getElementById("k-d").textContent = m.ok ? String(rows.length) : "—";
+      const kmd = document.getElementById("k-md");
+      kmd.textContent = m.ok && dwells.length
+        ? (anyOpen ? "≈ " : "") + fmtDur(medianDays(dwells))
+        : "—";
+      kmd.title = "Медиана времени в статусах по задачам с историей" +
+        (anyOpen ? "; открытые интервалы посчитаны по сейчас" : "");
       if (m.ok) drawDev(rows);
       else {
         document.getElementById("dev-chart").innerHTML = "";
