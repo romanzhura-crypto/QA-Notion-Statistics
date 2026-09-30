@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20260930-open-honesty">
+  <meta name="widget-build" content="20260930-row-click-detail">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -155,9 +155,12 @@
     .tbl-tasks .c-sum { width: 15%; }
     .tbl-tasks .c-created { width: 12.5%; }
     .tbl-tasks .c-done { width: 12.5%; }
-    #tbl tr[data-href] { cursor: pointer; }
-    #tbl tr[data-href]:hover td { background: var(--hover); }
-    #tbl tr[data-href]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    #tbl tr[data-task] { cursor: pointer; }
+    #tbl tr[data-task]:hover td { background: var(--hover); }
+    #tbl tr[data-task]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    #tbl td .task-open { color: var(--ink); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 2px; }
+    #tbl td .task-open:hover { text-decoration-color: currentColor; }
+    #tbl td .task-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     @media (max-width: 640px) {
       table.tbl-tasks { font-size: 11px; }
       .tbl-tasks th, .tbl-tasks td { padding: 6px 3px; }
@@ -187,6 +190,16 @@
       display: flex; align-items: center; justify-content: center;
     }
     .combo-toggle:hover { background: var(--hover); }
+    .combo-clear {
+      min-height: 36px; min-width: 36px; padding: 0; border: 0; border-left: 1px solid var(--border);
+      border-radius: 0; background: transparent; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .combo-clear[hidden] { display: none; }
+    .combo-clear:hover { background: var(--hover); color: var(--ink); }
+    .combo-clear:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    .combo-clear svg { width: 11px; height: 11px; fill: currentColor; }
+    #task-combo .combo-control { grid-template-columns: minmax(0, 1fr) 36px 36px; }
     .combo-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
     .combo-toggle svg { width: 12px; height: 12px; fill: currentColor; transition: transform .15s; }
     .combo-menu {
@@ -245,6 +258,9 @@
               <button type="button" class="combo-toggle" id="task-toggle" aria-label="Открыть список задач" aria-expanded="false" aria-controls="task-menu">
                 <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
               </button>
+              <button type="button" class="combo-clear" id="task-clear" aria-label="Сбросить фильтр «Задача»" title="Сбросить выбор задачи (Esc)" hidden>
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.4 1 6 4.6 9.6 1 11 2.4 7.4 6l3.6 3.6-1.4 1.4L6 7.4 2.4 11 1 9.6 4.6 6 1 2.4z"/></svg>
+              </button>
             </div>
             <ul class="combo-menu" id="task-menu" role="listbox" hidden></ul>
           </div>
@@ -269,7 +285,7 @@
     </section>
     <section class="card">
       <h2>Время в каждом Status</h2>
-      <p class="muted">Done — только момент получения статуса, без длительности. Наведите на отрезок: общая информация по статусу и по каждому участку отдельно.</p>
+      <p class="muted">Done — только момент получения статуса, без длительности. Наведите на отрезок: общая информация по статусу и по каждому участку отдельно. Клик по строке таблицы (или Enter/Space) — детальный график одной задачи; название со ссылкой открывает задачу в Notion.</p>
       <div class="legend" id="legend"></div>
       <div class="scroll chart-scroll">
         <div class="chart-wrap">
@@ -565,7 +581,11 @@
           else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
         } else if (e.key === "Enter") {
           if (open && list[activeIdx]) { e.preventDefault(); pick(String(list[activeIdx].value)); }
-        } else if (e.key === "Escape") setExpanded(false);
+        } else if (e.key === "Escape") {
+          // Board #233: swallow Esc while the menu is open (close the menu only) —
+          // the global Esc handler must not reset the task filter on this press.
+          if (menuEl.classList.contains("open")) { e.preventDefault(); e.stopPropagation(); setExpanded(false); }
+        }
       });
       toggleEl.addEventListener("click", (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -581,7 +601,13 @@
       document.addEventListener("click", (e) => {
         if (!e.target.closest(rootSel)) setExpanded(false);
       });
-      return { input: inputEl, match, setErr, clear, setValue: (v) => { inputEl.value = v || ""; } };
+      return {
+        input: inputEl, match, setErr, clear,
+        setValue: (v) => { inputEl.value = v || ""; },
+        pick: (v) => pick(String(v == null ? "" : v)),
+        close: () => setExpanded(false),
+        menuOpen: () => menuEl.classList.contains("open")
+      };
     }
 
     function releaseItems() {
@@ -651,6 +677,27 @@
       onInput: () => render(),
       onPick: () => { cascadeReset(); render(); }
     });
+    // Board #233: exit detail mode — «×» next to the «Задача» filter or Esc.
+    const taskClearBtn = document.getElementById("task-clear");
+    function resetTaskFilter(focusInput) {
+      taskCombo.clear();
+      taskCombo.close();
+      render();
+      if (focusInput) taskCombo.input.focus();
+    }
+    taskClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      resetTaskFilter(true);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (taskCombo.menuOpen()) return;
+      const mt = taskCombo.match();
+      if (mt.ok && mt.item) {
+        e.preventDefault();
+        resetTaskFilter(false);
+      }
+    });
     function cascadeReset() {
       const mp = projectCombo.match();
       if (!mp.ok && !mp.empty) projectCombo.clear();
@@ -698,15 +745,27 @@
       });
     }
 
-    function bindRowLinks() {
-      document.querySelectorAll("#tbl tr[data-href]").forEach(tr => {
-        const href = tr.getAttribute("data-href") || "";
-        if (!href) return;
-        const open = () => window.open(href, "_blank", "noopener");
-        tr.addEventListener("click", open);
+    // Board #233: row click/Enter/Space = apply the «Задача» filter for this task
+    // (detail chart mode). The title link keeps «open in Notion» alive and must
+    // never trigger the filter (stopPropagation).
+    function applyTaskFromRow(value) {
+      if (!value) return;
+      taskCombo.pick(value);
+    }
+    function bindRowActions() {
+      document.querySelectorAll("#tbl tr[data-task]").forEach(tr => {
+        const value = tr.getAttribute("data-task") || "";
+        const inLink = (e) => e.target && e.target.closest && e.target.closest("a");
+        tr.addEventListener("click", (e) => { if (!inLink(e)) applyTaskFromRow(value); });
         tr.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+          if (inLink(e)) return;
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); applyTaskFromRow(value); }
         });
+        const a = tr.querySelector("td .task-open");
+        if (a) {
+          a.addEventListener("click", (e) => e.stopPropagation());
+          a.addEventListener("keydown", (e) => e.stopPropagation());
+        }
       });
     }
 
@@ -761,14 +820,20 @@
           : "—";
         const createdCell = fmtDateTime(r.created);
         const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
-        const attr = r.href ? " data-href=\"" + esc(r.href) + "\" tabindex=\"0\" role=\"link\"" : "";
-        return "<tr" + attr + "><td>" + esc(r.tid || "—") + "</td><td>" + esc(r.n) + "</td><td>" + esc(r.d || "—") + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
+        // Board #233: the whole row is keyboard/click-activatable and applies the
+        // task filter; the title stays an explicit Notion link (target=_blank).
+        const nameCell = r.href
+          ? "<a class=\"task-open\" href=\"" + esc(r.href) + "\" target=\"_blank\" rel=\"noopener\">" + esc(r.n) + "</a>"
+          : esc(r.n);
+        const rowAttr = " data-task=\"" + esc(r.id) + "\" tabindex=\"0\" role=\"button\" aria-label=\"" +
+          esc("Показать на графике только задачу " + (r.tid ? r.tid + " " : "") + r.n) + "\"";
+        return "<tr" + rowAttr + "><td>" + esc(r.tid || "—") + "</td><td>" + nameCell + "</td><td>" + esc(r.d || "—") + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
           esc(r.s) + "</span></td><td>" + esc(sumCell) + "</td><td>" + esc(createdCell) + "</td><td>" + esc(doneCell) + "</td></tr>";
       }).join("");
-      bindRowLinks();
+      bindRowActions();
     }
 
-    function draw(rows) {
+    function draw(rows, detail) {
       const svg = document.getElementById("chart");
       const empty = document.getElementById("empty");
       hideTip();
@@ -783,12 +848,18 @@
       }
       const host = svg.parentElement || svg;
       const hostW = Math.floor(host.getBoundingClientRect().width || host.clientWidth || 0);
-      const rowH = 32;
-      const pad = { l: 220, r: 72, t: 28, b: 28 };
+      // Board #233: detail mode = the «Задача» filter picks ONE task (row click
+      // or task combo). The timeline bar stretches across the full width with a
+      // thick body so every status segment is clearly visible. A release that
+      // simply has one task stays in the ordinary mode.
+      const rowH = detail ? 64 : 32;
+      const pad = detail ? { l: 16, r: 28, t: 32, b: 34 } : { l: 220, r: 72, t: 28, b: 28 };
       const w = Math.max(hostW || 0, 640);
       const h = pad.t + pad.b + rows.length * rowH;
       const innerW = w - pad.l - pad.r;
-      const maxX = Math.max(1, ...rows.map(r => r.totalDays || 0));
+      const maxX = detail
+        ? Math.max(1e-9, ...rows.map(r => r.totalDays || 0))
+        : Math.max(1, ...rows.map(r => r.totalDays || 0));
       const ink = css("--ink", "#37352f");
       const muted = css("--muted", "#787774");
       const border = css("--border", "#e3e2de");
@@ -804,23 +875,34 @@
         const x = pad.l + innerW * (i / 4);
         const val = maxX * (i / 4);
         g.push('<line x1="' + x + '" x2="' + x + '" y1="' + pad.t + '" y2="' + (h - pad.b) + '" stroke="' + border + '" />');
-        g.push('<text x="' + x + '" y="' + (h - 8) + '" font-size="11" fill="' + muted + '" text-anchor="middle">' + (maxX < 1 ? fmtDur(val) : round1(val)) + "</text>");
+        g.push('<text x="' + x + '" y="' + (h - 8) + '" font-size="11" fill="' + muted + '" text-anchor="middle">' + ((detail || maxX < 1) ? fmtDur(val) : round1(val)) + "</text>");
+      }
+      if (detail) {
+        // Board #233: explicit time axis line in detail mode (ticks above).
+        g.push('<line x1="' + pad.l + '" x2="' + (w - pad.r) + '" y1="' + (h - pad.b) + '" y2="' + (h - pad.b) + '" stroke="' + border + '" />');
       }
       rows.forEach((r, i) => {
-        const y = pad.t + i * rowH + 6;
-        const bh = 18;
-        const label = r.n.length > 34 ? r.n.slice(0, 33) + "…" : r.n;
-        g.push('<text x="8" y="' + (y + 13) + '" font-size="11" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
+        const y = pad.t + i * rowH + (detail ? 4 : 6);
+        const bh = detail ? 48 : 18;
+        if (detail) {
+          const full = (r.tid ? r.tid + " · " : "") + r.n;
+          const label = full.length > 60 ? full.slice(0, 59) + "…" : full;
+          g.push('<text x="8" y="' + (pad.t - 10) + '" font-size="12" font-weight="650" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
+        } else {
+          const label = r.n.length > 34 ? r.n.slice(0, 33) + "…" : r.n;
+          g.push('<text x="8" y="' + (y + 13) + '" font-size="11" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
+        }
         let x = pad.l;
         const byStatus = {};
         r.segs.forEach(seg => { (byStatus[seg.s] = byStatus[seg.s] || []).push(seg); });
         r.segs.forEach(seg => {
           if (seg.kind === "done") {
+            const dr = detail ? 10 : 7;
             const cx = x + 8;
             const cy = y + bh / 2;
             const tip = "Done · " + fmtDateTime(seg.at) + "\nмомент получения статуса (без длительности)";
             g.push('<polygon tabindex="0" data-tip="' + esc(tip) + '" points="' +
-              cx + "," + (cy - 7) + " " + (cx + 7) + "," + cy + " " + cx + "," + (cy + 7) + " " + (cx - 7) + "," + cy +
+              cx + "," + (cy - dr) + " " + (cx + dr) + "," + cy + " " + cx + "," + (cy + dr) + " " + (cx - dr) + "," + cy +
               '" fill="' + statusColor(seg.s) + '" stroke="' + ink + '" stroke-width="0.6" />');
             return;
           }
@@ -840,12 +922,39 @@
           if (seg.days > 0 && bw < 2) {
             g.push('<circle class="micro-dot" data-tip="' + esc(tip) + '"' + grp + openAttr + ' cx="' + (x + 1) + '" cy="' + (y + bh / 2) + '" r="2.5" fill="' + statusColor(seg.s) + '" />');
           }
+          // Board #233: detail mode — status name + duration ON the segment when
+          // they fit; otherwise the tooltip (bindTips) remains the only source.
+          // Micro segments (< 2px) stay truthful: dot marker only, never inflated.
+          if (detail && bw >= 40) {
+            const durTxt = (seg.open ? "≈ " : "") + fmtDur(seg.days) + (seg.open ? " · по сейчас" : "");
+            const withDur = bw >= 64;
+            const nameChars = Math.max(1, Math.floor((bw - 10) / 6.6));
+            const nm = String(seg.s);
+            const nameShown = nm.length > nameChars
+              ? (nameChars > 1 ? nm.slice(0, nameChars - 1) + "…" : nm.slice(0, 1))
+              : nm;
+            const durChars = Math.max(1, Math.floor((bw - 10) / 6.0));
+            const durShown = durTxt.length > durChars
+              ? (durChars > 3 ? durTxt.slice(0, durChars - 1) + "…" : durTxt.slice(0, durChars))
+              : durTxt;
+            g.push('<text x="' + (x + 5) + '" y="' + (y + (withDur ? 20 : bh / 2 + 4)) + '" font-size="' + (withDur ? 12 : 11) + '"' +
+              (withDur ? ' font-weight="650"' : "") + ' fill="#ffffff" stroke="rgba(0,0,0,0.5)" stroke-width="2.5" paint-order="stroke" text-anchor="start">' +
+              esc(nameShown) + "</text>");
+            if (withDur) {
+              g.push('<text x="' + (x + 5) + '" y="' + (y + 38) + '" font-size="11" fill="#ffffff" stroke="rgba(0,0,0,0.5)" stroke-width="2" paint-order="stroke" text-anchor="start">' +
+                esc(durShown) + "</text>");
+            }
+          }
           x += bw;
         });
         if (!r.doneAt) {
           const anyOpen = r.segs.some(s => s.open);
           const lbl = (anyOpen ? "≈ " : "") + fmtDur(r.totalDays) + (anyOpen ? " (по сейчас)" : "");
-          g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(lbl) + "</text>");
+          if (detail) {
+            g.push('<text x="' + (w - 8) + '" y="' + (pad.t - 10) + '" font-size="11" fill="' + muted + '" text-anchor="end">' + esc(lbl) + "</text>");
+          } else {
+            g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(lbl) + "</text>");
+          }
         }
       });
       svg.innerHTML = g.join("");
@@ -900,6 +1009,7 @@
         totalDays: dwellTotal(segs),
         doneAt: doneRaw,
         tid: t.tid || "",
+        id: idStr,
         href: href,
         sumDoneMs: sumDoneMs,
         sumOpen: sumOpen
@@ -913,6 +1023,8 @@
       releaseCombo.setErr(m);
       projectCombo.setErr(mp);
       taskCombo.setErr(mt);
+      // Board #233: the «Задача» reset (×) appears exactly when a task filter is set.
+      taskClearBtn.hidden = !(mt.ok && mt.item);
       const ok = m.ok && mp.ok && mt.ok;
       const live = ok ? selected() : [];
       const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
@@ -934,7 +1046,7 @@
       km.title = openNote;
       kx.title = openNote;
       updateSyncTime();
-      if (ok) draw(rows);
+      if (ok) draw(rows, !!(mt.ok && mt.item) && rows.length === 1);
       else {
         document.getElementById("chart").innerHTML = "";
         document.getElementById("tbl").innerHTML = "";
