@@ -75,6 +75,25 @@
       border: 1px solid var(--border); border-radius: 6px;
     }
     input[type="text"] { width: 100%; min-height: 36px; padding: 6px 10px; }
+    /* Период (board #239): two native date inputs + reset («×»). */
+    .period-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 36px;
+      gap: 4px;
+      align-items: center;
+      min-height: 36px;
+    }
+    input[type="date"] {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+      width: 100%; min-height: 36px; padding: 6px 8px;
+    }
+    .period-clear {
+      min-width: 36px; min-height: 36px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .period-clear svg { width: 12px; height: 12px; fill: currentColor; }
+    .field.is-off { opacity: .55; }
     button { min-height: 36px; padding: 6px 14px; cursor: pointer; background: var(--bg); }
     button:hover { background: var(--hover); }
     button.primary { background: var(--blue); color: #fff; border-color: transparent; white-space: nowrap; padding: 6px 16px; }
@@ -175,6 +194,17 @@
     <section class="card">
       <div class="toolbar">
         <div class="field">
+          <label for="period-from">Период</label>
+          <div class="period-control">
+            <input id="period-from" type="date" aria-label="Период с" title="Начало периода (включительно)">
+            <span aria-hidden="true">–</span>
+            <input id="period-to" type="date" aria-label="Период по" title="Конец периода (включительно)">
+            <button type="button" class="period-clear" id="period-clear" aria-label="Сбросить период" title="Сбросить период и вернуться к фильтру «Релиз»" hidden>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.4 1 6 4.6 9.6 1 11 2.4 7.4 6l3.6 3.6-1.4 1.4L6 7.4 2.4 11 1 9.6 4.6 6 1 2.4z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
           <label for="release">Релиз</label>
           <div class="combo" id="release-combo">
             <div class="combo-control">
@@ -198,13 +228,13 @@
       </div>
     </section>
     <section class="kpis" aria-label="Сводка релиза">
-      <div><dt>Задач в релизе</dt><dd id="k-n">—</dd></div>
+      <div><dt id="k-n-label">Задач в релизе</dt><dd id="k-n">—</dd></div>
       <div><dt>Estimate, ч</dt><dd id="k-e">—</dd></div>
       <div><dt>Time tracking, ч</dt><dd id="k-t">—</dd></div>
       <div><dt>DEV с данными</dt><dd id="k-d">—</dd></div>
       <div><dt>Медиана dwell</dt><dd id="k-md" title="Медиана времени в статусах по задачам с историей">—</dd></div>
     </section>
-    <p class="muted">Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.</p>
+    <p class="muted" id="share-note">Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.</p>
     <section class="card">
       <h2>По DEV</h2>
       <p class="muted">Ось X — DEV. Ось Y — часы. Столбцы Estimate и Time tracking стоят над своим DEV.</p>
@@ -297,6 +327,89 @@
       catch (e) { return n; }
     }
     function dataUrl() { return assetUrl("release-data.json"); }
+    function parseTs(v) {
+      if (!v) return null;
+      let s = String(v);
+      // Date-only = midnight Europe/Minsk (UTC+3), not midnight UTC (day-boundary fix).
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00+03:00";
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // ---- Период (board #239) ----------------------------------------------
+    // Период [с; по] — локальные сутки браузера, «по» включительно. When the
+    // period is active (at least one bound set) the «Релиз» (sprint) filter is
+    // disabled and IGNORED — the period scopes across releases (requirement 1)
+    // — and every aggregate (Задач/Estimate/Time tracking/DEV/Медиана dwell) is
+    // recalculated over the resulting selection (requirement 3). The period
+    // selects the TASK SET by lifecycle overlap; task totals stay full-task.
+    function periodRange() {
+      let a = document.getElementById("period-from").value;
+      let b = document.getElementById("period-to").value;
+      if (!a && !b) return null;
+      if (a && b && a > b) { const sw = a; a = b; b = sw; } // inverted bounds = swapped silently
+      return {
+        fromTs: a ? new Date(a + "T00:00:00").getTime() : -Infinity,
+        toTs: b ? new Date(b + "T23:59:59.999").getTime() : Infinity
+      };
+    }
+    // A task hits the period when any lifecycle piece intersects it: history
+    // intervals (from→to; to:null = open → «now»), Done moments (at), created/
+    // Start date points, and the no-history fallback interval start→«now»
+    // (edited counts as the Done point only for no-history tasks). A task
+    // without ANY parseable timestamp is never selected by a period.
+    function taskHitsPeriod(t, range) {
+      if (!range) return true;
+      const hit = (x, y) => x <= range.toTs && y >= range.fromTs;
+      const h = (t && (t.history || t.segments)) || [];
+      for (let i = 0; i < h.length; i++) {
+        const x = h[i];
+        if (!x) continue;
+        const at = parseTs(x.at);
+        if (at && hit(at.getTime(), at.getTime())) return true;
+        const from = parseTs(x.from);
+        if (from) {
+          const to = x.to ? parseTs(x.to) : null;
+          // open interval end = «now», never BEFORE its start (future-dated data)
+          const endTs = to ? to.getTime() : Math.max(from.getTime(), Date.now());
+          if (hit(from.getTime(), endTs)) return true;
+        }
+      }
+      const pts = [];
+      const created = parseTs(t && t.created);
+      const start = parseTs(t && t.start);
+      if (created) pts.push(created.getTime());
+      if (start) pts.push(start.getTime());
+      if (!h.length) {
+        const edited = parseTs(t && t.edited);
+        if (edited) pts.push(edited.getTime());
+      }
+      for (let j = 0; j < pts.length; j++) {
+        if (hit(pts[j], pts[j])) return true;
+      }
+      if (!h.length && pts.length && !isDoneName(t.s)) {
+        const first = Math.min.apply(null, pts);
+        if (hit(first, Math.max(first, Date.now()))) return true;
+      }
+      return false;
+    }
+    function isDoneName(name) {
+      return String(name || "").toLowerCase() === "done";
+    }
+    const SHARE_NOTE_DEFAULT = "Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.";
+    function applyPeriodUi(on) {
+      document.getElementById("period-clear").hidden = !on;
+      releaseEl.disabled = on;
+      toggleEl.disabled = on;
+      const field = releaseEl.closest(".field");
+      if (field) field.classList.toggle("is-off", on);
+      releaseEl.title = on
+        ? "Спринт не учитывается: выбран период (очистите период, чтобы вернуться к выбору релиза)"
+        : "";
+      document.getElementById("k-n-label").textContent = on ? "Задач в периоде" : "Задач в релизе";
+      document.getElementById("share-note").textContent = on
+        ? "Период: спринт не учитывается — отбор задач по активности в периоде; часы показаны полностью, без деления между релизами."
+        : SHARE_NOTE_DEFAULT;
+    }
 
     let activeIdx = -1;
     let filterOnType = false;
@@ -353,6 +466,12 @@
     }
 
     function selected() {
+      // Board #239 requirement 1: with a period selected the sprint/release
+      // filter is NOT taken into account — the period scopes across releases.
+      const range = periodRange();
+      if (range) {
+        return (DATA.tasks || []).filter(t => taskHitsPeriod(t, range));
+      }
       const m = matchRelease(releaseEl.value);
       if (!m.ok) return [];
       return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.value) !== -1);
@@ -365,6 +484,9 @@
     // the payload; the split is an aggregation rule (docs/release-data-contract.md).
     // N = max(1, len(r)); sums use full precision, rounding is display-only.
     function taskShare(t) {
+      // Board #239: period mode has NO release dimension — hours count IN FULL.
+      // The even split (board #214) is per-release accounting only.
+      if (periodRange()) return { est: (t.e || 0), spent: (t.t || 0) };
       const n = Math.max(1, (t.r || []).length);
       return { est: (t.e || 0) / n, spent: (t.t || 0) / n };
     }
@@ -455,25 +577,30 @@
 
     function render() {
       updateSyncTime();
+      const range = periodRange();
+      applyPeriodUi(!!range);
       const m = matchRelease(releaseEl.value);
-      errEl.hidden = m.ok || m.empty;
-      const tasks = m.ok ? selected() : [];
+      // Board #239: in period mode the «Релиз» (sprint) filter is disabled and
+      // ignored — no «unknown release» error, no requirement to pick one.
+      errEl.hidden = range ? true : (m.ok || m.empty);
+      const ok = range ? true : m.ok;
+      const tasks = ok ? selected() : [];
       const rows = byDev(tasks);
       const est = tasks.reduce((s, t) => s + taskShare(t).est, 0);
       const spent = tasks.reduce((s, t) => s + taskShare(t).spent, 0);
       const dwells = tasks.map(taskDwellDays).filter(v => v != null);
       const anyOpen = tasks.some(hasOpenInterval);
-      document.getElementById("k-n").textContent = m.ok ? String(tasks.length) : "—";
-      document.getElementById("k-e").textContent = m.ok ? String(round1(est)) : "—";
-      document.getElementById("k-t").textContent = m.ok ? String(round1(spent)) : "—";
-      document.getElementById("k-d").textContent = m.ok ? String(rows.length) : "—";
+      document.getElementById("k-n").textContent = ok ? String(tasks.length) : "—";
+      document.getElementById("k-e").textContent = ok ? String(round1(est)) : "—";
+      document.getElementById("k-t").textContent = ok ? String(round1(spent)) : "—";
+      document.getElementById("k-d").textContent = ok ? String(rows.length) : "—";
       const kmd = document.getElementById("k-md");
-      kmd.textContent = m.ok && dwells.length
+      kmd.textContent = ok && dwells.length
         ? (anyOpen ? "≈ " : "") + fmtDur(medianDays(dwells))
         : "—";
       kmd.title = "Медиана времени в статусах по задачам с историей" +
         (anyOpen ? "; открытые интервалы посчитаны по сейчас" : "");
-      if (m.ok) drawDev(rows);
+      if (ok) drawDev(rows);
       else {
         document.getElementById("dev-chart").innerHTML = "";
         document.getElementById("dev-table").innerHTML = "";
@@ -630,6 +757,23 @@
         syncBtn.disabled = false;
       }
     }
+
+    // ---- Период (board #239): UI wiring ------------------------------------
+    const periodFromEl = document.getElementById("period-from");
+    const periodToEl = document.getElementById("period-to");
+    const periodClearBtn = document.getElementById("period-clear");
+    function onPeriodChange() { render(); }
+    periodFromEl.addEventListener("input", onPeriodChange);
+    periodToEl.addEventListener("input", onPeriodChange);
+    periodFromEl.addEventListener("change", onPeriodChange);
+    periodToEl.addEventListener("change", onPeriodChange);
+    periodClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      periodFromEl.value = "";
+      periodToEl.value = "";
+      render();
+      periodFromEl.focus();
+    });
 
     releaseEl.addEventListener("input", () => {
       filterOnType = true;

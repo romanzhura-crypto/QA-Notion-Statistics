@@ -49,6 +49,25 @@
       gap: 8px 16px;
       min-width: 0;
     }
+    /* Период (board #239): two native date inputs + reset («×»). */
+    .period-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 36px;
+      gap: 4px;
+      align-items: center;
+      min-height: 36px;
+    }
+    input[type="date"] {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+      width: 100%; min-height: 36px; padding: 6px 8px;
+    }
+    .period-clear {
+      min-width: 36px; min-height: 36px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .period-clear svg { width: 12px; height: 12px; fill: currentColor; }
+    .field.is-off { opacity: .55; }
     .field { min-width: 0; display: flex; flex-direction: column; }
     .field-control { min-height: 36px; display: flex; align-items: stretch; }
     .sync-actions { justify-self: end; }
@@ -233,6 +252,17 @@
       <div class="toolbar">
         <div class="filters">
         <div class="field">
+          <label for="period-from">Период</label>
+          <div class="period-control">
+            <input id="period-from" type="date" aria-label="Период с" title="Начало периода (включительно)">
+            <span aria-hidden="true">–</span>
+            <input id="period-to" type="date" aria-label="Период по" title="Конец периода (включительно)">
+            <button type="button" class="period-clear" id="period-clear" aria-label="Сбросить период" title="Сбросить период и вернуться к фильтру «Релиз»" hidden>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.4 1 6 4.6 9.6 1 11 2.4 7.4 6l3.6 3.6-1.4 1.4L6 7.4 2.4 11 1 9.6 4.6 6 1 2.4z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
           <label for="release">Релиз</label>
           <div class="combo" id="release-combo">
             <div class="combo-control">
@@ -379,6 +409,65 @@
       // A9 (board #213): store at minute precision; display rounding lives only
       // in fmtDur/round1 — no hour/day quantization here anymore.
       return Math.round(ms / 60000) / 1440;
+    }
+    // ---- Период (board #239) ----------------------------------------------
+    // Период [с; по] — локальные сутки браузера, «по» включительно. When the
+    // period is active (at least one bound set) the «Релиз» (sprint) filter is
+    // disabled and IGNORED — the period scopes across releases (requirement 1).
+    // «Проект»/«Задача» keep working on top of the period (requirement 2) and
+    // every aggregate is recalculated over the resulting selection
+    // (requirement 3). The period selects the TASK SET by lifecycle overlap;
+    // durations stay full-task (no clipping to the period bounds).
+    function periodRange() {
+      let a = document.getElementById("period-from").value;
+      let b = document.getElementById("period-to").value;
+      if (!a && !b) return null;
+      if (a && b && a > b) { const sw = a; a = b; b = sw; } // inverted bounds = swapped silently
+      return {
+        fromTs: a ? new Date(a + "T00:00:00").getTime() : -Infinity,
+        toTs: b ? new Date(b + "T23:59:59.999").getTime() : Infinity
+      };
+    }
+    // A task hits the period when any lifecycle piece intersects it: history
+    // intervals (from→to; to:null = open → «now»), Done moments (at), created/
+    // Start date points, and the no-history fallback interval start→«now»
+    // (edited counts as the Done point only for no-history tasks, mirroring
+    // segmentsFor). A task without ANY parseable timestamp is never selected
+    // by a period — its activity cannot be proven (fail-visible).
+    function taskHitsPeriod(t, range) {
+      if (!range) return true;
+      const hit = (x, y) => x <= range.toTs && y >= range.fromTs;
+      const h = (t && (t.history || t.segments)) || [];
+      for (let i = 0; i < h.length; i++) {
+        const x = h[i];
+        if (!x) continue;
+        const at = parseTs(x.at);
+        if (at && hit(at.getTime(), at.getTime())) return true;
+        const from = parseTs(x.from);
+        if (from) {
+          const to = x.to ? parseTs(x.to) : null;
+          // open interval end = «now», never BEFORE its start (future-dated data)
+          const endTs = to ? to.getTime() : Math.max(from.getTime(), Date.now());
+          if (hit(from.getTime(), endTs)) return true;
+        }
+      }
+      const pts = [];
+      const created = parseTs(t && t.created);
+      const start = parseTs(t && t.start);
+      if (created) pts.push(created.getTime());
+      if (start) pts.push(start.getTime());
+      if (!h.length) {
+        const edited = parseTs(t && t.edited);
+        if (edited) pts.push(edited.getTime());
+      }
+      for (let j = 0; j < pts.length; j++) {
+        if (hit(pts[j], pts[j])) return true;
+      }
+      if (!h.length && pts.length && !isDoneName(t.s)) {
+        const first = Math.min.apply(null, pts);
+        if (hit(first, Math.max(first, Date.now()))) return true;
+      }
+      return false;
     }
     function fmtDate(v) {
       const d = v instanceof Date ? v : parseTs(v);
@@ -629,6 +718,12 @@
       onPick: () => { cascadeReset(); render(); }
     });
     function releaseTasks() {
+      // Board #239 requirement 1: with a period selected the sprint/release
+      // filter is NOT taken into account — the period scopes across releases.
+      const range = periodRange();
+      if (range) {
+        return (DATA.tasks || []).filter(t => taskHitsPeriod(t, range));
+      }
       const m = releaseCombo.match();
       if (!m.ok || !m.item) return [];
       return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.item.value) !== -1);
@@ -712,6 +807,36 @@
       const mt = taskCombo.match();
       if (!mt.ok && !mt.empty) taskCombo.clear();
     }
+
+    // ---- Период (board #239): UI wiring ------------------------------------
+    const periodFromEl = document.getElementById("period-from");
+    const periodToEl = document.getElementById("period-to");
+    const periodClearBtn = document.getElementById("period-clear");
+    function applyPeriodUi(on) {
+      periodClearBtn.hidden = !on;
+      const relInput = document.getElementById("release");
+      const relToggle = document.getElementById("release-toggle");
+      relInput.disabled = on;
+      relToggle.disabled = on;
+      const field = relInput.closest(".field");
+      if (field) field.classList.toggle("is-off", on);
+      relInput.title = on
+        ? "Спринт не учитывается: выбран период (очистите период, чтобы вернуться к выбору релиза)"
+        : "";
+    }
+    function onPeriodChange() { cascadeReset(); render(); }
+    periodFromEl.addEventListener("input", onPeriodChange);
+    periodToEl.addEventListener("input", onPeriodChange);
+    periodFromEl.addEventListener("change", onPeriodChange);
+    periodToEl.addEventListener("change", onPeriodChange);
+    periodClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      periodFromEl.value = "";
+      periodToEl.value = "";
+      cascadeReset();
+      render();
+      periodFromEl.focus();
+    });
 
     function hideTip() {
       tipEl.classList.remove("show");
@@ -1050,15 +1175,23 @@
     }
 
     function render() {
+      const range = periodRange();
+      applyPeriodUi(!!range);
       const m = releaseCombo.match();
       const mp = projectCombo.match();
       const mt = taskCombo.match();
-      releaseCombo.setErr(m);
+      // Board #239: in period mode the «Релиз» (sprint) filter is disabled and
+      // ignored — no «unknown release» error, no requirement to pick one.
+      if (range) document.getElementById("release-err").hidden = true;
+      else releaseCombo.setErr(m);
       projectCombo.setErr(mp);
       taskCombo.setErr(mt);
       // Board #233: the «Задача» reset (×) appears exactly when a task filter is set.
       taskClearBtn.hidden = !(mt.ok && mt.item);
-      const ok = m.ok && mp.ok && mt.ok;
+      const ok = (range ? true : m.ok) && mp.ok && mt.ok;
+      document.getElementById("empty").textContent = range
+        ? "В этом периоде нет задач."
+        : "В этом релизе нет задач.";
       const live = ok ? selected() : [];
       const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
       const days = rows.map(r => r.totalDays);
