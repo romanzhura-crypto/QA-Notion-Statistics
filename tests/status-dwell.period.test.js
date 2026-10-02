@@ -1,4 +1,4 @@
-// jsdom tests for status-dwell.html board #239 (период):
+// jsdom tests for status-dwell.html board #239/#247 (период):
 // - requirement 1: with a period selected the «Релиз» (sprint) filter is DISABLED
 //   and IGNORED — the selection spans releases; the release value is preserved
 //   and honoured again after the period is cleared
@@ -6,10 +6,14 @@
 //   (combo items come from the period scope; invalid picks cascade-cleared)
 // - requirement 3: KPI «Задач/Статусов/Медиана/Макс» are recalculated for the
 //   selected period
-// - period semantics: lifecycle overlap (history intervals incl. open→now,
-//   Done moments, created/Start points, no-history fallback interval);
+// - period semantics (вариант А, board #247): EVENT-BASED selection — a task
+//   is in the period only when a lifecycle EVENT (status-change from/to, Done
+//   moment, created/Start) falls inside the dates; mere lifecycle OVERLAP is
+//   NOT enough. Durations are CLIPPED to the period bounds.
 //   one bound only = open-ended range; inverted bounds are swapped silently;
 //   open intervals keep the «≈» marker
+// Deterministic clock: window.Date frozen at 2026-10-07T07:00:00Z (fixture
+// open interval TASK-3 spans exactly 2 дн «по сейчас»).
 // Run: NODE_PATH=/tmp/sdtest/node_modules node tests/status-dwell.period.test.js
 "use strict";
 const fs = require("fs");
@@ -31,7 +35,7 @@ const fixture = {
   timezone: "Europe/Minsk",
   source: "test",
   data_source_id: "3dee17b6-8482-80a3-9fc4-000bafe19b46",
-  task_count: 3,
+  task_count: 4,
   releases: ["10.2026", "11.2026"],
   status_meta: [
     { name: "Development", color: "blue" },
@@ -87,9 +91,32 @@ const fixture = {
       history: [
         SEG("Testing", 2, "2026-10-05T07:00:00.000Z", null) // open
       ]
+    },
+    {
+      // Lifecycle OVERLAPS Sep/Oct but has NO event there (created + status
+      // change in June, open interval → «now»): under event-based selection
+      // (вариант А) it must NOT appear in those periods. r: [] keeps it out of
+      // every release scope so the baseline assertions stay untouched.
+      id: "3c8e17b6-8482-8166-0000-0000000000d4",
+      tid: "TASK-4",
+      u: "https://app.notion.com/p/delta",
+      r: [],
+      p: "P3",
+      d: "QA",
+      s: "Development",
+      n: "Delta",
+      created: "2026-06-01T07:00:00.000Z",
+      history: [
+        SEG("Development", 5, "2026-06-01T07:00:00.000Z", null) // open → now
+      ]
     }
   ]
 };
+
+// Deterministic clock: fixture TASK-3 starts 2026-10-05 («future» relative to
+// the real wall clock) — left to the real Date.now() the clipped open interval
+// collapses to 0 and every duration assertion becomes non-reproducible.
+const NOW = new Date("2026-10-07T07:00:00.000Z").getTime();
 
 async function main() {
   const dom = new JSDOM(HTML, {
@@ -97,6 +124,15 @@ async function main() {
     pretendToBeVisual: true,
     url: "https://romanzhura-crypto.github.io/QA-Notion-Statistics/status-dwell.html",
     beforeParse(window) {
+      const RealDate = window.Date;
+      function FakeDate(...args) {
+        return args.length ? new RealDate(...args) : new RealDate(NOW);
+      }
+      FakeDate.now = () => NOW;
+      FakeDate.parse = RealDate.parse;
+      FakeDate.UTC = RealDate.UTC;
+      FakeDate.prototype = RealDate.prototype;
+      window.Date = FakeDate;
       window.fetch = async () => ({
         ok: true,
         status: 200,
@@ -175,7 +211,9 @@ async function main() {
   ok(rowIds().length === 0, "req3: Jan period = 0 rows");
   ok(kpi("k-n") === "0", "req3: Jan k-n = 0, got " + kpi("k-n"));
   ok(doc.getElementById("empty").hidden === false, "req3: empty state visible");
-  ok(doc.getElementById("empty").textContent === "В этом периоде нет задач.", "req3: period empty text: " + JSON.stringify(doc.getElementById("empty").textContent));
+  ok(doc.getElementById("empty").textContent ===
+    "В этом периоде нет задач с событиями (смена статуса / создание / Done) в выбранных датах.",
+    "req3: period empty text: " + JSON.stringify(doc.getElementById("empty").textContent));
 
   // ---- requirement 2: Проект/Задача work on top of the period ---------------
   setPeriod("2026-09-01", "2026-09-30");
@@ -209,7 +247,15 @@ async function main() {
   setPeriod("2026-09-01", "");
   ok(rowIds().length === 2, "bounds: from-only = open-ended (Alpha+Gamma), got " + JSON.stringify(rowIds()));
   setPeriod("", "2026-08-31");
-  ok(rowIds().length === 1 && rowIds()[0].indexOf("b2") !== -1, "bounds: to-only = up to bound (Beta)");
+  ok(rowIds().length === 2, "bounds: to-only = up to bound (Beta+Delta, events ≤ bound)");
+  ok(doc.getElementById("empty").hidden, "bounds: to-only non-empty");
+  setPeriod("2026-09-01", "");
+  ok(rowIds().length === 2 && rowIds().every(id => id.indexOf("d4") === -1),
+    "event-based: Delta overlaps the range but has no event ≥ Sep → excluded: " + JSON.stringify(rowIds()));
+  setPeriod("2026-06-01", "2026-06-30");
+  ok(rowIds().length === 1 && rowIds()[0].indexOf("d4") !== -1,
+    "event-based: Delta has events in June → included");
+  setPeriod("", "2026-08-31");
   setPeriod("2026-09-30", "2026-09-01");
   ok(rowIds().length === 1 && rowIds()[0].indexOf("a1") !== -1, "bounds: inverted bounds swapped silently (Alpha)");
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20261001-period-filter">
+  <meta name="widget-build" content="20261002-period-events-a">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -324,6 +324,7 @@
     <section class="card">
       <h2>Время в каждом Status</h2>
       <p class="muted">Done — только момент получения статуса, без длительности. Наведите на отрезок: общая информация по статусу и по каждому участку отдельно. Клик по строке таблицы (или Enter/Space) — детальный график одной задачи; название со ссылкой открывает задачу в Notion.</p>
+      <p class="muted" id="period-note" hidden></p>
       <div class="legend" id="legend"></div>
       <div class="scroll chart-scroll">
         <div class="chart-wrap">
@@ -416,8 +417,10 @@
     // disabled and IGNORED — the period scopes across releases (requirement 1).
     // «Проект»/«Задача» keep working on top of the period (requirement 2) and
     // every aggregate is recalculated over the resulting selection
-    // (requirement 3). The period selects the TASK SET by lifecycle overlap;
-    // durations stay full-task (no clipping to the period bounds).
+    // (requirement 3). Вариант А (2026-10-01): the period selects the TASK SET
+    // by lifecycle EVENTS (status change / created / Done inside the dates) AND
+    // every displayed duration is CLIPPED to the period bounds — the chart and
+    // all fields show only time INSIDE the period (see clipSegments).
     function periodRange() {
       let a = document.getElementById("period-from").value;
       let b = document.getElementById("period-to").value;
@@ -428,28 +431,26 @@
         toTs: b ? new Date(b + "T23:59:59.999").getTime() : Infinity
       };
     }
-    // A task hits the period when any lifecycle piece intersects it: history
-    // intervals (from→to; to:null = open → «now»), Done moments (at), created/
-    // Start date points, and the no-history fallback interval start→«now»
-    // (edited counts as the Done point only for no-history tasks, mirroring
-    // segmentsFor). A task without ANY parseable timestamp is never selected
-    // by a period — its activity cannot be proven (fail-visible).
+    // Вариант А (board #247): отбор по СОБЫТИЯМ жизненного цикла — задача
+    // попадает в период, только если внутри дат случилось событие: смена
+    // статуса (from или to сегмента), момент Done (at), создание (created) или
+    // Start date. Сам факт «висит в статусе через весь период» событием НЕ
+    // является — без событий в датах задача не показывается (fail-visible,
+    // совпадает с текстом empty-state). edited учитывается как точка события
+    // только для задач без истории (mirroring segmentsFor).
     function taskHitsPeriod(t, range) {
       if (!range) return true;
-      const hit = (x, y) => x <= range.toTs && y >= range.fromTs;
+      const hit = (x) => x >= range.fromTs && x <= range.toTs;
       const h = (t && (t.history || t.segments)) || [];
       for (let i = 0; i < h.length; i++) {
         const x = h[i];
         if (!x) continue;
         const at = parseTs(x.at);
-        if (at && hit(at.getTime(), at.getTime())) return true;
+        if (at && hit(at.getTime())) return true;
         const from = parseTs(x.from);
-        if (from) {
-          const to = x.to ? parseTs(x.to) : null;
-          // open interval end = «now», never BEFORE its start (future-dated data)
-          const endTs = to ? to.getTime() : Math.max(from.getTime(), Date.now());
-          if (hit(from.getTime(), endTs)) return true;
-        }
+        if (from && hit(from.getTime())) return true;
+        const to = x.to ? parseTs(x.to) : null;
+        if (to && hit(to.getTime())) return true;
       }
       const pts = [];
       const created = parseTs(t && t.created);
@@ -460,14 +461,47 @@
         const edited = parseTs(t && t.edited);
         if (edited) pts.push(edited.getTime());
       }
-      for (let j = 0; j < pts.length; j++) {
-        if (hit(pts[j], pts[j])) return true;
-      }
-      if (!h.length && pts.length && !isDoneName(t.s)) {
-        const first = Math.min.apply(null, pts);
-        if (hit(first, Math.max(first, Date.now()))) return true;
-      }
-      return false;
+      return pts.some(hit);
+    }
+    // ---- Вариант А (2026-10-01): обрезка к границам периода -----------------
+    // from' = max(from, periodStart), to' = min(to ?? now, periodEnd).
+    // Интервалы целиком вне периода отбрасываются; открытые обрезаются к
+    // periodEnd (или к now, если now раньше). Длительности пересчитываются
+    // по обрезанным границам. Done — момент: виден только если попал в период.
+    // Legacy-сегменты {s, days} без таймстампов: время нельзя отнести к
+    // периоду → в режиме периода исключаются из подсчёта и графика (решено
+    // 2026-10-01). Fallback без истории (approxFromTs) обрезается от основания.
+    function clipSegments(segs, range) {
+      if (!range) return segs;
+      const out = [];
+      (segs || []).forEach(seg => {
+        if (!seg) return;
+        if (seg.kind === "done") {
+          const at = parseTs(seg.at);
+          if (at && at.getTime() >= range.fromTs && at.getTime() <= range.toTs) out.push(seg);
+          return;
+        }
+        const base = parseTs(seg.from) || (seg.approxFromTs ? parseTs(seg.approxFromTs) : null);
+        if (!base) return; // чистый legacy без таймстампов — вне подсчёта периода
+        const rawEnd = seg.to ? parseTs(seg.to) : null;
+        const endTs = rawEnd ? rawEnd.getTime() : Math.max(base.getTime(), Date.now());
+        const f2 = Math.max(base.getTime(), range.fromTs);
+        const t2 = Math.min(endTs, range.toTs);
+        if (t2 <= f2) return; // целиком вне периода
+        const days = Math.round((t2 - f2) / 60000) / 1440;
+        if (!(days > 0)) return;
+        // открытым остаётся только необрезанный конец («по сейчас»);
+        // обрезанный закрывается границей периода и помечается clipped.
+        const endClipped = t2 < endTs;
+        out.push(Object.assign({}, seg, {
+          days: days,
+          from: new Date(f2).toISOString(),
+          to: (seg.to || endClipped) ? new Date(t2).toISOString() : null,
+          open: !!seg.open && !endClipped,
+          clipped: f2 > base.getTime() || endClipped
+        }));
+      });
+      return out;
     }
     function fmtDate(v) {
       const d = v instanceof Date ? v : parseTs(v);
@@ -525,7 +559,10 @@
         return "получение статуса неизвестно (учтён агрегатом без таймстампа)";
       }
       const from = "получен " + fmtDateTime(seg.from);
-      return seg.to ? (from + " → ушёл " + fmtDateTime(seg.to)) : (from + " → сейчас (открыт)");
+      let s = seg.to ? (from + " → ушёл " + fmtDateTime(seg.to)) : (from + " → сейчас (открыт)");
+      if (seg.approxFromTs) s += " (≈ от " + seg.approxBasis + ": точка входа в статус неизвестна)";
+      if (seg.clipped) s += " · обрезано по границам периода";
+      return s;
     }
     function tipFor(seg, same) {
       const dur = (s) => fmtDurParts((Number(s.days) || 0) * 86400000);
@@ -1136,13 +1173,31 @@
     }
 
     function toRow(t) {
-      const segs = segmentsFor(t);
+      const range = periodRange();
+      // Вариант А: в режиме периода каждый отрезок обрезается к границам.
+      const segs = clipSegments(segmentsFor(t), range);
       const doneRaw = doneAt(segs);
       const doneDate = parseTs(doneRaw);
       const firstDate = parseTs(t.created) || parseTs(t.start);
       let sumDoneMs = null;
       let sumOpen = false;
-      if (doneDate && firstDate && doneDate.getTime() >= firstDate.getTime()) {
+      if (range) {
+        // «Сумма до Done» в режиме периода = только время внутри периода:
+        // отрезок [created→done] обрезается к границам как и сегменты.
+        const f2 = firstDate ? Math.max(firstDate.getTime(), range.fromTs) : range.fromTs;
+        if (doneDate) {
+          const t2 = Math.min(doneDate.getTime(), range.toTs);
+          sumDoneMs = Math.max(0, t2 - f2);
+        } else if (isDoneName(t.s)) {
+          sumDoneMs = Math.round(dwellTotal(segs) * 86400000);
+          sumOpen = segs.some(s => s.open);
+        } else {
+          const endTs = Math.max(f2, Date.now());
+          const t2 = Math.min(endTs, range.toTs);
+          sumDoneMs = Math.max(0, t2 - f2);
+          sumOpen = t2 >= Date.now();
+        }
+      } else if (doneDate && firstDate && doneDate.getTime() >= firstDate.getTime()) {
         sumDoneMs = doneDate.getTime() - firstDate.getTime();
       } else if (isDoneName(t.s)) {
         const dwellMs = dwellTotal(segs) * 86400000;
@@ -1165,6 +1220,7 @@
         created: t.created,
         segs: segs,
         totalDays: dwellTotal(segs),
+        period: !!range,
         doneAt: doneRaw,
         tid: t.tid || "",
         id: idStr,
@@ -1177,6 +1233,19 @@
     function render() {
       const range = periodRange();
       applyPeriodUi(!!range);
+      {
+        const note = document.getElementById("period-note");
+        if (range) {
+          const f = fmtDate(new Date(range.fromTs === -Infinity ? Date.now() : range.fromTs));
+          const t = range.toTs === Infinity ? "сейчас" : fmtDate(new Date(range.toTs));
+          note.hidden = false;
+          note.textContent = "Период «за»: показаны задачи с событиями " + f + " – " + t +
+            ". Все отрезки и длительности обрезаны по границам периода (время вне периода не считается).";
+        } else {
+          note.hidden = true;
+          note.textContent = "";
+        }
+      }
       const m = releaseCombo.match();
       const mp = projectCombo.match();
       const mt = taskCombo.match();
@@ -1190,7 +1259,7 @@
       taskClearBtn.hidden = !(mt.ok && mt.item);
       const ok = (range ? true : m.ok) && mp.ok && mt.ok;
       document.getElementById("empty").textContent = range
-        ? "В этом периоде нет задач."
+        ? "В этом периоде нет задач с событиями (смена статуса / создание / Done) в выбранных датах."
         : "В этом релизе нет задач.";
       const live = ok ? selected() : [];
       const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
