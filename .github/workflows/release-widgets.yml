@@ -2,6 +2,8 @@
 # Secret: Settings → Secrets and variables → Actions → NOTION_TOKEN
 # Never commit config/notion.json. Do not log the secret.
 # Pages: Settings → Pages → Source = GitHub Actions.
+# Board #249: cancel-in-progress=true so a stuck run never blocks the queue
+# (2026-10-05 incident: queued run held the group 7.5h, cascading cancels).
 # Widget button "Обновить данные" dispatches this workflow as job "Sync Notion"
 # via the public QA CORS proxy (token stays on QA, never in the iframe).
 
@@ -28,7 +30,7 @@ permissions:
 
 concurrency:
   group: sync-notion-pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   ROOT: ${{ github.workspace }}
