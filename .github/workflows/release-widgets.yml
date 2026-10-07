@@ -30,7 +30,13 @@ permissions:
 
 concurrency:
   group: sync-notion-pages
-  cancel-in-progress: true
+  # Board #258 (revises #250): NEVER cancel an in-flight Pages deploy.
+  # A deploy-pages run cancelled mid-deploy wedges the Pages serving layer:
+  # later deployments report success but the served content freezes
+  # (incident 2026-10-07: release-data.json stuck at 04:12Z for 6+ hours).
+  # Queued runs still supersede older *pending* runs; only in-progress ones
+  # are allowed to finish.
+  cancel-in-progress: false
 
 env:
   ROOT: ${{ github.workspace }}
