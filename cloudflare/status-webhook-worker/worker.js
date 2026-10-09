@@ -74,6 +74,18 @@ async function handleNotion(env, raw, request) {
     console.warn("VERIFICATION_TOKEN not set — accepting without signature check (setup mode)");
   }
 
+  // 2b) Multi-base routing (board #263): tag the event with its widget base.
+  //     The webhook payload carries data_source_id (or the entity's data source);
+  //     the 1C base DS id maps to target "1c", everything else = legacy "sprint".
+  //     The handler (status-webhook-event.py) double-checks the tag and skips
+  //     mismatches — a misrouted event can never touch the wrong LOG STATISTICS.
+  const DSID_1C = env.DSID_1C || "f2be17b6-8482-82e2-9892-07777ffeaa90";
+  const dsid = body.data_source_id
+    || (body.entity && body.entity.data_source_id)
+    || (body.parent && body.parent.id)
+    || "";
+  const target = String(dsid).toLowerCase() === DSID_1C.toLowerCase() ? "1c" : "sprint";
+
   // 3) Forward to GitHub Actions. Payload carries only ids/timestamps — the
   //    handler fetches fresh state from Notion (webhook payload has no values).
   const dispatched = await ghApi(env, "POST", `/repos/${env.GH_OWNER || "romanzhura-crypto"}/${env.GH_REPO || "QA-Notion-Statistics"}/dispatches`, {
@@ -85,6 +97,7 @@ async function handleNotion(env, raw, request) {
       entity_type: (body.entity && body.entity.type) || null,
       attempt_number: body.attempt_number || 1,
       authors: (body.authors || []).map(a => a && a.id).filter(Boolean),
+      target,
     },
   });
   if (dispatched.status !== 204) {
@@ -99,11 +112,24 @@ async function handleSync(env, request, raw) {
   // reuse (same contract the QA proxy served).
   //   POST /sync-notion        → {ok, reused, run_id?, status}
   //   GET  /sync-notion?run_id → {ok, run_id, status, conclusion}
+  // Board #263 (multi-base): POST body may be {"target": "1c"} (widget served
+  // from /1c/). Default "sprint" — the legacy root button keeps its exact
+  // behavior. The target is passed to the workflow as an informational input:
+  // every run refreshes BOTH bases into one Pages artifact, so in-flight reuse
+  // stays correct regardless of which base asked.
   const owner = env.GH_OWNER || "romanzhura-crypto";
   const repo = env.GH_REPO || "QA-Notion-Statistics";
   const wf = encodeURIComponent(env.SYNC_WORKFLOW || "release-widgets.yml");
   const url = new URL(request.url);
   const runId = url.searchParams.get("run_id");
+  let syncTarget = "sprint";
+  if (request.method === "POST" && raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.target) syncTarget = String(parsed.target);
+    } catch { /* empty/non-JSON body = legacy */ }
+  }
+  if (url.searchParams.get("target")) syncTarget = url.searchParams.get("target");
   if (request.method === "GET") {
     if (runId) {
       const one = await ghApi(env, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}`);
@@ -121,7 +147,7 @@ async function handleSync(env, request, raw) {
   const active = runs.find(r => r.event === "workflow_dispatch" || r.event === "schedule");
   if (active) return json({ ok: true, reused: true, run_id: active.id, status: active.status });
   const disp = await ghApi(env, "POST", `/repos/${owner}/${repo}/actions/workflows/${wf}/dispatches`, {
-    ref: "main", inputs: {},
+    ref: "main", inputs: { source: "widget/" + syncTarget, target: syncTarget },
   });
   if (disp.status !== 204) return json({ ok: false, error: "dispatch failed" }, 502);
   return json({ ok: true, reused: false, status: "queued" }, 202);
@@ -137,37 +163,8 @@ export default {
     }
     if (url.pathname === "/sync-notion") {
       if (request.method !== "GET" && request.method !== "POST") return json({ ok: false, error: "GET/POST only" }, 405);
-      return handleSync(env, request);
+      return handleSync(env, request, request.method === "POST" ? await request.text() : null);
     }
     return json({ ok: false, error: "unknown route" }, 404);
   },
-
-  // Board #229 (N1 variant 1): hourly synthetic heartbeat. Same chain as real
-  // events (repository_dispatch "notion-webhook"), marker client_payload
-  // {type: "ping", kind: "ping"} — the handler treats it as noop + events_ping
-  // and refreshes run-state last_delivery_at, so quality.webhook.gap_hours
-  // measures the DELIVERY chain, not Notion silence.
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(handlePing(env));
-  },
 };
-
-async function handlePing(env) {
-  const dispatched = await ghApi(env, "POST", `/repos/${env.GH_OWNER || "romanzhura-crypto"}/${env.GH_REPO || "QA-Notion-Statistics"}/dispatches`, {
-    event_type: "notion-webhook",
-    client_payload: {
-      type: "ping",
-      kind: "ping",
-      timestamp: new Date().toISOString(),
-      entity_id: null,
-      entity_type: "synthetic",
-      attempt_number: 1,
-      authors: [],
-    },
-  });
-  if (dispatched.status !== 204) {
-    console.error("ping repository_dispatch failed", dispatched.status, JSON.stringify(dispatched.data));
-    return;
-  }
-  console.log("ping dispatched");
-}

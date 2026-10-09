@@ -37,10 +37,13 @@ jobs:
       # Board #184.4: webhook run-state survives across ephemeral CI runners via
       # actions/cache (restore latest, save under a unique key; last-write-wins
       # across parallel events — metrics are best-effort, segments are not).
+      # Board #263: sprint (legacy name) + 1c (suffixed) run-states.
       - name: restore webhook run-state
         uses: actions/cache/restore@v4
         with:
-          path: config/status-webhook-run.json
+          path: |
+            config/status-webhook-run.json
+            config/status-webhook-run-1c.json
           key: webhook-run-state-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             webhook-run-state-
@@ -57,11 +60,23 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           EVENT_JSON: ${{ toJson(github.event.client_payload) }}
         run: python3 backend/status-webhook-event.py
+      # Board #263 (multi-base): the same event is offered to the 1c handler too.
+      # The target guard inside skips anything not addressed to 1c (and the sprint
+      # run above already skipped 1c-tagged events) — exactly one base applies it.
+      - name: apply status event to LOG STATISTICS (1c)
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          EVENT_JSON: ${{ toJson(github.event.client_payload) }}
+          WIDGET_PROFILE: "1c"
+          LOG_STATISTICS_DSID: c98e17b6-8482-820e-9f34-072fdef5db94
+        run: python3 backend/status-webhook-event.py
       - name: save webhook run-state
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: config/status-webhook-run.json
+          path: |
+            config/status-webhook-run.json
+            config/status-webhook-run-1c.json
           key: webhook-run-state-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Variant A (board #174): event-driven widget refresh. STRICTLY after "apply"
@@ -118,6 +133,23 @@ jobs:
       - name: re-enrich JSON from LOG collector
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: python3 backend/release-widget-sync.py enrich
+      # Board #263 (multi-base): refresh the 1c artifact too — one Pages deploy
+      # serves both bases (root = sprint, 1c/ = 1C), so a single event refresh
+      # must never leave one of them stale in the artifact.
+      - name: snapshot JSON for frontend (1c)
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          WIDGET_PROFILE: "1c"
+          WIDGETS_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+          QA_WWW_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+        run: python3 backend/release-widget-sync.py snapshot
+      - name: re-enrich JSON from LOG collector (1c)
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          WIDGET_PROFILE: "1c"
+          WIDGETS_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+          QA_WWW_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
         run: python3 backend/release-widget-sync.py enrich
       - name: stage static HTML+JSON
         run: QA_WWW="" bash backend/publish-release-widgets.sh

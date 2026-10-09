@@ -22,10 +22,17 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(os.environ.get("ROOT") or os.environ.get("WIDGETS_ROOT") or "/home/chuck/.openclaw/workspace")
 CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json"))
-OUT_JSON = Path(os.environ.get("QA_WWW_JSON") or "/var/www/openclaw/widgets/release-data.json")
-WS_JSON = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "widgets" / "release-data.json"))
-DEFAULT_DSID = "2a8e17b6-8482-80b2-87ad-000b68f9d74e"
-LOG_DSID = os.environ.get("LOG_STATISTICS_DSID") or "3dee17b6-8482-80a3-9fc4-000bafe19b46"
+# Widget profiles (board #263 chunk A): WIDGET_PROFILE selects the Notion base
+# (default "sprint" = exact legacy behavior). See scripts/widget_profile.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import widget_profile as wp  # noqa: E402
+
+PROFILE = wp.profile_name()
+PROFILE_CTX = wp.context()
+OUT_JSON = Path(os.environ.get("QA_WWW_JSON") or PROFILE_CTX["out_json"])
+WS_JSON = Path(os.environ.get("WIDGETS_JSON") or PROFILE_CTX["ws_json"])
+DEFAULT_DSID = wp.LEGACY_SPRINT_DSID
+LOG_DSID = (os.environ.get("LOG_STATISTICS_DSID") or "").strip() or PROFILE_CTX["log_dsid"]
 LISTEN = ("127.0.0.1", 8755)
 # Number columns in LOG STATISTICS (New … Ready For Release). Done is date, not a dwell bar.
 LOG_STATUS_COLS = [
@@ -78,7 +85,7 @@ TZ_LABEL = "Europe/Minsk"
 # A17 (board #202/#226): checkpoint journal + fetch cache — a snapshot killed
 # mid-run resumes without re-fetching Notion. Keep in sync with
 # log-statistics-sync.py journal primitives (board #224/#225).
-WIDGETS_JOURNAL = Path(os.environ.get("WIDGETS_JOURNAL") or (ROOT / "config" / "release-widget-journal.jsonl"))
+WIDGETS_JOURNAL = Path(os.environ.get("WIDGETS_JOURNAL") or PROFILE_CTX["widgets_journal"])
 # A fetched page-cache is reused on resume only when not older than this
 # (fetched_at age); older/missing cache → normal refetch (reads are idempotent).
 SNAP_CACHE_MAX_AGE_S = int(os.environ.get("SNAP_CACHE_MAX_AGE_S") or 3600)
@@ -185,19 +192,13 @@ _FETCH_JRUN = None
 
 
 def resolve_dsid(cfg: dict | None = None) -> str:
-    env = (os.environ.get("NOTION_DATA_SOURCE_ID") or "").strip()
-    if env:
-        return env
-    data = cfg
-    if data is None and CONFIG.exists():
-        loaded = json.loads(CONFIG.read_text())
-        data = loaded if isinstance(loaded, dict) else {}
-    if isinstance(data, dict):
-        for key in ("widget_data_source_id", "data_source_id"):
-            val = str(data.get(key) or "").strip()
-            if val:
-                return val
-    return DEFAULT_DSID
+    """Sprint (task) data source id for the selected profile (board #263).
+
+    Order: NOTION_DATA_SOURCE_ID env override -> (default profile only, legacy
+    chain preserved exactly) config/notion.json widget_data_source_id ->
+    profile entry from config/widgets-profiles.json -> built-in legacy value.
+    """
+    return wp.resolve_data_source_id(cfg=cfg)
 
 
 DSID = resolve_dsid()
@@ -657,9 +658,7 @@ def webhook_from_run_state(now=None) -> dict | None:
     last DELIVERY (last_delivery_at: processed/noop/ping/skipped refresh it,
     errors do not — synthetic worker pings included, board #229) to the snapshot
     moment; falls back to last_event_at for old run-state files."""
-    path = Path(
-        os.environ.get("WEBHOOK_RUN_STATE") or (ROOT / "config" / "status-webhook-run.json")
-    )
+    path = Path(os.environ.get("WEBHOOK_RUN_STATE") or PROFILE_CTX["webhook_run_state"])
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -712,7 +711,7 @@ def staleness_and_recon(payload: dict, now=None) -> dict:
     web_ts = parse_ts(web_last)
     col_ts = None
     try:
-        rs_path = Path(os.environ.get("LOG_STATS_RUN_STATE") or (ROOT / "config" / "log-statistics-run.json"))
+        rs_path = Path(os.environ.get("LOG_STATS_RUN_STATE") or PROFILE_CTX["log_run_state"])
         rs = json.loads(rs_path.read_text(encoding="utf-8"))
         col_ts = parse_ts((rs or {}).get("last_at"))
     except (OSError, ValueError, TypeError):
@@ -762,7 +761,7 @@ def attach_quality(
     # A19 (board #185): collector conflict counter lives in the LOG run-state
     # (written by log-statistics-sync.py before enrich in the same workspace).
     try:
-        rs_path = Path(os.environ.get("LOG_STATS_RUN_STATE") or (ROOT / "config" / "log-statistics-run.json"))
+        rs_path = Path(os.environ.get("LOG_STATS_RUN_STATE") or PROFILE_CTX["log_run_state"])
         rs = json.loads(rs_path.read_text(encoding="utf-8"))
         q.setdefault("a19_conflicts", int((rs or {}).get("a19_conflicts") or 0))
     except (OSError, ValueError, TypeError):
@@ -1070,11 +1069,17 @@ def dry_check() -> dict:
         "token_len": len(token),
         "token_source": "env" if os.environ.get("NOTION_TOKEN") else ("file" if cfg.get("token") else "none"),
         "database_id_set": bool(cfg.get("database_id") or os.environ.get("NOTION_DATABASE_ID")),
+        "profile": PROFILE,
+        "target": PROFILE_CTX["target"],
+        "artifact_dir": PROFILE_CTX["artifact_dir"],
         "data_source_id": DSID,
         "root": str(ROOT),
         "listen": f"{LISTEN[0]}:{LISTEN[1]}",
         "out_json": str(OUT_JSON),
         "ws_json": str(WS_JSON),
+        "widgets_journal": str(WIDGETS_JOURNAL),
+        "log_run_state": str(PROFILE_CTX["log_run_state"]),
+        "webhook_run_state": str(PROFILE_CTX["webhook_run_state"]),
         "log_data_source_id": LOG_DSID,
         "note": "HTTP serve is loopback-only. Notion iframe must not call /sync. CI uses NOTION_TOKEN env.",
     }

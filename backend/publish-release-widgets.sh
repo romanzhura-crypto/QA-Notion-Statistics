@@ -23,6 +23,24 @@ for f in "${need[@]}"; do
   cp -f "${SRC_WIDGETS}/${f}" "${STAGE}/${f}"
 done
 
+# Multi-base (board #263): optional profile subdirectories (e.g. frontend/1c/)
+# are staged into the same Pages artifact as <dir>/. Only dirs that exist AND
+# contain all three need files are staged — a missing 1c artifact must never
+# break the sprint publish.
+for d in 1c; do
+  if [[ -d "${SRC_WIDGETS}/${d}" && -f "${SRC_WIDGETS}/${d}/release-data.json" ]]; then
+    mkdir -p "${STAGE}/${d}"
+    for f in "${need[@]}"; do
+      if [[ ! -f "${SRC_WIDGETS}/${d}/${f}" ]]; then
+        echo "missing ${SRC_WIDGETS}/${d}/${f}" >&2
+        exit 1
+      fi
+      cp -f "${SRC_WIDGETS}/${d}/${f}" "${STAGE}/${d}/${f}"
+    done
+    echo "staged_profile ${d}"
+  fi
+done
+
 # Local QA copy (self-signed OpenClaw vhost). Useful for file checks, not Notion TLS.
 if [[ -n "${QA_WWW}" && -d "$QA_WWW" ]]; then
   for f in "${need[@]}"; do
@@ -44,7 +62,7 @@ import json, os, pathlib, re, sys
 root = pathlib.Path(os.environ.get("ROOT") or "${ROOT}") / "frontend"
 stage = root / "public"
 bad = []
-for p in list(stage.glob("*.html")) + list(stage.glob("*.json")):
+for p in list(stage.glob("*.html")) + list(stage.glob("*.json")) + list(stage.glob("1c/*.html")) + list(stage.glob("1c/*.json")):
     text = p.read_text(encoding="utf-8", errors="replace")
     if re.search(r"fetch\s*\(\s*['\"][^'\"]*widgets/sync|URL\(\s*['\"]/?widgets/sync", text):
         bad.append(f"{p.name}: runtime call to widgets/sync")

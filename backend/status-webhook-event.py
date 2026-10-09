@@ -37,11 +37,22 @@ def _ljs():
 
 LJS = _ljs()
 
+# Widget profile (board #263 chunk A): the webhook handler writes the LOG
+# STATISTICS base of the SELECTED profile (WIDGET_PROFILE, default "sprint" =
+# exact legacy behavior). LOG DS comes from LJS.LOG_DSID (profile-resolved);
+# the run-state file is per profile (suffix -<profile> for non-default).
+import sys as _sys  # noqa: E402
+
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+import widget_profile as wp  # noqa: E402
+
+PROFILE = wp.profile_name()
+PROFILE_CTX = wp.context()
 # Webhook run-state (board #184.2): durable counters + last event timestamp.
 # GH Actions FS is ephemeral — CI restores/saves this file via actions/cache
 # (board #184.4); on QA VM it just lives on disk. Additive observability for
 # quality.webhook (N1 gap detection); never contains tokens.
-WEBHOOK_RUN_STATE_DEFAULT = HERE.parent / "config" / "status-webhook-run.json"
+WEBHOOK_RUN_STATE_DEFAULT = PROFILE_CTX["webhook_run_state"]
 
 
 def _state_path() -> Path:
@@ -196,6 +207,20 @@ def main() -> int:
         return 0
     entity_id = str(ev.get("entity_id") or "")
     entity_type = str(ev.get("entity_type") or "page")
+    # Optional target tag (board #263): the payload may declare its profile
+    # ("sprint" | "1c"). A mismatch is routed to the wrong handler instance —
+    # count as skipped, never touch Segments (idempotence preserved). Untagged
+    # events are legacy single-base traffic: only the DEFAULT profile processes
+    # them, non-default instances skip (never double-apply across bases).
+    ev_target = str(ev.get("target") or "").strip()
+    if ev_target and ev_target != str(PROFILE_CTX["target"]):
+        run_state_note("skipped", ev.get("timestamp"))
+        print(json.dumps({"ok": True, "skipped": "target mismatch", "target": ev_target}))
+        return 0
+    if not ev_target and str(PROFILE) != wp.DEFAULT_PROFILE:
+        run_state_note("skipped", ev.get("timestamp"))
+        print(json.dumps({"ok": True, "skipped": "untagged event, non-default profile"}))
+        return 0
     if not entity_id or entity_type != "page":
         run_state_note("skipped", ev.get("timestamp"))
         print(json.dumps({"ok": True, "skipped": "not a page event"}))

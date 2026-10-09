@@ -71,7 +71,7 @@ fi
 #      SYNC_ROOT=/home/chuck/.openclaw/workspace backend/ci-static-guards.sh  # from repo clone
 #    NOTE: publish-release-widgets.sh is intentionally layout-divergent
 #    (widgets/ vs frontend/) — not a mirror pair, keep it out of SYNC_PAIRS.
-SYNC_PAIRS="release-widget-sync.py log-statistics-sync.py quality-gate.py status-webhook-event.py test_widget_status_coverage.py ci-static-guards.sh"
+SYNC_PAIRS="release-widget-sync.py log-statistics-sync.py quality-gate.py status-webhook-event.py test_widget_status_coverage.py test_widget_profiles.py widget_profile.py ci-static-guards.sh"
 SYNC_A_ROOT=""
 SYNC_B_ROOT=""
 for t in scripts backend; do

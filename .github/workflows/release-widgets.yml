@@ -20,6 +20,14 @@ on:
         required: false
         default: manual
         type: string
+      target:
+        # Board #263 (multi-base): which widget base triggered the button.
+        # Informational — every run refreshes BOTH bases into one Pages artifact
+        # (root = sprint, 1c/ = 1C), so in-flight reuse stays correct for any target.
+        description: Widget base that requested sync (sprint / 1c / both)
+        required: false
+        default: both
+        type: string
   schedule:
     - cron: "*/10 * * * *"
 
@@ -59,6 +67,7 @@ jobs:
           python3 backend/log-statistics-sync.py selftest
           python3 backend/release-widget-sync.py dry
           python3 backend/quality-gate.py selftest
+          python3 backend/test_widget_profiles.py
           test ! -f config/notion.json
           test ! -f config/gitlab.env
           test ! -f config/github.env
@@ -82,10 +91,13 @@ jobs:
       - name: require secret
         run: test -n "$NOTION_TOKEN"
       # Board #184.4: webhook run-state from actions/cache → quality.webhook (N1).
+      # Board #263: both profiles — sprint (legacy name) + 1c (suffixed state file).
       - name: restore webhook run-state
         uses: actions/cache/restore@v4
         with:
-          path: config/status-webhook-run.json
+          path: |
+            config/status-webhook-run.json
+            config/status-webhook-run-1c.json
           key: webhook-run-state-sync-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             webhook-run-state-
@@ -99,12 +111,14 @@ jobs:
           path: |
             config/log-statistics-journal.jsonl
             config/release-widget-journal.jsonl
+            config/log-statistics-journal-1c.jsonl
+            config/release-widget-journal-1c.jsonl
           key: resume-journal-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             resume-journal-
-      - name: snapshot JSON for frontend
+      - name: snapshot JSON for frontend (sprint)
         run: python3 backend/release-widget-sync.py snapshot
-      - name: upsert LOG STATISTICS
+      - name: upsert LOG STATISTICS (sprint)
         env:
           LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
           # Incremental default: CREATE missing, PATCH collector seed/status change/Done at.
@@ -118,7 +132,7 @@ jobs:
       # per run, last-write-wins via the restore-keys prefix).
       - name: persist resume journals (A17)
         if: ${{ always() }}
-        run: mkdir -p config && touch config/log-statistics-journal.jsonl config/release-widget-journal.jsonl
+        run: mkdir -p config && touch config/log-statistics-journal.jsonl config/release-widget-journal.jsonl config/log-statistics-journal-1c.jsonl config/release-widget-journal-1c.jsonl
       - name: save resume journals (A17)
         if: ${{ always() }}
         uses: actions/cache/save@v4
@@ -126,18 +140,45 @@ jobs:
           path: |
             config/log-statistics-journal.jsonl
             config/release-widget-journal.jsonl
+            config/log-statistics-journal-1c.jsonl
+            config/release-widget-journal-1c.jsonl
           key: resume-journal-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: re-enrich JSON from LOG collector
+      - name: re-enrich JSON from LOG collector (sprint)
+        run: python3 backend/release-widget-sync.py enrich
+      # ---- Board #263 multi-base: profile 1c → artifact subdir 1c/ ----
+      - name: snapshot JSON for frontend (1c)
+        env:
+          WIDGET_PROFILE: "1c"
+          WIDGETS_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+          QA_WWW_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+        run: python3 backend/release-widget-sync.py snapshot
+      - name: upsert LOG STATISTICS (1c)
+        env:
+          WIDGET_PROFILE: "1c"
+          WIDGETS_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+          QA_WWW_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+          LOG_STATS_FULL: "0"
+          LOG_STATS_REWRITE_TITLE: "0"
+        run: python3 backend/log-statistics-sync.py
+      - name: re-enrich JSON from LOG collector (1c)
+        env:
+          WIDGET_PROFILE: "1c"
+          WIDGETS_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
+          QA_WWW_JSON: ${{ github.workspace }}/frontend/1c/release-data.json
         run: python3 backend/release-widget-sync.py enrich
       - name: stage static HTML+JSON
         run: QA_WWW="" bash backend/publish-release-widgets.sh
       - name: assert no token in JSON
-        run: python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+        run: |
+          python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+          python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/1c/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True; print('1c', d.get('data_source_id'), d.get('task_count'), d.get('generated_at'))"
       # A27 quality gate (board #183): block a bad snapshot BEFORE Pages deploy.
       # Hard: delta %, segments_negative/absurd, tasks_without_history, gap_hours (N1),
       # drift_days (N2), a19_conflicts. WARN-only: truncated_titles etc.
       - name: quality gate (A27)
-        run: python3 backend/quality-gate.py frontend/public/release-data.json
+        run: |
+          python3 backend/quality-gate.py frontend/public/release-data.json
+          python3 backend/quality-gate.py frontend/public/1c/release-data.json
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -169,6 +210,11 @@ jobs:
           mkdir -p frontend/public
           cp -f frontend/release-charts.html frontend/status-dwell.html frontend/release-data.json frontend/public/
           python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True; print(d.get('data_source_id'), d.get('task_count'), d.get('generated_at'))"
+          if [ -f frontend/1c/release-data.json ]; then
+            mkdir -p frontend/public/1c
+            cp -f frontend/1c/release-charts.html frontend/1c/status-dwell.html frontend/1c/release-data.json frontend/public/1c/
+            python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/1c/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True; print('1c', d.get('data_source_id'), d.get('task_count'), d.get('generated_at'))"
+          fi
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

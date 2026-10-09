@@ -43,10 +43,17 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(os.environ.get("ROOT") or "/home/chuck/.openclaw/workspace")
 CONFIG = Path(os.environ.get("NOTION_CONFIG") or (ROOT / "config" / "notion.json"))
-SNAPSHOT = Path(os.environ.get("WIDGETS_JSON") or (ROOT / "widgets" / "release-data.json"))
-RUN_STATE = Path(os.environ.get("LOG_STATS_RUN_STATE") or (ROOT / "config" / "log-statistics-run.json"))
-JOURNAL = Path(os.environ.get("LOG_STATS_JOURNAL") or (ROOT / "config" / "log-statistics-journal.jsonl"))
-LOG_DSID = os.environ.get("LOG_STATISTICS_DSID") or "3dee17b6-8482-80a3-9fc4-000bafe19b46"
+# Widget profiles (board #263 chunk A): WIDGET_PROFILE selects the base pair
+# (default "sprint" = exact legacy behavior). See scripts/widget_profile.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import widget_profile as wp  # noqa: E402
+
+PROFILE = wp.profile_name()
+PROFILE_CTX = wp.context()
+SNAPSHOT = Path(os.environ.get("WIDGETS_JSON") or PROFILE_CTX["ws_json"])
+RUN_STATE = Path(os.environ.get("LOG_STATS_RUN_STATE") or PROFILE_CTX["log_run_state"])
+JOURNAL = Path(os.environ.get("LOG_STATS_JOURNAL") or PROFILE_CTX["log_journal"])
+LOG_DSID = (os.environ.get("LOG_STATISTICS_DSID") or "").strip() or PROFILE_CTX["log_dsid"]
 MINSK = ZoneInfo("Europe/Minsk")
 WRITE_SLEEP_S = float(os.environ.get("LOG_STATS_WRITE_SLEEP_S") or "0.35")
 DAYS_EPS = float(os.environ.get("LOG_STATS_DAYS_EPS") or "1.0")
@@ -1017,7 +1024,7 @@ def main():
         "archived_unlinked": archived_unlinked,
         "failed": failed,
         "errors": errors,
-        "notion": "https://app.notion.com/p/3dee17b68482809fb688e89182385a15",
+        "notion": "https://app.notion.com/p/" + LOG_DSID.replace("-", ""),
         "status_dwell": "collector_closed_segments",
         "unknown_statuses": sorted(UNKNOWN_STATUSES),
         "unknown_status_days": {k: UNKNOWN_STATUSES[k] for k in sorted(UNKNOWN_STATUSES)},
@@ -1328,7 +1335,18 @@ def selftest() -> None:
 if __name__ == "__main__":
     import sys
 
+    known = {"sync", "selftest", "test"}
     cmd = sys.argv[1] if len(sys.argv) > 1 else "sync"
+    if cmd in ("-h", "--help", "help"):
+        print("usage: log-statistics-sync.py [sync|selftest]")
+        print("  (no args)  incremental sync — default")
+        print("  selftest   run built-in self-tests (no Notion writes)")
+        print("profile via env WIDGET_PROFILE (default sprint)")
+        raise SystemExit(0)
+    if cmd not in known:
+        print(f"error: unknown argument {cmd!r}", file=sys.stderr)
+        print("usage: log-statistics-sync.py [sync|selftest]  (try --help)", file=sys.stderr)
+        raise SystemExit(2)
     if cmd in ("selftest", "test"):
         selftest()
     else:
