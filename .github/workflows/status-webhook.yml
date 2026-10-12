@@ -29,6 +29,10 @@ jobs:
   # Fast path: write the exact status segment. Never waits on Pages deploys.
   apply:
     runs-on: ubuntu-latest
+    # Board #265: ROOT must point at the CI workspace so status-webhook-event.py
+    # writes run-state under config/ where actions/cache/save can find it.
+    env:
+      ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
