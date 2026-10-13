@@ -153,6 +153,27 @@ async function handleSync(env, request, raw) {
   return json({ ok: true, reused: false, status: "queued" }, 202);
 }
 
+// Board #229 (N1 variant 1): synthetic delivery heartbeat from the cron trigger
+// (wrangler.toml [triggers] crons). Dispatches a ping through the SAME
+// repository_dispatch chain as real Notion events. The handler
+// (status-webhook-event.py) treats it as delivery proof only — refreshes the
+// run-state last_delivery_at, never touches Segments/Notion (type="ping"
+// short-circuits before any business work) — and the "Status Webhook" workflow
+// skips the Pages refresh for pings. Keeps quality-gate N1 gap measuring the
+// DELIVERY chain, so a silent Notion can never fail the gate again.
+async function handleScheduled(env) {
+  const ts = new Date().toISOString();
+  const dispatched = await ghApi(env, "POST", `/repos/${env.GH_OWNER || "romanzhura-crypto"}/${env.GH_REPO || "QA-Notion-Statistics"}/dispatches`, {
+    event_type: "notion-webhook",
+    client_payload: { type: "ping", timestamp: ts, attempt_number: 1 },
+  });
+  if (dispatched.status !== 204) {
+    console.error("ping dispatch failed", dispatched.status, JSON.stringify(dispatched.data));
+    return;
+  }
+  console.log("ping dispatched", ts);
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
@@ -166,5 +187,11 @@ export default {
       return handleSync(env, request, request.method === "POST" ? await request.text() : null);
     }
     return json({ ok: false, error: "unknown route" }, 404);
+  },
+  // Cron trigger entrypoint (board #229): hourly delivery heartbeat. Failures
+  // are logged only — the next tick retries; one missed ping never fails a gate
+  // (the 6h gap budget survives 5 consecutive misses).
+  async scheduled(event, env, ctx) {
+    await handleScheduled(env);
   },
 };
