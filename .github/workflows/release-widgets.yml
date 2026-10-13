@@ -64,7 +64,9 @@ jobs:
         run: |
           python3 -m py_compile backend/release-widget-sync.py
           python3 -m py_compile backend/log-statistics-sync.py
+          python3 -m py_compile backend/run-state-store.py
           python3 backend/log-statistics-sync.py selftest
+          python3 backend/run-state-store.py selftest
           python3 backend/release-widget-sync.py dry
           python3 backend/quality-gate.py selftest
           python3 backend/test_widget_profiles.py
@@ -90,17 +92,15 @@ jobs:
           python-version: "3.12"
       - name: require secret
         run: test -n "$NOTION_TOKEN"
-      # Board #184.4: webhook run-state from actions/cache → quality.webhook (N1).
+      # Board #273 (fix #272): webhook run-state from the durable git branch
+      # (backend/run-state-store.py), NOT actions/cache — cache keys are
+      # immutable and restore-keys matched random stale generations, flapping
+      # quality.webhook in the published JSON (incident 2026-10-13).
       # Board #263: both profiles — sprint (legacy name) + 1c (suffixed state file).
-      - name: restore webhook run-state
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            config/status-webhook-run.json
-            config/status-webhook-run-1c.json
-          key: webhook-run-state-sync-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            webhook-run-state-
+      - name: pull webhook run-state (durable)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 backend/run-state-store.py pull
       # Board #202 (A17): resume journals from actions/cache — a run killed on
       # an ephemeral runner resumes without redoing finished items (collector)
       # or re-fetching Notion (snapshot fetch cache). See

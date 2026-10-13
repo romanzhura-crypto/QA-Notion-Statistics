@@ -12,3 +12,8 @@ __pycache__/
 
 # CI staging (snapshot job writes this)
 frontend/public/
+
+# Run-state lives in the durable branch webhook-run-state (board #273),
+# never in main — checkout must not ship stale state.
+config/status-webhook-run*.json
+cloudflare/**/.wrangler/
