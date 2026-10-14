@@ -206,10 +206,11 @@ gate. Strictly additive: Frontend may ignore it. `token` stays forbidden.
 | `drift_items` | number | Count of (row, status) pairs with deficit > `DRIFT_DAYS_MIN` (1.0 day) |
 | `unknown_statuses` | string[] | Copy of top-level `unknown_statuses` |
 | `a19_conflicts` | number | A19 (board #185): concurrent-close collisions of the last collector run (from `config/log-statistics-run.json` `a19_conflicts`; 0 when absent). Webhook-writer collisions surface via `webhook.events_error` |
-| `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0 |
+| `thresholds` | object | Gate inputs: `task_count_delta_pct` 10.0, `gap_hours` 6.0, `segments_negative` 0, `segments_absurd` 0, `drift_days` 1.0, `staleness_hours` 12.0, `recon_drift_hours` 6.0, `collector_gap_hours` 6.0 |
 | `multi_release_tasks` | number | A11 (board #214): `tasks[]` items with `len(r) > 1` — their hours are split evenly across releases (variant B). Informational, no threshold |
 | `multi_release_hours` | number | A11 (board #214): Σ `e + t` over multi-release tasks — the hours distributed by the split rule. Informational, no threshold |
 | `webhook` | object\|null | Webhook observability (board #177.2/#184.3/#229): `events_total`, `events_processed`, `events_noop`, `events_skipped`, `events_error`, `events_ping` (synthetic worker heartbeats, additive), `last_event_at` (last real business event), `last_delivery_at` (last delivered event incl. ping/skipped), `gap_hours` (N1 — hours from the last delivery incl. synthetic ping to the snapshot; falls back to `last_event_at` for old run-state; `null` when unknown). `null`/absent when no run-state is available |
+| `collector` | object\|null | A28 (board #206): LOG collector observability from `config/log-statistics-run[-1c].json`: `runs_total`, `runs_ok`, `runs_error`, `created_total`, `updated_total`, `skipped_total`, `failed_total` (cumulative, winner-merge MAX across writers), `last_run` (monotonic run number), `last_ok_at` (last error-free run), `last_duration_s`, `gap_hours` (success-clock: hours from `last_ok_at` to the snapshot — error runs do NOT refresh it, so a broken collector ages visibly; falls back to `last_at` for old run-state; `null` when unknown). Gate check is WARN-only (`COLLECTOR_GAP_WARN_ONLY`, incident #269 rationale). `null`/absent when no run-state is available |
 
 Rules:
 

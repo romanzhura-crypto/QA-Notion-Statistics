@@ -196,6 +196,78 @@ def save_run_state(data: dict) -> None:
     RUN_STATE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def a28_run_state_metrics(
+    st: dict,
+    *,
+    run_no: int,
+    job: str,
+    title: str,
+    when: datetime,
+    created: int,
+    updated: int,
+    failed: int,
+    skipped: int,
+    duration_s: float,
+    archived_empty: int = 0,
+    archived_dup: int = 0,
+    archived_unlinked: int = 0,
+    unknown_statuses=(),
+    a19_conflicts: int = 0,
+    mode: str = "incremental",
+    snapshot_generated_at=None,
+    resumed: bool = False,
+    resume_skipped: int = 0,
+    ok_at: datetime | None = None,
+) -> dict:
+    """A28 (board #206): collector metrics in run-state — per-run facts plus
+    cumulative counters (winner-merge MAX across writers, see run-state-store.py)
+    and a success clock aligned with the webhook gap rule: last_ok_at refreshes
+    on error-free runs only (errors do not move it — a dead/broken collector
+    ages quality.collector.gap_hours visibly). Pure (no I/O): mutates and
+    returns `st`.
+    """
+
+    def cum(key, add):
+        try:
+            return int(st.get(key) or 0) + int(add)
+        except (TypeError, ValueError):
+            return int(add)
+
+    st.update({
+        "last_run": run_no,
+        "last_job": job,
+        "last_title": title,
+        "last_at": when.isoformat(),
+        "last_created": created,
+        "last_updated": updated,
+        "last_failed": failed,
+        "last_skipped": skipped,
+        "last_duration_s": duration_s,
+        "last_archived_empty": archived_empty,
+        "last_archived_dup": archived_dup,
+        "last_archived_unlinked": archived_unlinked,
+        "last_unknown_statuses": sorted(unknown_statuses),
+        "a19_conflicts": a19_conflicts,
+        "mode": mode,
+        "snapshot_generated_at": snapshot_generated_at,
+        "resumed": resumed,
+        "resume_skipped": resume_skipped,
+        # A28 cumulative (winner-merge MAX across writers, like events_*):
+        "runs_total": cum("runs_total", 1),
+        "runs_ok": cum("runs_ok", 1 if failed == 0 else 0),
+        "runs_error": cum("runs_error", 1 if failed else 0),
+        "created_total": cum("created_total", created),
+        "updated_total": cum("updated_total", updated),
+        "skipped_total": cum("skipped_total", skipped),
+        "failed_total": cum("failed_total", failed),
+    })
+    if failed == 0:
+        # A28 gap rule (aligned with webhook last_delivery_at): successful runs
+        # refresh the clock; error runs must age the gap visibly.
+        st["last_ok_at"] = iso_z(ok_at or when)
+    return st
+
+
 # A17 (board #202/#224): checkpoint journal primitives — resume a crashed run
 # without redoing already-done items. Journal = resume checkpoint only, NOT an
 # audit log (audit = run-state above); it is zeroed on journal_end.
@@ -935,6 +1007,7 @@ def main():
     if (os.environ.get("LOG_STATS_SKIP_EXISTING") or "").strip() == "0" and not env_flag("LOG_STATS_INCREMENTAL", "0"):
         # explicit 0 no longer forces full rewrite; incremental is default
         skip_existing = False
+    _t_run = time.monotonic()
     tasks, generated_at, snap_count = load_tasks()
     rows = query_all(LOG_DSID)
     log_number_cols()  # schema check: only existing LOG number columns get PATCHed
@@ -1067,26 +1140,31 @@ def main():
         "created": created, "updated": updated, "skipped": skipped, "failed": failed,
         "resume_skipped": resume_skipped,
     })
-    st = load_run_state()
-    st.update({
-        "last_run": run_no,
-        "last_job": job,
-        "last_title": title,
-        "last_at": when.isoformat(),
-        "last_created": created,
-        "last_updated": updated,
-        "last_failed": failed,
-        "last_skipped": skipped,
-        "last_archived_empty": archived_empty,
-        "last_archived_dup": archived_dup,
-        "last_archived_unlinked": archived_unlinked,
-        "last_unknown_statuses": sorted(UNKNOWN_STATUSES),
-        "a19_conflicts": A19_CONFLICTS,
-        "mode": "full" if full else ("skip_existing" if skip_existing else "incremental"),
-        "snapshot_generated_at": generated_at,
-        "resumed": jrun["resumed"],
-        "resume_skipped": resume_skipped,
-    })
+    # A28 (board #206): collector metrics in run-state (per-run facts,
+    # cumulative counters, success clock) — see a28_run_state_metrics().
+    duration_s = round(time.monotonic() - _t_run, 1)
+    st = a28_run_state_metrics(
+        load_run_state(),
+        run_no=run_no,
+        job=job,
+        title=title,
+        when=when,
+        created=created,
+        updated=updated,
+        failed=failed,
+        skipped=skipped,
+        duration_s=duration_s,
+        archived_empty=archived_empty,
+        archived_dup=archived_dup,
+        archived_unlinked=archived_unlinked,
+        unknown_statuses=UNKNOWN_STATUSES,
+        a19_conflicts=A19_CONFLICTS,
+        mode="full" if full else ("skip_existing" if skip_existing else "incremental"),
+        snapshot_generated_at=generated_at,
+        resumed=jrun["resumed"],
+        resume_skipped=resume_skipped,
+        ok_at=datetime.now(timezone.utc),
+    )
     save_run_state(st)
     out = {
         "ok": failed == 0,
@@ -1112,6 +1190,7 @@ def main():
         "unknown_statuses": sorted(UNKNOWN_STATUSES),
         "unknown_status_days": {k: UNKNOWN_STATUSES[k] for k in sorted(UNKNOWN_STATUSES)},
         "a19_conflicts": A19_CONFLICTS,
+        "duration_s": duration_s,
     }
     if UNKNOWN_STATUSES:
         print(
@@ -1411,6 +1490,34 @@ def selftest() -> None:
     assert jp.read_text(encoding="utf-8") == "", jp.read_text(encoding="utf-8")
     j4 = journal_begin(jp)
     assert j4["resumed"] is False and j4["run_id"] != j2["run_id"], j4
+
+    # A28 (board #206): collector run-state metrics — cumulative counters and
+    # the success clock rule (last_ok_at refreshes on error-free runs only).
+    ok_run = parse_ts("2026-10-14T10:00:00Z")
+    err_run = parse_ts("2026-10-14T11:00:00Z")
+    st1 = a28_run_state_metrics(
+        {"last_run": 7}, run_no=8, job="local", title="t1", when=ok_run,
+        created=1, updated=2, failed=0, skipped=3, duration_s=4.5, ok_at=ok_run,
+    )
+    assert st1["runs_total"] == 1 and st1["runs_ok"] == 1 and st1["runs_error"] == 0, st1
+    assert st1["created_total"] == 1 and st1["updated_total"] == 2 and st1["failed_total"] == 0, st1
+    assert st1["last_ok_at"] == iso_z(ok_run) and st1["last_duration_s"] == 4.5, st1
+    assert st1["last_run"] == 8 and st1["skipped_total"] == 3, st1
+    # error run: counters accumulate, runs_error grows, the success clock holds
+    st2 = a28_run_state_metrics(
+        st1, run_no=9, job="local", title="t2", when=err_run,
+        created=0, updated=1, failed=2, skipped=0, duration_s=9.0, ok_at=err_run,
+    )
+    assert st2["runs_total"] == 2 and st2["runs_error"] == 1 and st2["runs_ok"] == 1, st2
+    assert st2["failed_total"] == 2 and st2["updated_total"] == 3, st2
+    assert st2["last_ok_at"] == iso_z(ok_run), st2  # NOT moved by the error run
+    # next error-free run moves the clock again
+    st3 = a28_run_state_metrics(
+        st2, run_no=10, job="local", title="t3", when=err_run,
+        created=0, updated=0, failed=0, skipped=5, duration_s=1.0, ok_at=err_run,
+    )
+    assert st3["last_ok_at"] == iso_z(err_run) and st3["runs_ok"] == 2, st3
+    assert st3["runs_total"] == 3 and st3["skipped_total"] == 8, st3
 
     print(json.dumps({"ok": True, "mode": "selftest", "days": days}, ensure_ascii=False))
 

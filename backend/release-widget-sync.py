@@ -684,6 +684,38 @@ def webhook_from_run_state(now=None) -> dict | None:
     }
 
 
+def collector_from_run_state(now=None) -> dict | None:
+    """quality.collector (A28, board #206): observability of the LOG STATISTICS
+    collector run-state (config/log-statistics-run.json, written by
+    log-statistics-sync.py). Same shape/rule as quality.webhook (N1): gap_hours
+    is SUCCESS-based — hours since the last error-free run (last_ok_at; falls
+    back to last_at for old run-state) to the snapshot moment. Error runs do not
+    refresh the clock, so a dead/broken collector ages the gap visibly.
+    None when no run-state is available — the gate then skips, never false-fails."""
+    path = Path(os.environ.get("LOG_STATS_RUN_STATE") or PROFILE_CTX["log_run_state"])
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not data:
+        return None
+    now = now or datetime.now(timezone.utc)
+    last_ok = parse_ts(data.get("last_ok_at")) or parse_ts(data.get("last_at"))
+    return {
+        "runs_total": int(data.get("runs_total") or 0),
+        "runs_ok": int(data.get("runs_ok") or 0),
+        "runs_error": int(data.get("runs_error") or 0),
+        "created_total": int(data.get("created_total") or 0),
+        "updated_total": int(data.get("updated_total") or 0),
+        "skipped_total": int(data.get("skipped_total") or 0),
+        "failed_total": int(data.get("failed_total") or 0),
+        "last_run": data.get("last_run"),
+        "last_ok_at": data.get("last_ok_at") or data.get("last_at"),
+        "last_duration_s": data.get("last_duration_s"),
+        "gap_hours": round((now - last_ok).total_seconds() / 3600.0, 2) if last_ok else None,
+    }
+
+
 def staleness_and_recon(payload: dict, now=None) -> dict:
     """A26 (board #205): snapshot staleness + webhook<->collector reconciliation.
 
@@ -773,6 +805,13 @@ def attach_quality(
         q["webhook"] = wh
     else:
         q.setdefault("webhook", None)
+    # A28 (board #206): collector observability — same form and gap rule as
+    # webhook. Unobserved -> None -> gate skips, never false-fails.
+    col = collector_from_run_state()
+    if col is not None:
+        q["collector"] = col
+    else:
+        q.setdefault("collector", None)
     # A26 (board #205): staleness of the counts snapshot + explicit
     # reconciliation window between the two history writers (webhook vs
     # collector). Unobserved chains -> None -> gate skips, never false-fails.
@@ -785,6 +824,7 @@ def attach_quality(
         "drift_days": DRIFT_DAYS_MIN,
         "staleness_hours": STALE_SNAPSHOT_HOURS_MAX,
         "recon_drift_hours": RECON_WINDOW_HOURS,
+        "collector_gap_hours": QUALITY_GAP_HOURS_MAX,
     }
     payload["quality"] = q
     return payload
@@ -1362,6 +1402,58 @@ def selftest() -> dict:
                 os.environ["WEBHOOK_RUN_STATE"] = old_ws
     q5 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
     assert q5.get("webhook") is None, q5  # no run-state → null, gate skips N1
+
+    # A28 (board #206): collector observability (quality.collector) — same form
+    # and success-clock gap rule as the webhook block above.
+    old_ls = os.environ.get("LOG_STATS_RUN_STATE")
+    with tempfile.TemporaryDirectory() as td:
+        os.environ["LOG_STATS_RUN_STATE"] = str(Path(td) / "run.json")
+        try:
+            # no run-state file → None (gate skips, never false-fails)
+            assert collector_from_run_state() is None
+            # (a) old state WITHOUT last_ok_at → gap falls back to last_at
+            Path(os.environ["LOG_STATS_RUN_STATE"]).write_text(json.dumps({
+                "last_at": "2026-10-14T09:00:00+03:00", "a19_conflicts": 0,
+            }), encoding="utf-8")
+            col = collector_from_run_state(
+                now=datetime(2026, 10, 14, 7, 0, tzinfo=timezone.utc)
+            )
+            assert col["gap_hours"] == 1.0, col  # 06:00Z last_at → 1h to the snapshot
+            assert col["runs_total"] == 0 and col["last_ok_at"].startswith("2026-10-14T09:00"), col
+            # (b) success clock: gap counts from last_ok_at, NOT from a newer
+            #     failed run (last_at) — a broken collector ages visibly
+            Path(os.environ["LOG_STATS_RUN_STATE"]).write_text(json.dumps({
+                "runs_total": 9, "runs_ok": 7, "runs_error": 2,
+                "created_total": 4, "updated_total": 40, "skipped_total": 100,
+                "failed_total": 2, "last_run": 42, "last_duration_s": 13.9,
+                "last_at": "2026-10-14T09:30:00.000Z",
+                "last_ok_at": "2026-10-14T03:00:00.000Z",
+            }), encoding="utf-8")
+            col = collector_from_run_state(
+                now=datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
+            )
+            assert col["gap_hours"] == 6.0, col  # from last_ok_at, not the 30m-old error run
+            assert col["runs_total"] == 9 and col["runs_error"] == 2, col
+            assert col["created_total"] == 4 and col["updated_total"] == 40, col
+            assert col["last_run"] == 42 and col["last_duration_s"] == 13.9, col
+            # gap_hours null-safe: state without any clock → None, not fake 0
+            Path(os.environ["LOG_STATS_RUN_STATE"]).write_text(
+                json.dumps({"runs_total": 1}), encoding="utf-8"
+            )
+            col = collector_from_run_state(now=datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc))
+            assert col["gap_hours"] is None and col["runs_total"] == 1, col
+            # attach_quality picks the run-state up; enrich without it preserves
+            q6 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
+            assert isinstance(q6["collector"], dict) and q6["collector"]["runs_total"] == 1, q6
+            # enrich with NO run-state → collector null, never fabricated data
+            os.environ["LOG_STATS_RUN_STATE"] = str(Path(td) / "missing.json")
+            q9 = attach_quality({"task_count": 5, "tasks": []}, prev_count=None, truncated=0)["quality"]
+            assert q9.get("collector") is None, q9
+        finally:
+            if old_ls is None:
+                os.environ.pop("LOG_STATS_RUN_STATE", None)
+            else:
+                os.environ["LOG_STATS_RUN_STATE"] = old_ls
 
     # A24 (board #195): stable sort + dedup by row.id across pages; a row that
     # arrives in two pages is counted once, the seam duplicate is surfaced in

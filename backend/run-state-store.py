@@ -55,6 +55,10 @@ from datetime import datetime, timezone
 DEFAULT_PATHS = [
     "config/status-webhook-run.json",
     "config/status-webhook-run-1c.json",
+    # A28 (board #206): collector run-state the same durable way (the same
+    # mutable-state problem as #273 — ephemeral runners lose counters).
+    "config/log-statistics-run.json",
+    "config/log-statistics-run-1c.json",
 ]
 DEFAULT_BRANCH = "webhook-run-state"
 API = "https://api.github.com"
@@ -83,7 +87,11 @@ def merge_state(local: dict | None, remote: dict | None) -> dict | None:
         if k.endswith("_at"):
             a, b = _ts(v), _ts(out.get(k))
             out[k] = v if (a and (not b or a > b)) else out.get(k)
-        elif k.startswith("events_"):
+        elif k.startswith("events_") or k.endswith("_total") or k == "last_run":
+            # Monotonic counters: webhook events_* + A28 collector cumulative
+            # metrics (runs_/created_/updated_/skipped_/failed_*) and the run
+            # number. MAX — two racing writers started from the same base,
+            # SUM would inflate (best-effort metrics, see docstring).
             try:
                 out[k] = max(int(v), int(out.get(k) or 0))
             except (TypeError, ValueError):
@@ -293,6 +301,18 @@ def selftest() -> None:
     # 7) unparseable timestamps: local does not clobber remote silently
     m = merge_state({"last_delivery_at": "garbage"}, {"last_delivery_at": "2026-10-13T09:00:00.000Z"})
     assert m["last_delivery_at"] == "2026-10-13T09:00:00.000Z", m
+    # 8) A28 (board #206): collector cumulative counters merge with MAX
+    m = merge_state({"runs_total": 5, "created_total": 2, "failed_total": 0},
+                    {"runs_total": 7, "created_total": 9, "failed_total": 1})
+    assert m["runs_total"] == 7 and m["created_total"] == 9 and m["failed_total"] == 1, m
+    # 9) A28: last_run is a monotonic run number (MAX), local-only metrics win
+    m = merge_state({"last_run": 3, "last_duration_s": 12.5},
+                    {"last_run": 5, "last_duration_s": 88.0})
+    assert m["last_run"] == 5 and m["last_duration_s"] == 12.5, m
+    # 10) A28: last_ok_at is a *_at clock — monotonic max
+    m = merge_state({"last_ok_at": "2026-10-14T10:00:00.000Z"},
+                    {"last_ok_at": "2026-10-14T09:00:00.000Z"})
+    assert m["last_ok_at"] == "2026-10-14T10:00:00.000Z", m
     print(json.dumps({"ok": True, "mode": "selftest"}))
 
 

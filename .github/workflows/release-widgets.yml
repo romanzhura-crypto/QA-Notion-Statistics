@@ -70,6 +70,7 @@ jobs:
           python3 backend/release-widget-sync.py dry
           python3 backend/quality-gate.py selftest
           python3 backend/test_widget_profiles.py
+          python3 tests/test_a14_parallel.py
           test ! -f config/notion.json
           test ! -f config/gitlab.env
           test ! -f config/github.env
@@ -83,6 +84,13 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: github-pages
+    # Board #206 (A28): contents:write for run-state-store.py push — the durable
+    # run-state branch must receive the collector metrics (runs_*, *_total,
+    # last_ok_at) written here, or ephemeral runners lose the counters.
+    permissions:
+      contents: write  # run-state-store.py push (durable run-state branch)
+      pages: write
+      id-token: write
     env:
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
     steps:
@@ -179,6 +187,16 @@ jobs:
         run: |
           python3 backend/quality-gate.py frontend/public/release-data.json
           python3 backend/quality-gate.py frontend/public/1c/release-data.json
+      # Board #206 (A28) + #273: persist the run-state to the durable branch
+      # (always — even after a failed run: error counters and the aged success
+      # clock are part of the metrics). Covers both profiles' collector
+      # run-state written by the upsert steps above plus the webhook run-state
+      # pulled at job start. Winner-merge MAX, best-effort metrics.
+      - name: push run-state (durable, A28)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 backend/run-state-store.py push
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

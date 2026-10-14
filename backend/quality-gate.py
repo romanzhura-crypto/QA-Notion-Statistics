@@ -39,6 +39,11 @@ import json
 import sys
 
 WARN_ONLY = ("truncated_titles", "fixtures_excluded", "unknown_statuses")
+# A28 (board #206): collector gap is WARN-only — observability, not a release
+# gate. Rationale (incident #269): a hard gap FAIL froze Pages deploys on a
+# false-positive; data impact of a dead collector is already hard-gated by
+# A26 staleness_hours (counts) and N2 drift_days (segments vs columns).
+COLLECTOR_GAP_WARN_ONLY = True
 
 
 def evaluate(payload: dict) -> tuple[str, list]:
@@ -81,6 +86,17 @@ def evaluate(payload: dict) -> tuple[str, list]:
         if int(wh.get("events_error") or 0) > 0:
             problems.append(f"webhook.events_error: {wh.get('events_error')} > 0")
 
+    # A28 (board #206): collector observability (quality.collector). null/absent
+    # -> skipped (never false-fails). gap_hours is SUCCESS-based; WARN-only.
+    col = q.get("collector")
+    if isinstance(col, dict):
+        c_gap = col.get("gap_hours")
+        c_lim = th.get("collector_gap_hours") or th.get("gap_hours")
+        if c_gap is not None and c_lim is not None and float(c_gap) > float(c_lim):
+            print(
+                f"warning (non-blocking): collector.gap_hours = {c_gap} > {c_lim} (collector chain stale)",
+                file=sys.stderr,
+            )
     # A26 (board #205): counts-snapshot staleness — WARN band is non-blocking,
     # past the hard limit is FAIL. Absent field (legacy snapshot) -> skipped.
     st = q.get("staleness_hours")
@@ -159,6 +175,9 @@ def selftest() -> int:
             last_delivery_at=None, events_ping=0, gap_hours=1.0))),
         ("PASS", q(staleness_hours=3.5)),  # A26: WARN band -> non-blocking
         ("PASS", q(staleness_hours=None, recon_drift_hours=None)),  # A26: unobserved -> skip
+        ("PASS", q(collector=None)),  # A28: unobserved -> skip
+        ("PASS", q(collector={"gap_hours": 0.5, "runs_total": 3})),  # A28: fresh collector
+        ("PASS", q(collector={"gap_hours": 99.0})),  # A28: WARN-only — never FAILs
         ("PASS", dict(ok=True, task_count=100, quality={  # legacy quality block, no A26 fields
             "thresholds": {"task_count_delta_pct": 10.0},
             "segments_negative": 0, "segments_absurd": 0,
