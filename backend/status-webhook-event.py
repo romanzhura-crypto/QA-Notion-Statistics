@@ -257,7 +257,9 @@ def main() -> int:
     def build(row: dict) -> dict:
         return plan_event((row or {}).get("properties") or {}, str(status), ev.get("timestamp"))
 
-    with LJS.a19_lock():
+    # A14 (board #210): keyed lock — same page as the collector's per-page
+    # stripe lock serializes; different pages proceed in parallel.
+    with LJS.a19_lock(log_row["id"]):
         code, obj = LJS.patch_with_a19(log_row["id"], build, log_row)
     ok = code == 200
     run_state_note("processed" if ok else "error", ev.get("timestamp"))

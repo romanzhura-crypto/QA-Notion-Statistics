@@ -28,14 +28,17 @@ Token: config/notion.json. Never printed.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import uuid
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,7 +58,13 @@ RUN_STATE = Path(os.environ.get("LOG_STATS_RUN_STATE") or PROFILE_CTX["log_run_s
 JOURNAL = Path(os.environ.get("LOG_STATS_JOURNAL") or PROFILE_CTX["log_journal"])
 LOG_DSID = (os.environ.get("LOG_STATISTICS_DSID") or "").strip() or PROFILE_CTX["log_dsid"]
 MINSK = ZoneInfo("Europe/Minsk")
-WRITE_SLEEP_S = float(os.environ.get("LOG_STATS_WRITE_SLEEP_S") or "0.35")
+# A14 (board #210): parallel row writes + request pacing replace blanket sleeps.
+# Legacy (serial) behavior is reproducible: LOG_STATS_WORKERS=1
+# LOG_STATS_WRITE_SLEEP_S=0.35 LOG_STATS_QUERY_SLEEP_S=0.2 LOG_STATS_RPS=0.
+WRITE_SLEEP_S = float(os.environ.get("LOG_STATS_WRITE_SLEEP_S") or "0")
+QUERY_SLEEP_S = float(os.environ.get("LOG_STATS_QUERY_SLEEP_S") or "0")
+WORKERS = int(os.environ.get("LOG_STATS_WORKERS") or "4")
+RPS = float(os.environ.get("LOG_STATS_RPS") or "2.5")
 DAYS_EPS = float(os.environ.get("LOG_STATS_DAYS_EPS") or "1.0")
 
 STATUS_COLS = [
@@ -88,7 +97,37 @@ _NOTED_SEGMENTS: set = set()
 # conditional update on last_edited_time + re-read + recompute + bounded retry.
 A19_RETRIES = int(os.environ.get("LOG_STATS_A19_RETRIES") or "2")
 A19_LOCK = Path(os.environ.get("LOG_STATS_LOCK") or (ROOT / "config" / ".log-write.lock"))
+A19_LOCK_STRIPES = max(1, int(os.environ.get("LOG_STATS_LOCK_STRIPES") or "64"))
 A19_CONFLICTS = 0
+
+# A14 request pacing (token-bucket start spacing): global across threads and
+# calls, so parallel writes cannot burst past the Notion rate limit. Lives
+# inside _req (the single HTTP seam) — tests stub _req and bypass it.
+_THROTTLE_MTX = threading.Lock()
+_THROTTLE_NEXT = [0.0]
+# Guards module-level counters/sets mutated from worker threads (A19 conflicts,
+# unknown-status accounting). Never guards network I/O.
+_GLOCK = threading.Lock()
+
+
+def _add_conflicts(n: int) -> None:
+    global A19_CONFLICTS
+    if not n:
+        return
+    with _GLOCK:
+        A19_CONFLICTS += n
+
+
+def _throttle() -> None:
+    if RPS <= 0:
+        return
+    with _THROTTLE_MTX:
+        now = time.monotonic()
+        start = max(now, _THROTTLE_NEXT[0])
+        _THROTTLE_NEXT[0] = start + 1.0 / RPS
+    wait = start - now
+    if wait > 0:
+        time.sleep(wait)
 
 
 def _cfg():
@@ -104,6 +143,7 @@ def _cfg():
 
 def _req(method: str, path: str, body=None, timeout: int = 60):
     token, version = _cfg()
+    _throttle()
     data = None if body is None else json.dumps(body).encode("utf-8")
     url = "https://api.notion.com" + path
     last = (0, {"error": "no_attempt"})
@@ -248,19 +288,33 @@ def journal_end(j: dict, status, counts=None) -> None:
     Path(j["path"]).write_text("", encoding="utf-8")
 
 
+def _lock_path(key) -> Path:
+    """A19 lock file for a page key (A14 board #210): striped per-page files so
+    two writers of the SAME page serialize (across threads AND processes) while
+    different pages proceed in parallel. key=None = legacy global lock."""
+    if key is None:
+        return A19_LOCK
+    h = int(hashlib.sha1(str(key).encode("utf-8")).hexdigest()[:8], 16)
+    return A19_LOCK.with_name(f"{A19_LOCK.name}.s{h % A19_LOCK_STRIPES:02d}")
+
+
 @contextmanager
-def a19_lock():
+def a19_lock(key=None):
     """Local flock fallback (A19): serialize LOG writers sharing one machine.
 
     Covers the verify→PATCH critical section when the collector and the webhook
-    handler run on the same host. Unavailable FS → degraded to optimistic
-    re-read/retry alone (never raises)."""
+    handler run on the same host. Pass the page id as `key` (both writers do):
+    same page → same lock stripe → serialized; different pages → parallel.
+    flock() is per open-file-description, so it also serializes threads of one
+    process (POSIX record locks would not). Unavailable FS → degraded to
+    optimistic re-read/retry alone (never raises)."""
     fh = None
     try:
         import fcntl
 
-        A19_LOCK.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(A19_LOCK, "a+")
+        path = _lock_path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(path, "a+")
         fcntl.flock(fh, fcntl.LOCK_EX)
     except OSError:
         fh = None
@@ -294,7 +348,7 @@ def patch_with_a19(page_id: str, build_props, baseline_row: dict | None) -> tupl
     for _ in range(A19_RETRIES + 1):
         code_r, fresh = _req("GET", f"/v1/pages/{page_id}")
         if code_r != 200:
-            A19_CONFLICTS += conflicts
+            _add_conflicts(conflicts)
             return code_r, f"a19: re-read failed ({(fresh or {}).get('code')})"
         fresh_edited = fresh.get("last_edited_time")
         if expected is not None and fresh_edited != expected:
@@ -306,17 +360,17 @@ def patch_with_a19(page_id: str, build_props, baseline_row: dict | None) -> tupl
         expected = fresh_edited
         props = build_props(fresh)
         if not props:
-            A19_CONFLICTS += conflicts
+            _add_conflicts(conflicts)
             return 200, "noop"
         code, obj = _req("PATCH", f"/v1/pages/{page_id}", {"properties": props})
         if code == 200:
-            A19_CONFLICTS += conflicts
+            _add_conflicts(conflicts)
             return 200, obj.get("id")
         last_code, last_info = code, f"{obj.get('code')}: {obj.get('message')}"
         if code not in (409, 412, 429) and code < 500:
             break
         time.sleep(0.5)
-    A19_CONFLICTS += conflicts
+    _add_conflicts(conflicts)
     if last_code:
         return last_code, last_info
     return 409, f"a19: row changed under writer {conflicts}x — skip to protect concurrent close"
@@ -390,11 +444,12 @@ def note_unknown_status(name, days: float = 0.0, key=None) -> None:
     s = str(name or "").strip()
     if not s or is_known_status(s):
         return
-    if key is not None:
-        if key in _NOTED_SEGMENTS:
-            return
-        _NOTED_SEGMENTS.add(key)
-    UNKNOWN_STATUSES[s] = round_days(UNKNOWN_STATUSES.get(s, 0.0) + max(0.0, float(days or 0.0)))
+    with _GLOCK:  # A14: called from worker threads during build()
+        if key is not None:
+            if key in _NOTED_SEGMENTS:
+                return
+            _NOTED_SEGMENTS.add(key)
+        UNKNOWN_STATUSES[s] = round_days(UNKNOWN_STATUSES.get(s, 0.0) + max(0.0, float(days or 0.0)))
 
 
 def status_col_allowed(col: str) -> bool:
@@ -573,7 +628,8 @@ def query_all(dsid: str) -> list:
         if not q.get("has_more"):
             break
         cursor = q.get("next_cursor")
-        time.sleep(0.2)
+        if QUERY_SLEEP_S > 0:
+            time.sleep(QUERY_SLEEP_S)
     return rows
 
 
@@ -827,7 +883,9 @@ def upsert(task: dict, title: str | None, page_id: str | None, now: datetime | N
         # (webhook winner) is merged into the patch, never clobbered.
         return page_properties(task, title, now=now, log_row=row)
 
-    with a19_lock():
+    # A14 (board #210): per-page stripe lock (same key as the webhook writer's
+    # LJS.a19_lock(log_row["id"]) — serialized per row, parallel across rows).
+    with a19_lock(page_id):
         code, info = patch_with_a19(page_id, build, log_row)
     if code == 200:
         return "updated", code, info if isinstance(info, str) else None
@@ -891,6 +949,16 @@ def main():
     reuse_empty = list(empties)
     sprint_ids = {t["id"] for t in tasks}
 
+    state_lock = threading.Lock()
+
+    def progress(n):
+        if n % 50 == 0:
+            with state_lock:
+                print(json.dumps({
+                    "progress": n, "created": created, "updated": updated,
+                    "skipped": skipped, "failed": failed,
+                }, ensure_ascii=False), flush=True)
+
     def record_err(item: dict, code: int, info: str):
         nonlocal failed
         failed += 1
@@ -921,6 +989,7 @@ def main():
             record_err({"id": pid, "kind": "unlinked", "task": tid}, code, msg)
         write_sleep()
 
+    jobs = []
     for i, task in enumerate(tasks):
         if task["id"] in jrun["done"]:
             resume_skipped += 1
@@ -931,20 +1000,12 @@ def main():
         if page_id and skip_existing and not full:
             skipped += 1
             journal_done(jrun, task["id"], "skipped")
-            if (i + 1) % 50 == 0:
-                print(json.dumps({
-                    "progress": i + 1, "created": created, "updated": updated,
-                    "skipped": skipped, "failed": failed,
-                }, ensure_ascii=False), flush=True)
+            progress(i + 1)
             continue
         if page_id and not full and not needs_update(task, log_row, now=now_utc):
             skipped += 1
             journal_done(jrun, task["id"], "skipped")
-            if (i + 1) % 50 == 0:
-                print(json.dumps({
-                    "progress": i + 1, "created": created, "updated": updated,
-                    "skipped": skipped, "failed": failed,
-                }, ensure_ascii=False), flush=True)
+            progress(i + 1)
             continue
         if not page_id and reuse_empty:
             page_id = reuse_empty.pop(0)
@@ -952,25 +1013,47 @@ def main():
         # A18 (board #203): row Name is per-task deterministic (row_title), not
         # the run label. LOG_STATS_TITLE overrides it (manual/ops runs).
         use_title = (title_override or row_title(task)) if (not log_row or was_empty or rewrite_title or not page_id) else None
-        action, code, info = upsert(task, use_title, page_id, now=now_utc, log_row=None if was_empty else log_row)
-        if code == 200:
-            if action == "created":
-                created += 1
+        jobs.append((task, use_title, page_id, None if was_empty else log_row, i + 1))
+
+    # A14 (board #210): parallel row writes. The skip/create/update decision is
+    # made serially above (deterministic work list; empty-row reuse order
+    # preserved) — only the network writes fan out over WORKERS threads. Shared
+    # state (counters, mapping, journal, errors) is guarded by state_lock; A19
+    # per-page stripe locks keep verify→PATCH serialized per row (and against
+    # the webhook writer). WORKERS=1 reproduces the legacy serial flow.
+    def run_job(job):
+        nonlocal created, updated
+        task, use_title, page_id, log_row, n = job
+        try:
+            action, code, info = upsert(task, use_title, page_id, now=now_utc, log_row=log_row)
+        except Exception as e:  # fail-visible: a crashed write is a failed row
+            with state_lock:
+                record_err({"id": task.get("id"), "n": task.get("n"), "kind": "exception"}, 0, f"{type(e).__name__}: {e}")
+                journal_done(jrun, task["id"], "failed")
+            progress(n)
+            return
+        with state_lock:
+            if code == 200:
+                if action == "created":
+                    created += 1
+                else:
+                    updated += 1
+                mapping[task["id"]] = {"id": info, "properties": {}}
+                journal_done(jrun, task["id"], action)
             else:
-                updated += 1
-            mapping[task["id"]] = {"id": info, "properties": {}}
-            journal_done(jrun, task["id"], action)
-        else:
-            # A19 conflict is fail-visible (counts as failed + a19_conflicts),
-            # never a silent skip.
-            record_err({"id": task.get("id"), "n": task.get("n"), "kind": action}, code, info)
-            journal_done(jrun, task["id"], "conflict" if action == "conflict" else "failed")
+                # A19 conflict is fail-visible (counts as failed + a19_conflicts),
+                # never a silent skip.
+                record_err({"id": task.get("id"), "n": task.get("n"), "kind": action}, code, info)
+                journal_done(jrun, task["id"], "conflict" if action == "conflict" else "failed")
         write_sleep()
-        if (i + 1) % 50 == 0:
-            print(json.dumps({
-                "progress": i + 1, "created": created, "updated": updated,
-                "skipped": skipped, "failed": failed,
-            }, ensure_ascii=False), flush=True)
+        progress(n)
+
+    if WORKERS <= 1 or len(jobs) <= 1:
+        for job in jobs:
+            run_job(job)
+    else:
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            list(ex.map(run_job, jobs))
 
     for pid in reuse_empty:
         code, msg = archive_page(pid)
