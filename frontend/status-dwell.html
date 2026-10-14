@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Задачи — время в статусе</title>
-  <meta name="widget-build" content="20261002-period-events-a">
+  <meta name="widget-build" content="20261014-whitespace-label-match">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -590,6 +590,11 @@
     function segmentsFor(t) {
       const raw = historyOf(t);
       if (raw.length) {
+        // Board #280: LOG history may drift — adjacent segments can overlap
+        // (a segment's `from` earlier than the previous `to`, e.g. TASK-6893:
+        // Ready For QA from=08:41:00 < Ready For Dev to=08:41:58). Overlap is
+        // tolerated (bars lay out sequentially, clamp allowed) but must NEVER
+        // produce a negative/NaN duration or a negative segment width.
         return raw.map(h => {
           if (isDoneName(h.s)) {
             return { s: h.s || "Done", kind: "done", days: 0, at: h.at || h.start || h.end || null };
@@ -597,7 +602,7 @@
           return {
             s: h.s || "Unknown",
             kind: "dwell",
-            days: Number(h.days) || 0,
+            days: Math.max(0, Number(h.days) || 0),
             at: null,
             from: h.from || null,
             to: h.to || null,
@@ -645,14 +650,20 @@
       const rootSel = "#" + cfg.root;
       let activeIdx = -1;
       let filterOnType = false;
+      // Board #280: labels come from task names (Notion) and may carry trailing/
+      // leading whitespace (e.g. TASK-6893 «…для отгрузки »). Every comparison
+      // of label/value against the input must be done on TRIMMED strings —
+      // otherwise pick() writes the raw label, match() fails and cascadeReset()
+      // wipes the filter: a row click silently does nothing (no detail mode).
+      function norm(s) { return String(s == null ? "" : s).trim().toLowerCase(); }
       function items() { return cfg.items() || []; }
       function listItems() {
         const all = items();
-        const q = (inputEl.value || "").trim().toLowerCase();
+        const q = norm(inputEl.value);
         if (!filterOnType || !q) return all.slice();
-        const exact = all.some(it => it.label.toLowerCase() === q || String(it.value).toLowerCase() === q);
+        const exact = all.some(it => norm(it.label) === q || norm(it.value) === q);
         if (exact) return all.slice();
-        return all.filter(it => it.label.toLowerCase().indexOf(q) !== -1 || String(it.value).toLowerCase().indexOf(q) !== -1);
+        return all.filter(it => norm(it.label).indexOf(q) !== -1 || norm(it.value).indexOf(q) !== -1);
       }
       function fill() {
         const list = listItems();
@@ -677,9 +688,9 @@
         inputEl.setAttribute("aria-expanded", open ? "true" : "false");
         toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
         if (open) {
-          const cur = (inputEl.value || "").trim().toLowerCase();
+          const cur = norm(inputEl.value);
           const list = listItems();
-          activeIdx = Math.max(0, list.findIndex(it => it.label.toLowerCase() === cur || String(it.value).toLowerCase() === cur));
+          activeIdx = Math.max(0, list.findIndex(it => norm(it.label) === cur || norm(it.value) === cur));
           fill();
           highlight();
         }
@@ -691,10 +702,12 @@
         cfg.onPick(it);
       }
       function match() {
+        // Board #280: trimmed comparison both ways — a label with trailing
+        // space (or a typed value with stray spaces) must still match.
         const v = (inputEl.value || "").trim();
         if (!v) return { ok: !!cfg.emptyMeansAll, empty: true, item: null };
-        const low = v.toLowerCase();
-        const it = items().find(x => x.label.toLowerCase() === low || String(x.value).toLowerCase() === low) || null;
+        const q = norm(v);
+        const it = items().find(x => norm(x.label) === q || norm(x.value) === q) || null;
         return it ? { ok: true, empty: false, item: it } : { ok: false, empty: false, item: null };
       }
       function setErr(m) { if (errEl) errEl.hidden = m.ok || m.empty; }
@@ -807,7 +820,8 @@
         .sort((a, b) => String(a.tid || "").localeCompare(String(b.tid || ""), "ru", { numeric: true }) || String(a.n || "").localeCompare(String(b.n || ""), "ru"))
         .map(t => ({
           value: String(t.id),
-          label: (t.tid ? t.tid + " · " : "") + (t.n || "Без названия")
+          // Board #280: never let raw-name whitespace leak into combo labels.
+          label: (t.tid ? t.tid + " · " : "") + (String(t.n || "").trim() || "Без названия")
         }));
     }
     const taskCombo = createCombo({
@@ -1103,7 +1117,9 @@
           // A9 (board #213): proportional width only — no 4px min-width
           // inflation. A micro segment (< 2px) stays truthful and gets a dot
           // marker; the tooltip flags durations below an hour («< 1 ч»).
-          const bw = (seg.days / maxX) * innerW;
+          // Board #280: width is clamped to >= 0 — overlapping/drifted history
+          // (or a negative days value) must never emit a negative rect width.
+          const bw = Math.max(0, (seg.days / maxX) * innerW);
           const tip = tipFor(seg, same);
           const grp = same.length > 1 ? ' data-group="' + i + "::" + esc(seg.s) + '"' : "";
           const openAttr = seg.open ? ' data-open="1"' : "";
@@ -1213,7 +1229,9 @@
         (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(idStr)
           ? "https://app.notion.com/p/" + idStr.replace(/-/g, "") : "");
       return {
-        n: t.n || "Без названия",
+        // Board #280: trimmed display name — trailing/leading spaces in Notion
+        // names must not leak into the table cell, chart label or aria-labels.
+        n: String(t.n || "").trim() || "Без названия",
         s: t.s || "Unknown",
         d: t.d || "Unassigned",
         start: t.start,
