@@ -1,28 +1,352 @@
 {
- "last_run": 4117,
- "last_job": "38749373061",
- "last_title": "Sprint №4117(38749373061) 15.10.2026 17:14:02",
- "last_at": "2026-10-15T17:14:02.159674+03:00",
+ "last_run": 4118,
+ "last_job": [
+  {
+   "id": "3fae17b6-8482-81a5-a371-d19a856a99bb",
+   "tid": "APS-1C-378",
+   "u": "https://app.notion.com/p/WEB-1-3fae17b6848281a5a371d19a856a99bb",
+   "r": [
+    "42.2026"
+   ],
+   "p": "Автопромсервис",
+   "d": "Наталья NWP",
+   "s": "Development",
+   "e": null,
+   "t": null,
+   "n": "ЭТТН не совпадают суммы WEB и 1С",
+   "n_full": "ЭТТН не совпадают суммы WEB и 1С",
+   "start": "2026-10-15",
+   "created": "2026-10-15T11:52:00.000Z",
+   "edited": "2026-10-15T14:14:00.000Z",
+   "history": [
+    {
+     "s": "New",
+     "days": 0.09722222222222222,
+     "from": "2026-10-15T11:58:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3fae17b6-8482-813e-91c8-dbbf6c3c154a",
+  {
+   "object": "page",
+   "id": "3fae17b6-8482-813e-91c8-dbbf6c3c154a",
+   "created_time": "2026-10-15T11:59:00.000Z",
+   "last_edited_time": "2026-10-15T11:59:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "c98e17b6-8482-820e-9f34-072fdef5db94",
+    "database_id": "3f4e17b6-8482-800b-8a23-d01f8c3aa6b9"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Current Status": {
+     "id": "%3AD%3AE",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "6d859979-73bd-4a35-b446-5a362009acdc",
+         "name": "Development",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Release": {
+     "id": "BUfx",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": [
+         {
+          "id": "142b6685-2b0a-4cc7-84d6-9a13f79581dd",
+          "name": "42.2026",
+          "color": "orange"
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "C%5B%3AS",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "ЭТТН не совпадают суммы WEB и 1С",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "ЭТТН не совпадают суммы WEB и 1С",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "New",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "New",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-15T11:58:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": []
+    },
+    "ID": {
+     "id": "WzeW",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "APS-1C",
+         "number": 378
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 0
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "g%5Crq",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3fae17b6-8482-81a5-a371-d19a856a99bb"
+      }
+     ],
+     "has_more": false
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "oDjM",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "b9e74f4d-e83d-451c-bf27-332d032fec6d",
+         "name": "Наталья NWP",
+         "color": "blue"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": null,
+      "number": 281
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: ЭТТН не совпадают суммы WEB и 1С [3fae17b6-8482-81a5-a371-d19a856a99bb]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: ЭТТН не совпадают суммы WEB и 1С [3fae17b6-8482-81a5-a371-d19a856a99bb]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-WEB-1-3fae17b6-8482-81a5-a371-d19a856a99bb-3fae17b68482813e91c8dbbf6c3c154a",
+   "public_url": null
+  },
+  280
+ ],
+ "last_title": "Sprint №4118(38750006212) 15.10.2026 17:18:22",
+ "last_at": "2026-10-15T17:18:22.703400+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 280,
- "last_duration_s": 1.8,
+ "last_skipped": 279,
+ "last_duration_s": 5.0,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-15T14:14:00Z",
+ "snapshot_generated_at": "2026-10-15T14:18:20Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 272,
- "runs_ok": 269,
+ "runs_total": 273,
+ "runs_ok": 270,
  "runs_error": 0,
  "created_total": 3,
- "updated_total": 0,
- "skipped_total": 75451,
+ "updated_total": 1,
+ "skipped_total": 75730,
  "failed_total": 0,
- "last_ok_at": "2026-10-15T14:14:04.000Z"
+ "last_ok_at": "2026-10-15T14:18:27.000Z"
 }
