@@ -1,39 +1,55 @@
 {
- "last_run": 4034,
+ "last_run": 4035,
  "last_job": [
   {
-   "id": "2fde17b6-8482-8108-83f1-ea89f2590259",
-   "tid": "TASK-5463",
-   "u": "https://app.notion.com/p/Issue-8-2fde17b68482810883f1ea89f2590259",
-   "r": [
-    "40.2026"
-   ],
-   "p": "storages",
-   "d": "Ihar Tsiukulmin",
-   "s": "Testing",
-   "e": null,
-   "t": 0.0,
-   "n": "Issue 8 - [Материалы] Фиксация остатков вспомогательных материалов на МОЛ",
-   "n_full": "Issue 8 - [Материалы] Фиксация остатков вспомогательных материалов на МОЛ",
-   "start": "2026-01-01",
-   "created": "2026-02-04T23:19:00.000Z",
-   "edited": "2026-10-15T07:07:00.000Z",
+   "id": "3bfe17b6-8482-80c2-a095-ff4b9f5e1599",
+   "tid": "TASK-6555",
+   "u": "https://app.notion.com/p/3bfe17b6848280c2a095ff4b9f5e1599",
+   "r": [],
+   "p": "sales-backend",
+   "d": "Illia matsiushkou",
+   "s": "Done",
+   "e": 8.0,
+   "t": 8.0,
+   "n": "Запрос на реализацию: вспомогательный справочник",
+   "n_full": "Запрос на реализацию: вспомогательный справочник",
+   "start": "2026-08-17T10:56:00.000+03:00",
+   "created": "2026-08-17T07:56:00.000Z",
+   "edited": "2026-10-15T07:17:00.000Z",
    "history": [
     {
      "s": "Development",
-     "days": 26.611805555555556,
+     "days": 18.683333333333334,
      "from": "2026-09-18T16:27:00.000Z",
+     "to": "2026-10-07T08:50:38.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 0.15069444444444444,
+     "from": "2026-10-07T08:50:38.000Z",
+     "to": "2026-10-07T12:27:37.000Z"
+    },
+    {
+     "s": "Failed",
+     "days": 0.9083333333333333,
+     "from": "2026-10-07T12:27:37.000Z",
+     "to": "2026-10-08T10:15:55.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 6.877083333333333,
+     "from": "2026-10-08T10:15:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "3dee17b6-8482-81ce-aaae-fef7ac9237a4",
+  "3dee17b6-8482-8111-92b7-fa5a8f9a2d6a",
   {
    "object": "page",
-   "id": "3dee17b6-8482-81ce-aaae-fef7ac9237a4",
-   "created_time": "2026-09-17T11:30:00.000Z",
-   "last_edited_time": "2026-09-18T16:42:00.000Z",
+   "id": "3dee17b6-8482-8111-92b7-fa5a8f9a2d6a",
+   "created_time": "2026-09-17T11:11:00.000Z",
+   "last_edited_time": "2026-10-08T10:17:00.000Z",
    "created_by": {
     "object": "user",
     "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
@@ -73,7 +89,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "2fde17b6-8482-8108-83f1-ea89f2590259"
+       "id": "3bfe17b6-8482-80c2-a095-ff4b9f5e1599"
       }
      ],
      "has_more": false
@@ -87,9 +103,9 @@
        {
         "type": "status",
         "status": {
-         "id": "ICib",
-         "name": "Testing",
-         "color": "pink"
+         "id": "76613324-dc69-4e77-967f-06a86c58b1ff",
+         "name": "Done",
+         "color": "green"
         }
        }
       ],
@@ -108,7 +124,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Development",
+        "content": "Ready For QA",
         "link": null
        },
        "annotations": {
@@ -119,7 +135,7 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Development",
+       "plain_text": "Ready For QA",
        "href": null
       }
      ]
@@ -128,7 +144,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-09-18T16:27:00.000+00:00",
+      "start": "2026-10-08T10:15:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -141,13 +157,7 @@
       "array": [
        {
         "type": "multi_select",
-        "multi_select": [
-         {
-          "id": "ca05ad72-fbce-4575-965e-2825433bf65d",
-          "name": "40.2026",
-          "color": "gray"
-         }
-        ]
+        "multi_select": []
        }
       ],
       "function": "show_original"
@@ -156,12 +166,30 @@
     "Ready For QA": {
      "id": "SY%3D%5C",
      "type": "number",
-     "number": 0
+     "number": 0.15138888888888888
     },
     "Segments": {
      "id": "W%3DMs",
      "type": "rich_text",
-     "rich_text": []
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Development\",\"from\":\"2026-09-18T16:27:00.000Z\",\"to\":\"2026-10-07T08:50:38.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-07T08:50:38.000Z\",\"to\":\"2026-10-07T12:27:37.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-10-07T12:27:37.000Z\",\"to\":\"2026-10-08T10:15:55.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Development\",\"from\":\"2026-09-18T16:27:00.000Z\",\"to\":\"2026-10-07T08:50:38.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-07T08:50:38.000Z\",\"to\":\"2026-10-07T12:27:37.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-10-07T12:27:37.000Z\",\"to\":\"2026-10-08T10:15:55.000Z\"}]",
+       "href": null
+      }
+     ]
     },
     "Analysis/Design": {
      "id": "%5B%3A%3Em",
@@ -183,7 +211,7 @@
      "type": "formula",
      "formula": {
       "type": "number",
-      "number": 0
+      "number": 19.7
      }
     },
     "Merged": {
@@ -204,14 +232,14 @@
     "Failed": {
      "id": "liiX",
      "type": "number",
-     "number": 0
+     "number": 0.9090277777777778
     },
     "ID 1": {
      "id": "rf%60%40",
      "type": "unique_id",
      "unique_id": {
       "prefix": "LS",
-      "number": 945
+      "number": 189
      }
     },
     "ID": {
@@ -224,7 +252,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "TASK",
-         "number": 5463
+         "number": 6555
         }
        }
       ],
@@ -243,7 +271,7 @@
          {
           "type": "text",
           "text": {
-           "content": "Issue 8 - [Материалы] Фиксация остатков вспомогательных материалов на МОЛ",
+           "content": "Запрос на реализацию: вспомогательный справочник",
            "link": null
           },
           "annotations": {
@@ -254,7 +282,7 @@
            "code": false,
            "color": "default"
           },
-          "plain_text": "Issue 8 - [Материалы] Фиксация остатков вспомогательных материалов на МОЛ",
+          "plain_text": "Запрос на реализацию: вспомогательный справочник",
           "href": null
          }
         ]
@@ -266,7 +294,7 @@
     "Development": {
      "id": "t%3Ctf",
      "type": "number",
-     "number": 0
+     "number": 18.683333333333334
     },
     "DEV": {
      "id": "up_%5E",
@@ -277,9 +305,9 @@
        {
         "type": "select",
         "select": {
-         "id": "bc740d72-9942-4308-8d47-2d0eba6fb8fc",
-         "name": "Ihar Tsiukulmin",
-         "color": "yellow"
+         "id": "93ad4a73-8c10-4d64-aa80-bfdffbe81969",
+         "name": "Illia matsiushkou",
+         "color": "default"
         }
        }
       ],
@@ -320,33 +348,33 @@
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprit-132-35324682107-18-09-2026-11-30-46-3dee17b6848281ceaaaefef7ac9237a4",
+   "url": "https://app.notion.com/p/Sprit-132-35324682107-18-09-2026-11-30-46-3dee17b68482811192b7fa5a8f9a2d6a",
    "public_url": null
   },
   1597
  ],
- "last_title": "Sprint №4034(38696620053) 15.10.2026 10:07:48",
- "last_at": "2026-10-15T10:07:48.222934+03:00",
+ "last_title": "Sprint №4035(38697709388) 15.10.2026 10:17:46",
+ "last_at": "2026-10-15T10:17:46.128066+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 1596,
- "last_duration_s": 11.2,
+ "last_duration_s": 8.7,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-15T07:07:36Z",
+ "snapshot_generated_at": "2026-10-15T07:17:34Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 195,
- "runs_ok": 195,
+ "runs_total": 196,
+ "runs_ok": 196,
  "runs_error": 0,
  "created_total": 1,
- "updated_total": 2,
- "skipped_total": 311408,
+ "updated_total": 3,
+ "skipped_total": 313004,
  "failed_total": 0,
- "last_ok_at": "2026-10-15T07:07:59.000Z"
+ "last_ok_at": "2026-10-15T07:17:54.000Z"
 }
