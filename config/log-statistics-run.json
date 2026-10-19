@@ -1,55 +1,37 @@
 {
- "last_run": 5257,
+ "last_run": 5258,
  "last_job": [
   {
-   "id": "3e6e17b6-8482-801c-8f89-d160c08a97cd",
-   "tid": "TASK-6835",
-   "u": "https://app.notion.com/p/3e6e17b68482801c8f89d160c08a97cd",
+   "id": "3fee17b6-8482-80d4-a2b1-da1d083da9c6",
+   "tid": "TASK-7007",
+   "u": "https://app.notion.com/p/3fee17b6848280d4a2b1da1d083da9c6",
    "r": [],
-   "p": "buyers",
-   "d": "Oleg Valahanovich",
+   "p": "Employees",
+   "d": "Dmitry Larionov",
    "s": "Development",
-   "e": 40.0,
-   "t": 6.0,
-   "n": "ТЗ ОК прохождение опроса клиентом",
-   "n_full": "ТЗ ОК прохождение опроса клиентом",
-   "start": "2026-09-25T13:29:00.000+03:00",
-   "created": "2026-09-25T10:29:00.000Z",
-   "edited": "2026-10-19T12:23:00.000Z",
+   "e": null,
+   "t": 0.0,
+   "n": "Сумма часов и дней должна считаться из отработанного количества дней включая текущий",
+   "n_full": "Сумма часов и дней должна считаться из отработанного количества дней включая текущий",
+   "start": "2026-10-19T09:49:00.000+03:00",
+   "created": "2026-10-19T06:49:00.000Z",
+   "edited": "2026-10-19T12:26:00.000Z",
    "history": [
     {
-     "s": "New",
-     "days": 10.93125,
-     "from": "2026-09-25T10:32:00.000Z",
-     "to": "2026-10-06T08:53:27.000Z"
-    },
-    {
      "s": "Ready For Dev",
-     "days": 0.3763888888888889,
-     "from": "2026-10-06T08:53:27.000Z",
-     "to": "2026-10-06T17:55:30.000Z"
-    },
-    {
-     "s": "Development",
-     "days": 12.553472222222222,
-     "from": "2026-10-06T17:55:30.000Z",
-     "to": "2026-10-19T07:12:40.000Z"
-    },
-    {
-     "s": "ETA",
-     "days": 0.21597222222222223,
-     "from": "2026-10-19T07:12:00.000Z",
+     "days": 0.23333333333333334,
+     "from": "2026-10-19T06:52:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "3e6e17b6-8482-81a2-8a5e-e24006a84441",
+  "3fee17b6-8482-8137-9ed6-d60b1b186806",
   {
    "object": "page",
-   "id": "3e6e17b6-8482-81a2-8a5e-e24006a84441",
-   "created_time": "2026-09-25T10:32:00.000Z",
-   "last_edited_time": "2026-10-19T07:13:00.000Z",
+   "id": "3fee17b6-8482-8137-9ed6-d60b1b186806",
+   "created_time": "2026-10-19T06:52:00.000Z",
+   "last_edited_time": "2026-10-19T06:52:00.000Z",
    "created_by": {
     "object": "user",
     "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
@@ -77,7 +59,7 @@
     "Ready For Dev": {
      "id": "%40MjZ",
      "type": "number",
-     "number": 0.3770833333333333
+     "number": 0
     },
     "Code Review": {
      "id": "L%5DLc",
@@ -89,7 +71,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "3e6e17b6-8482-801c-8f89-d160c08a97cd"
+       "id": "3fee17b6-8482-80d4-a2b1-da1d083da9c6"
       }
      ],
      "has_more": false
@@ -124,7 +106,7 @@
       {
        "type": "text",
        "text": {
-        "content": "ETA",
+        "content": "Ready For Dev",
         "link": null
        },
        "annotations": {
@@ -135,7 +117,7 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "ETA",
+       "plain_text": "Ready For Dev",
        "href": null
       }
      ]
@@ -144,7 +126,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-10-19T07:12:00.000+00:00",
+      "start": "2026-10-19T06:52:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -171,25 +153,7 @@
     "Segments": {
      "id": "W%3DMs",
      "type": "rich_text",
-     "rich_text": [
-      {
-       "type": "text",
-       "text": {
-        "content": "[{\"s\":\"New\",\"from\":\"2026-09-25T10:32:00.000Z\",\"to\":\"2026-10-06T08:53:27.000Z\"},{\"s\":\"Ready For Dev\",\"from\":\"2026-10-06T08:53:27.000Z\",\"to\":\"2026-10-06T17:55:30.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-06T17:55:30.000Z\",\"to\":\"2026-10-19T07:12:40.000Z\"}]",
-        "link": null
-       },
-       "annotations": {
-        "bold": false,
-        "italic": false,
-        "strikethrough": false,
-        "underline": false,
-        "code": false,
-        "color": "default"
-       },
-       "plain_text": "[{\"s\":\"New\",\"from\":\"2026-09-25T10:32:00.000Z\",\"to\":\"2026-10-06T08:53:27.000Z\"},{\"s\":\"Ready For Dev\",\"from\":\"2026-10-06T08:53:27.000Z\",\"to\":\"2026-10-06T17:55:30.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-06T17:55:30.000Z\",\"to\":\"2026-10-19T07:12:40.000Z\"}]",
-       "href": null
-      }
-     ]
+     "rich_text": []
     },
     "Analysis/Design": {
      "id": "%5B%3A%3Em",
@@ -211,7 +175,7 @@
      "type": "formula",
      "formula": {
       "type": "number",
-      "number": 23.9
+      "number": 0
      }
     },
     "Merged": {
@@ -239,7 +203,7 @@
      "type": "unique_id",
      "unique_id": {
       "prefix": "LS",
-      "number": 1478
+      "number": 1674
      }
     },
     "ID": {
@@ -252,7 +216,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "TASK",
-         "number": 6835
+         "number": 7007
         }
        }
       ],
@@ -271,7 +235,7 @@
          {
           "type": "text",
           "text": {
-           "content": "ТЗ ОК прохождение опроса клиентом",
+           "content": "Сумма часов и дней должна считаться из отработанного количества дней включая текущий",
            "link": null
           },
           "annotations": {
@@ -282,7 +246,7 @@
            "code": false,
            "color": "default"
           },
-          "plain_text": "ТЗ ОК прохождение опроса клиентом",
+          "plain_text": "Сумма часов и дней должна считаться из отработанного количества дней включая текущий",
           "href": null
          }
         ]
@@ -294,7 +258,7 @@
     "Development": {
      "id": "t%3Ctf",
      "type": "number",
-     "number": 12.554166666666667
+     "number": 0
     },
     "DEV": {
      "id": "up_%5E",
@@ -305,9 +269,9 @@
        {
         "type": "select",
         "select": {
-         "id": "58c08424-416c-4bc1-a369-c4da3495ccee",
-         "name": "Oleg Valahanovich",
-         "color": "yellow"
+         "id": "64f1e52c-a492-42fa-bf64-79b16bbc73bb",
+         "name": "Dmitry Larionov",
+         "color": "gray"
         }
        }
       ],
@@ -317,7 +281,7 @@
     "New": {
      "id": "vxtn",
      "type": "number",
-     "number": 10.93125
+     "number": 0
     },
     "Testing": {
      "id": "zSDh",
@@ -331,7 +295,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Sprit №705(36124497983) 25.09.2026 13:32:44",
+        "content": "Sprint: Сумма часов и дней должна считаться из отработанного количества дней включая текущий [3fee17b6-8482-80d4-a2b1-da1d083da9c6]",
         "link": null
        },
        "annotations": {
@@ -342,39 +306,39 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Sprit №705(36124497983) 25.09.2026 13:32:44",
+       "plain_text": "Sprint: Сумма часов и дней должна считаться из отработанного количества дней включая текущий [3fee17b6-8482-80d4-a2b1-da1d083da9c6]",
        "href": null
       }
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprit-705-36124497983-25-09-2026-13-32-44-3e6e17b6848281a28a5ee24006a84441",
+   "url": "https://app.notion.com/p/Sprint-3fee17-3fee17b6848281379ed6d60b1b186806",
    "public_url": null
   },
-  1609
+  1615
  ],
- "last_title": "Sprint №5257(39251498199) 19.10.2026 15:23:24",
- "last_at": "2026-10-19T15:23:24.567257+03:00",
+ "last_title": "Sprint №5258(39252144977) 19.10.2026 15:27:47",
+ "last_at": "2026-10-19T15:27:47.035362+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 1614,
- "last_duration_s": 10.8,
+ "last_duration_s": 10.4,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-19T12:23:12Z",
+ "snapshot_generated_at": "2026-10-19T12:27:36Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 1389,
- "runs_ok": 1379,
+ "runs_total": 1390,
+ "runs_ok": 1380,
  "runs_error": 0,
  "created_total": 23,
- "updated_total": 10,
- "skipped_total": 2234172,
+ "updated_total": 11,
+ "skipped_total": 2235786,
  "failed_total": 0,
- "last_ok_at": "2026-10-19T12:23:35.000Z"
+ "last_ok_at": "2026-10-19T12:27:57.000Z"
 }
