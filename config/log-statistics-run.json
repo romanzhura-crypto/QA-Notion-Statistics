@@ -1,28 +1,368 @@
 {
- "last_run": 5594,
- "last_job": "39459017316",
- "last_title": "Sprint №5594(39459017316) 20.10.2026 19:37:49",
- "last_at": "2026-10-20T19:37:49.761247+03:00",
+ "last_run": 5595,
+ "last_job": [
+  {
+   "id": "3ffe17b6-8482-80ec-a5b5-ebabc4cd6a7c",
+   "tid": "TASK-7016",
+   "u": "https://app.notion.com/p/3ffe17b6848280eca5b5ebabc4cd6a7c",
+   "r": [],
+   "p": "auto",
+   "d": "Степович Павел",
+   "s": "Done",
+   "e": null,
+   "t": 0.0,
+   "n": "данными из файла заполнить  поле “импортер” в карточках автомобилей",
+   "n_full": "данными из файла заполнить  поле “импортер” в карточках автомобилей",
+   "start": "2026-10-20T13:50:00.000+03:00",
+   "created": "2026-10-20T10:50:00.000Z",
+   "edited": "2026-10-20T16:42:00.000Z",
+   "history": [
+    {
+     "s": "Ready For Dev",
+     "days": 0.19305555555555556,
+     "from": "2026-10-20T11:02:00.000Z",
+     "to": "2026-10-20T15:39:33.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 0.044444444444444446,
+     "from": "2026-10-20T15:39:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3ffe17b6-8482-8147-9b83-e6b8d0e07a0f",
+  {
+   "object": "page",
+   "id": "3ffe17b6-8482-8147-9b83-e6b8d0e07a0f",
+   "created_time": "2026-10-20T11:03:00.000Z",
+   "last_edited_time": "2026-10-20T15:40:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0.19305555555555556
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3ffe17b6-8482-80ec-a5b5-ebabc4cd6a7c"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "76613324-dc69-4e77-967f-06a86c58b1ff",
+         "name": "Done",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Development",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Development",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-20T15:39:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-10-20T11:02:00.000Z\",\"to\":\"2026-10-20T15:39:33.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-10-20T11:02:00.000Z\",\"to\":\"2026-10-20T15:39:33.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 0.2
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 1684
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 7016
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "данными из файла заполнить  поле “импортер” в карточках автомобилей",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "данными из файла заполнить  поле “импортер” в карточках автомобилей",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "600caf12-c855-4aeb-87a1-8c5fde354970",
+         "name": "Степович Павел",
+         "color": "default"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: данными из файла заполнить  поле “импортер” в карточках автомобилей [3ffe17b6-8482-80ec-a5b5-ebabc4cd6a7c]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: данными из файла заполнить  поле “импортер” в карточках автомобилей [3ffe17b6-8482-80ec-a5b5-ebabc4cd6a7c]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-3ffe17b6-8482-80ec-a5b5-3ffe17b6848281479b83e6b8d0e07a0f",
+   "public_url": null
+  },
+  1630
+ ],
+ "last_title": "Sprint №5595(39459739843) 20.10.2026 19:42:50",
+ "last_at": "2026-10-20T19:42:50.474389+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 1630,
- "last_duration_s": 9.3,
+ "last_skipped": 1629,
+ "last_duration_s": 11.0,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-20T16:37:36Z",
+ "snapshot_generated_at": "2026-10-20T16:42:37Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 1695,
- "runs_ok": 1678,
+ "runs_total": 1696,
+ "runs_ok": 1679,
  "runs_error": 0,
  "created_total": 38,
- "updated_total": 15,
- "skipped_total": 2730027,
+ "updated_total": 16,
+ "skipped_total": 2731656,
  "failed_total": 0,
- "last_ok_at": "2026-10-20T16:37:59.000Z"
+ "last_ok_at": "2026-10-20T16:43:01.000Z"
 }
