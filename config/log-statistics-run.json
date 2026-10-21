@@ -1,28 +1,380 @@
 {
- "last_run": 5776,
- "last_job": "39565711326",
- "last_title": "Sprint №5776(39565711326) 21.10.2026 10:58:32",
- "last_at": "2026-10-21T10:58:32.718954+03:00",
+ "last_run": 5777,
+ "last_job": [
+  {
+   "id": "3f1e17b6-8482-80fe-b202-ca1420a6b923",
+   "tid": "TASK-6920",
+   "u": "https://app.notion.com/p/3f1e17b6848280feb202ca1420a6b923",
+   "r": [],
+   "p": "autoservice",
+   "d": "Vasil Shakavets",
+   "s": "Done",
+   "e": 4.0,
+   "t": 0.0,
+   "n": "Расхождение счета из калькуляции и счета из заказ-наряда",
+   "n_full": "Расхождение счета из калькуляции и счета из заказ-наряда",
+   "start": "2026-10-06T14:38:00.000+03:00",
+   "created": "2026-10-06T11:38:00.000Z",
+   "edited": "2026-10-21T08:02:00.000Z",
+   "history": [
+    {
+     "s": "New",
+     "days": 0.0006944444444444445,
+     "from": "2026-10-06T11:43:00.000Z",
+     "to": "2026-10-06T11:43:38.000Z"
+    },
+    {
+     "s": "Ready For Dev",
+     "days": 0.049305555555555554,
+     "from": "2026-10-06T11:43:38.000Z",
+     "to": "2026-10-06T12:54:44.000Z"
+    },
+    {
+     "s": "ETA",
+     "days": 9.949305555555556,
+     "from": "2026-10-06T12:54:44.000Z",
+     "to": "2026-10-16T11:41:54.000Z"
+    },
+    {
+     "s": "Ready For Release",
+     "days": 4.848611111111111,
+     "from": "2026-10-16T11:41:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3f1e17b6-8482-81d0-a4ca-e70cc2ee3c47",
+  {
+   "object": "page",
+   "id": "3f1e17b6-8482-81d0-a4ca-e70cc2ee3c47",
+   "created_time": "2026-10-06T11:43:00.000Z",
+   "last_edited_time": "2026-10-16T11:43:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0.05
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3f1e17b6-8482-80fe-b202-ca1420a6b923"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "76613324-dc69-4e77-967f-06a86c58b1ff",
+         "name": "Done",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Ready For Release",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Ready For Release",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-16T11:41:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"New\",\"from\":\"2026-10-06T11:43:00.000Z\",\"to\":\"2026-10-06T11:43:38.000Z\"},{\"s\":\"Ready For Dev\",\"from\":\"2026-10-06T11:43:38.000Z\",\"to\":\"2026-10-06T12:54:44.000Z\"},{\"s\":\"ETA\",\"from\":\"2026-10-06T12:54:44.000Z\",\"to\":\"2026-10-16T11:41:54.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"New\",\"from\":\"2026-10-06T11:43:00.000Z\",\"to\":\"2026-10-06T11:43:38.000Z\"},{\"s\":\"Ready For Dev\",\"from\":\"2026-10-06T11:43:38.000Z\",\"to\":\"2026-10-06T12:54:44.000Z\"},{\"s\":\"ETA\",\"from\":\"2026-10-06T12:54:44.000Z\",\"to\":\"2026-10-16T11:41:54.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 10
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 9.95
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 1587
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 6920
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Расхождение счета из калькуляции и счета из заказ-наряда",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Расхождение счета из калькуляции и счета из заказ-наряда",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "9379d5bd-5894-4301-b053-ff6f24137acd",
+         "name": "Vasil Shakavets",
+         "color": "brown"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0.0006944444444444445
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Расхождение счета из калькуляции и счета из заказ-наряда [3f1e17b6-8482-80fe-b202-ca1420a6b923]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Расхождение счета из калькуляции и счета из заказ-наряда [3f1e17b6-8482-80fe-b202-ca1420a6b923]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-3f1e17b6-8482-80fe-b202-ca1420a6b9-3f1e17b6848281d0a4cae70cc2ee3c47",
+   "public_url": null
+  },
+  1564
+ ],
+ "last_title": "Sprint №5777(39566235760) 21.10.2026 11:02:46",
+ "last_at": "2026-10-21T11:02:46.609014+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 1631,
- "last_duration_s": 8.6,
+ "last_skipped": 1630,
+ "last_duration_s": 11.5,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-21T07:58:20Z",
+ "snapshot_generated_at": "2026-10-21T08:02:34Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 1871,
- "runs_ok": 1853,
+ "runs_total": 1872,
+ "runs_ok": 1854,
  "runs_error": 0,
  "created_total": 39,
- "updated_total": 16,
- "skipped_total": 3016915,
+ "updated_total": 17,
+ "skipped_total": 3018545,
  "failed_total": 0,
- "last_ok_at": "2026-10-21T07:58:41.000Z"
+ "last_ok_at": "2026-10-21T08:02:58.000Z"
 }
