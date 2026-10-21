@@ -1,43 +1,37 @@
 {
- "last_run": 5901,
+ "last_run": 5902,
  "last_job": [
   {
-   "id": "400e17b6-8482-8021-9d14-ffbf83f3ed8a",
-   "tid": "APS-1C-424",
-   "u": "https://app.notion.com/p/Changan-CS35-Max-400e17b6848280219d14ffbf83f3ed8a",
+   "id": "3fee17b6-8482-804b-b810-cb687ef5922d",
+   "tid": "APS-1C-389",
+   "u": "https://app.notion.com/p/APS-3fee17b68482804bb810cb687ef5922d",
    "r": [],
    "p": "1C",
    "d": "Смоляков Павел",
-   "s": "Done",
-   "e": 2.0,
+   "s": "Development",
+   "e": 3.0,
    "t": null,
-   "n": "Автомобили Changan CS35 Max не выгружается на сайт",
-   "n_full": "Автомобили Changan CS35 Max не выгружается на сайт",
-   "start": "2026-10-21T16:09:00.000+03:00",
-   "created": "2026-10-21T13:09:00.000Z",
-   "edited": "2026-10-21T18:25:00.000Z",
+   "n": "Синхронизация изменений между хранилищем и основной базой APS",
+   "n_full": "Синхронизация изменений между хранилищем и основной базой APS",
+   "start": "2026-10-19T16:30:00.000+03:00",
+   "created": "2026-10-19T13:30:00.000Z",
+   "edited": "2026-10-21T18:30:00.000Z",
    "history": [
     {
-     "s": "New",
-     "days": 0.001388888888888889,
-     "from": "2026-10-21T13:13:00.000Z",
-     "to": "2026-10-21T13:15:00.000Z"
-    },
-    {
      "s": "Ready For Dev",
-     "days": 0.21805555555555556,
-     "from": "2026-10-21T13:15:00.000Z",
+     "days": 2.2104166666666667,
+     "from": "2026-10-19T13:30:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "400e17b6-8482-8145-bb53-d0770d4e1c3a",
+  "3fee17b6-8482-81c8-991b-da4af59b06ad",
   {
    "object": "page",
-   "id": "400e17b6-8482-8145-bb53-d0770d4e1c3a",
-   "created_time": "2026-10-21T13:13:00.000Z",
-   "last_edited_time": "2026-10-21T13:19:00.000Z",
+   "id": "3fee17b6-8482-81c8-991b-da4af59b06ad",
+   "created_time": "2026-10-19T13:30:00.000Z",
+   "last_edited_time": "2026-10-19T13:43:00.000Z",
    "created_by": {
     "object": "user",
     "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
@@ -66,8 +60,8 @@
        {
         "type": "status",
         "status": {
-         "id": "76613324-dc69-4e77-967f-06a86c58b1ff",
-         "name": "Done",
+         "id": "6d859979-73bd-4a35-b446-5a362009acdc",
+         "name": "Development",
          "color": "green"
         }
        }
@@ -111,18 +105,18 @@
          {
           "type": "text",
           "text": {
-           "content": "Автомобили Changan CS35 Max не выгружается на сайт",
+           "content": "Синхронизация изменений между хранилищем и основной базой APS",
            "link": null
           },
           "annotations": {
            "bold": false,
-           "italic": true,
+           "italic": false,
            "strikethrough": false,
            "underline": false,
            "code": false,
            "color": "default"
           },
-          "plain_text": "Автомобили Changan CS35 Max не выгружается на сайт",
+          "plain_text": "Синхронизация изменений между хранилищем и основной базой APS",
           "href": null
          }
         ]
@@ -168,7 +162,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-10-21T13:15:00.000+00:00",
+      "start": "2026-10-19T13:30:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -181,25 +175,7 @@
     "Segments": {
      "id": "W%3DMs",
      "type": "rich_text",
-     "rich_text": [
-      {
-       "type": "text",
-       "text": {
-        "content": "[{\"s\":\"New\",\"from\":\"2026-10-21T13:13:00.000Z\",\"to\":\"2026-10-21T13:15:00.000Z\"}]",
-        "link": null
-       },
-       "annotations": {
-        "bold": false,
-        "italic": false,
-        "strikethrough": false,
-        "underline": false,
-        "code": false,
-        "color": "default"
-       },
-       "plain_text": "[{\"s\":\"New\",\"from\":\"2026-10-21T13:13:00.000Z\",\"to\":\"2026-10-21T13:15:00.000Z\"}]",
-       "href": null
-      }
-     ]
+     "rich_text": []
     },
     "ID": {
      "id": "WzeW",
@@ -211,7 +187,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "APS-1C",
-         "number": 424
+         "number": 389
         }
        }
       ],
@@ -256,7 +232,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "400e17b6-8482-8021-9d14-ffbf83f3ed8a"
+       "id": "3fee17b6-8482-804b-b810-cb687ef5922d"
       }
      ],
      "has_more": false
@@ -294,7 +270,7 @@
      "type": "unique_id",
      "unique_id": {
       "prefix": null,
-      "number": 317
+      "number": 290
      }
     },
     "Development": {
@@ -305,7 +281,7 @@
     "New": {
      "id": "vxtn",
      "type": "number",
-     "number": 0.001388888888888889
+     "number": 0
     },
     "Testing": {
      "id": "zSDh",
@@ -319,7 +295,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Sprint: Автомобили Changan CS35 Max не выгружается на сайт [400e17b6-8482-8021-9d14-ffbf83f3ed8a]",
+        "content": "Sprint: Синхронизация изменений ра [3fee17b6-8482-804b-b810-cb687ef5922d]",
         "link": null
        },
        "annotations": {
@@ -330,39 +306,39 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Sprint: Автомобили Changan CS35 Max не выгружается на сайт [400e17b6-8482-8021-9d14-ffbf83f3ed8a]",
+       "plain_text": "Sprint: Синхронизация изменений ра [3fee17b6-8482-804b-b810-cb687ef5922d]",
        "href": null
       }
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprint-Changan-CS35-Max-400e17b6-8482-8021-9d14-ffbf83f3ed8a-400e17b684828145bb53d0770d4e1c3a",
+   "url": "https://app.notion.com/p/Sprint-3fee17b6-8482-804b-b810-cb687ef5922d-3fee17b6848281c8991bda4af59b06ad",
    "public_url": null
   },
   314
  ],
- "last_title": "Sprint №5901(39652926947) 21.10.2026 21:29:18",
- "last_at": "2026-10-21T21:29:18.260211+03:00",
+ "last_title": "Sprint №5902(39653577579) 21.10.2026 21:33:25",
+ "last_at": "2026-10-21T21:33:25.664165+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 313,
- "last_duration_s": 3.8,
+ "last_duration_s": 4.8,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-21T18:29:15Z",
+ "snapshot_generated_at": "2026-10-21T18:33:23Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 1969,
- "runs_ok": 1945,
+ "runs_total": 1970,
+ "runs_ok": 1946,
  "runs_error": 0,
  "created_total": 39,
- "updated_total": 32,
- "skipped_total": 566837,
+ "updated_total": 33,
+ "skipped_total": 567150,
  "failed_total": 0,
- "last_ok_at": "2026-10-21T18:29:22.000Z"
+ "last_ok_at": "2026-10-21T18:33:30.000Z"
 }
