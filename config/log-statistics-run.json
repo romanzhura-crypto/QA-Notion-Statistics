@@ -1,41 +1,100 @@
 {
- "last_run": 6075,
+ "last_run": 6076,
  "last_job": [
   {
-   "id": "3c3e17b6-8482-8092-b5e3-fa8dc9d5d840",
-   "tid": "TASK-6594",
-   "u": "https://app.notion.com/p/3c3e17b684828092b5e3fa8dc9d5d840",
-   "r": [],
-   "p": "sales-backend",
-   "d": "Illia matsiushkou",
-   "s": "Testing",
+   "id": "3e5e17b6-8482-80fc-81a3-ddb04b639d6f",
+   "tid": "TASK-6825",
+   "u": "https://app.notion.com/p/3e5e17b6848280fc81a3ddb04b639d6f",
+   "r": [
+    "39.2026",
+    "40.2026"
+   ],
+   "p": "storages",
+   "d": "Шабунин Игорь",
+   "s": "Ready For QA",
    "e": null,
-   "t": 12.0,
-   "n": "Карточка КП: доработки по разделу “финансирование”",
-   "n_full": "Карточка КП: доработки по разделу “финансирование”",
-   "start": "2026-08-21T16:04:00.000+03:00",
-   "created": "2026-08-21T13:04:00.000Z",
-   "edited": "2026-10-22T08:46:00.000Z",
+   "t": 41.0,
+   "n": "Отгрузка автомобилей для конечной реализации",
+   "n_full": "Отгрузка автомобилей для конечной реализации",
+   "start": "2026-09-24T16:30:00.000+03:00",
+   "created": "2026-09-24T13:30:00.000Z",
+   "edited": "2026-10-22T08:52:00.000Z",
    "history": [
     {
-     "s": "Failed",
-     "days": 4.8
+     "s": "Ready For Dev",
+     "days": 3.7944444444444443,
+     "from": "2026-09-24T14:32:00.000Z",
+     "to": "2026-09-28T09:36:23.000Z"
     },
     {
      "s": "Development",
-     "days": 28.885416666666668,
-     "from": "2026-09-23T11:33:00.000Z",
+     "days": 4.1097222222222225,
+     "from": "2026-09-28T09:36:23.000Z",
+     "to": "2026-10-02T12:14:11.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 3.8513888888888888,
+     "from": "2026-10-02T12:14:11.000Z",
+     "to": "2026-10-06T08:40:22.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 1.9534722222222223,
+     "from": "2026-10-06T08:40:22.000Z",
+     "to": "2026-10-08T07:33:19.000Z"
+    },
+    {
+     "s": "Ready For Release",
+     "days": 0.2986111111111111,
+     "from": "2026-10-08T07:33:19.000Z",
+     "to": "2026-10-08T14:43:41.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 1.0152777777777777,
+     "from": "2026-10-08T14:43:00.000Z",
+     "to": "2026-10-09T15:04:41.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 10.747916666666667,
+     "from": "2026-10-09T15:04:41.000Z",
+     "to": "2026-10-20T09:01:49.000Z"
+    },
+    {
+     "s": "Failed",
+     "days": 1.0340277777777778,
+     "from": "2026-10-20T09:01:49.000Z",
+     "to": "2026-10-21T09:51:07.000Z"
+    },
+    {
+     "s": "New",
+     "days": 0.041666666666666664
+    },
+    {
+     "s": "Ready For Dev",
+     "days": 3.079861111111111
+    },
+    {
+     "s": "Ready For QA",
+     "days": 1.0145833333333334
+    },
+    {
+     "s": "Development",
+     "days": 0.9597222222222223,
+     "from": "2026-10-21T09:51:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "3dee17b6-8482-81e6-afd4-db4cd1806aa7",
+  "3e5e17b6-8482-81cb-a18a-ed26f88ea8f4",
   {
    "object": "page",
-   "id": "3dee17b6-8482-81e6-afd4-db4cd1806aa7",
-   "created_time": "2026-09-17T11:10:00.000Z",
-   "last_edited_time": "2026-09-23T12:01:00.000Z",
+   "id": "3e5e17b6-8482-81cb-a18a-ed26f88ea8f4",
+   "created_time": "2026-09-24T13:32:00.000Z",
+   "last_edited_time": "2026-10-21T09:52:00.000Z",
    "created_by": {
     "object": "user",
     "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
@@ -63,7 +122,7 @@
     "Ready For Dev": {
      "id": "%40MjZ",
      "type": "number",
-     "number": 0
+     "number": 6.874305555555556
     },
     "Code Review": {
      "id": "L%5DLc",
@@ -75,7 +134,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "3c3e17b6-8482-8092-b5e3-fa8dc9d5d840"
+       "id": "3e5e17b6-8482-80fc-81a3-ddb04b639d6f"
       }
      ],
      "has_more": false
@@ -89,9 +148,9 @@
        {
         "type": "status",
         "status": {
-         "id": "ICib",
-         "name": "Testing",
-         "color": "pink"
+         "id": "dd6aa78c-28cc-4fe4-877b-bf22a1e1aac1",
+         "name": "Ready For QA",
+         "color": "purple"
         }
        }
       ],
@@ -130,7 +189,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-09-23T11:33:00.000+00:00",
+      "start": "2026-10-21T09:51:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -143,7 +202,18 @@
       "array": [
        {
         "type": "multi_select",
-        "multi_select": []
+        "multi_select": [
+         {
+          "id": "36967cb3-3cb1-4671-a4cd-66e82da4123d",
+          "name": "39.2026",
+          "color": "orange"
+         },
+         {
+          "id": "ca05ad72-fbce-4575-965e-2825433bf65d",
+          "name": "40.2026",
+          "color": "gray"
+         }
+        ]
        }
       ],
       "function": "show_original"
@@ -152,12 +222,30 @@
     "Ready For QA": {
      "id": "SY%3D%5C",
      "type": "number",
-     "number": 0
+     "number": 5.88125
     },
     "Segments": {
      "id": "W%3DMs",
      "type": "rich_text",
-     "rich_text": []
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-09-24T14:32:00.000Z\",\"to\":\"2026-09-28T09:36:23.000Z\"},{\"s\":\"Development\",\"from\":\"2026-09-28T09:36:23.000Z\",\"to\":\"2026-10-02T12:14:11.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-02T12:14:11.000Z\",\"to\":\"2026-10-06T08:40:22.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-06T08:40:22.000Z\",\"to\":\"2026-10-08T07:33:19.000Z\"},{\"s\":\"Ready For Release\",\"from\":\"2026-10-08T07:33:19.000Z\",\"to\":\"2026-10-08T14:43:41.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-08T14:43:00.000Z\",\"to\":\"2026-10-09T15:04:41.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-09T15:04:41.000Z\",\"to\":\"2026-10-20T09:01:49.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-10-20T09:01:49.000Z\",\"to\":\"2026-10-21T09:51:07.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-09-24T14:32:00.000Z\",\"to\":\"2026-09-28T09:36:23.000Z\"},{\"s\":\"Development\",\"from\":\"2026-09-28T09:36:23.000Z\",\"to\":\"2026-10-02T12:14:11.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-02T12:14:11.000Z\",\"to\":\"2026-10-06T08:40:22.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-06T08:40:22.000Z\",\"to\":\"2026-10-08T07:33:19.000Z\"},{\"s\":\"Ready For Release\",\"from\":\"2026-10-08T07:33:19.000Z\",\"to\":\"2026-10-08T14:43:41.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-08T14:43:00.000Z\",\"to\":\"2026-10-09T15:04:41.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-09T15:04:41.000Z\",\"to\":\"2026-10-20T09:01:49.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-10-20T09:01:49.000Z\",\"to\":\"2026-10-21T09:51:07.000Z\"}]",
+       "href": null
+      }
+     ]
     },
     "Analysis/Design": {
      "id": "%5B%3A%3Em",
@@ -167,7 +255,7 @@
     "Ready For Release": {
      "id": "%5CpS_",
      "type": "number",
-     "number": 0
+     "number": 0.29930555555555555
     },
     "Done at": {
      "id": "%5C%7BQZ",
@@ -179,7 +267,7 @@
      "type": "formula",
      "formula": {
       "type": "number",
-      "number": 4.8
+      "number": 30.9
      }
     },
     "Merged": {
@@ -200,14 +288,14 @@
     "Failed": {
      "id": "liiX",
      "type": "number",
-     "number": 4.8
+     "number": 1.0347222222222223
     },
     "ID 1": {
      "id": "rf%60%40",
      "type": "unique_id",
      "unique_id": {
       "prefix": "LS",
-      "number": 163
+      "number": 1466
      }
     },
     "ID": {
@@ -220,7 +308,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "TASK",
-         "number": 6594
+         "number": 6825
         }
        }
       ],
@@ -239,7 +327,7 @@
          {
           "type": "text",
           "text": {
-           "content": "Карточка КП: доработки по разделу “финансирование”",
+           "content": "Отгрузка автомобилей для конечной реализации",
            "link": null
           },
           "annotations": {
@@ -250,7 +338,7 @@
            "code": false,
            "color": "default"
           },
-          "plain_text": "Карточка КП: доработки по разделу “финансирование”",
+          "plain_text": "Отгрузка автомобилей для конечной реализации",
           "href": null
          }
         ]
@@ -262,7 +350,7 @@
     "Development": {
      "id": "t%3Ctf",
      "type": "number",
-     "number": 0
+     "number": 4.1097222222222225
     },
     "DEV": {
      "id": "up_%5E",
@@ -273,9 +361,9 @@
        {
         "type": "select",
         "select": {
-         "id": "93ad4a73-8c10-4d64-aa80-bfdffbe81969",
-         "name": "Illia matsiushkou",
-         "color": "default"
+         "id": "f861b132-c0b7-41f2-a030-118b3b990b73",
+         "name": "Шабунин Игорь",
+         "color": "pink"
         }
        }
       ],
@@ -285,12 +373,12 @@
     "New": {
      "id": "vxtn",
      "type": "number",
-     "number": 0
+     "number": 0.041666666666666664
     },
     "Testing": {
      "id": "zSDh",
      "type": "number",
-     "number": 0
+     "number": 12.702083333333333
     },
     "Name": {
      "id": "title",
@@ -299,7 +387,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Sprit №132(35324682107) 18.09.2026 11:30:46",
+        "content": "Sprit №572(36006308782) 24.09.2026 16:32:43",
         "link": null
        },
        "annotations": {
@@ -310,39 +398,39 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Sprit №132(35324682107) 18.09.2026 11:30:46",
+       "plain_text": "Sprit №572(36006308782) 24.09.2026 16:32:43",
        "href": null
       }
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprit-132-35324682107-18-09-2026-11-30-46-3dee17b6848281e6afd4db4cd1806aa7",
+   "url": "https://app.notion.com/p/Sprit-572-36006308782-24-09-2026-16-32-43-3e5e17b6848281cba18aed26f88ea8f4",
    "public_url": null
   },
-  1646
+  1599
  ],
- "last_title": "Sprint №6075(39750333859) 22.10.2026 11:47:44",
- "last_at": "2026-10-22T11:47:44.869738+03:00",
+ "last_title": "Sprint №6076(39750977821) 22.10.2026 11:52:49",
+ "last_at": "2026-10-22T11:52:49.361087+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 1645,
- "last_duration_s": 9.0,
+ "last_duration_s": 9.5,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 1,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-22T08:47:33Z",
+ "snapshot_generated_at": "2026-10-22T08:52:38Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 2140,
- "runs_ok": 2117,
+ "runs_total": 2141,
+ "runs_ok": 2118,
  "runs_error": 0,
  "created_total": 54,
- "updated_total": 20,
- "skipped_total": 3458722,
+ "updated_total": 21,
+ "skipped_total": 3460367,
  "failed_total": 0,
- "last_ok_at": "2026-10-22T08:47:53.000Z"
+ "last_ok_at": "2026-10-22T08:52:58.000Z"
 }
