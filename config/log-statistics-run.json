@@ -1,28 +1,340 @@
 {
- "last_run": 6360,
- "last_job": "39924715693",
- "last_title": "Sprint №6360(39924715693) 23.10.2026 11:27:44",
- "last_at": "2026-10-23T11:27:44.775269+03:00",
+ "last_run": 6361,
+ "last_job": [
+  {
+   "id": "402e17b6-8482-81ef-a983-c426c6d2e2d9",
+   "tid": "TASK-7048",
+   "u": "https://app.notion.com/p/402e17b6848281efa983c426c6d2e2d9",
+   "r": [],
+   "p": "autoservice",
+   "d": "Unassigned",
+   "s": "Ready For Dev",
+   "e": null,
+   "t": 0.0,
+   "n": "Неправильная итоговая стоимость комплектации",
+   "n_full": "Неправильная итоговая стоимость комплектации",
+   "start": "2026-10-23",
+   "created": "2026-10-23T07:24:00.000Z",
+   "edited": "2026-10-23T08:32:00.000Z",
+   "history": [
+    {
+     "s": "New",
+     "days": 0.04236111111111111,
+     "from": "2026-10-23T07:32:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "402e17b6-8482-811a-834b-fbd7e4d36916",
+  {
+   "object": "page",
+   "id": "402e17b6-8482-811a-834b-fbd7e4d36916",
+   "created_time": "2026-10-23T07:32:00.000Z",
+   "last_edited_time": "2026-10-23T07:32:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "402e17b6-8482-81ef-a983-c426c6d2e2d9"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "nyv~",
+         "name": "Ready For Dev",
+         "color": "blue"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "New",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "New",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-23T07:32:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": []
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 0
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 1713
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 7048
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Неправильная итоговая стоимость комплектации",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Неправильная итоговая стоимость комплектации",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": null
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Неправильная итоговая стоимость комплектации [402e17b6-8482-81ef-a983-c426c6d2e2d9]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Неправильная итоговая стоимость комплектации [402e17b6-8482-81ef-a983-c426c6d2e2d9]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-402e17b6-8482-81ef-a983-c426c6d2e2d9-402e17b68482811a834bfbd7e4d36916",
+   "public_url": null
+  },
+  1655
+ ],
+ "last_title": "Sprint №6361(39925317828) 23.10.2026 11:33:22",
+ "last_at": "2026-10-23T11:33:22.961953+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 1655,
- "last_duration_s": 8.0,
+ "last_skipped": 1654,
+ "last_duration_s": 9.0,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
- "a19_conflicts": 0,
+ "a19_conflicts": 1,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-23T08:27:35Z",
+ "snapshot_generated_at": "2026-10-23T08:33:12Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 2390,
- "runs_ok": 2364,
+ "runs_total": 2391,
+ "runs_ok": 2365,
  "runs_error": 0,
  "created_total": 63,
- "updated_total": 24,
- "skipped_total": 3871057,
+ "updated_total": 25,
+ "skipped_total": 3872711,
  "failed_total": 0,
- "last_ok_at": "2026-10-23T08:27:52.000Z"
+ "last_ok_at": "2026-10-23T08:33:31.000Z"
 }
