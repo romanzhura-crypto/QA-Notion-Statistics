@@ -1,28 +1,368 @@
 {
- "last_run": 6375,
- "last_job": "39933756011",
- "last_title": "Sprint №6375(39933756011) 23.10.2026 12:43:08",
- "last_at": "2026-10-23T12:43:08.183543+03:00",
+ "last_run": 6377,
+ "last_job": [
+  {
+   "id": "401e17b6-8482-804d-b0a2-ec726181c395",
+   "tid": "APS-1C-427",
+   "u": "https://app.notion.com/p/401e17b68482804db0a2ec726181c395",
+   "r": [],
+   "p": "1C",
+   "d": "Смоляков Павел",
+   "s": "Development",
+   "e": null,
+   "t": null,
+   "n": "В блоке “История” не выводится “Себес. прихода с НДС” для отдельных автомобилей",
+   "n_full": "В блоке “История” не выводится “Себес. прихода с НДС” для отдельных автомобилей",
+   "start": "2026-10-22T14:33:00.000+03:00",
+   "created": "2026-10-22T11:33:00.000Z",
+   "edited": "2026-10-23T09:45:00.000Z",
+   "history": [
+    {
+     "s": "New",
+     "days": 0.003472222222222222,
+     "from": "2026-10-22T11:33:00.000Z",
+     "to": "2026-10-22T11:38:00.000Z"
+    },
+    {
+     "s": "Analysis/Design",
+     "days": 0.9236111111111112,
+     "from": "2026-10-22T11:38:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "401e17b6-8482-8106-8340-e68ccc31cc71",
+  {
+   "object": "page",
+   "id": "401e17b6-8482-8106-8340-e68ccc31cc71",
+   "created_time": "2026-10-22T11:33:00.000Z",
+   "last_edited_time": "2026-10-22T11:38:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "c98e17b6-8482-820e-9f34-072fdef5db94",
+    "database_id": "3f4e17b6-8482-800b-8a23-d01f8c3aa6b9"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Current Status": {
+     "id": "%3AD%3AE",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "6d859979-73bd-4a35-b446-5a362009acdc",
+         "name": "Development",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Release": {
+     "id": "BUfx",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "C%5B%3AS",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "В блоке “История” не выводится “Себес. прихода с НДС” для отдельных автомобилей",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": true,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "В блоке “История” не выводится “Себес. прихода с НДС” для отдельных автомобилей",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Analysis/Design",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Analysis/Design",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-22T11:38:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"New\",\"from\":\"2026-10-22T11:33:00.000Z\",\"to\":\"2026-10-22T11:38:00.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"New\",\"from\":\"2026-10-22T11:33:00.000Z\",\"to\":\"2026-10-22T11:38:00.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "ID": {
+     "id": "WzeW",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "APS-1C",
+         "number": 427
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 0
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "g%5Crq",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "401e17b6-8482-804d-b0a2-ec726181c395"
+      }
+     ],
+     "has_more": false
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "oDjM",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "d1bd362b-48fc-414c-9593-8279ee28aaa4",
+         "name": "Смоляков Павел",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": null,
+      "number": 320
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0.003472222222222222
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: — [401e17b6-8482-804d-b0a2-ec726181c395]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: — [401e17b6-8482-804d-b0a2-ec726181c395]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-401e17b6-8482-804d-b0a2-ec726181c395-401e17b6848281068340e68ccc31cc71",
+   "public_url": null
+  },
+  316
+ ],
+ "last_title": "Sprint №6377(39934367517) 23.10.2026 12:48:12",
+ "last_at": "2026-10-23T12:48:12.365024+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 316,
- "last_duration_s": 2.1,
+ "last_skipped": 315,
+ "last_duration_s": 2.9,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-23T09:43:06Z",
+ "snapshot_generated_at": "2026-10-23T09:48:10Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 2402,
- "runs_ok": 2373,
+ "runs_total": 2403,
+ "runs_ok": 2374,
  "runs_error": 0,
  "created_total": 42,
- "updated_total": 35,
- "skipped_total": 703451,
+ "updated_total": 36,
+ "skipped_total": 703766,
  "failed_total": 0,
- "last_ok_at": "2026-10-23T09:43:10.000Z"
+ "last_ok_at": "2026-10-23T09:48:15.000Z"
 }
