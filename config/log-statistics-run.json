@@ -1,28 +1,442 @@
 {
- "last_run": 7519,
- "last_job": "40473575250",
- "last_title": "Sprint №7519(40473575250) 27.10.2026 11:27:44",
- "last_at": "2026-10-27T11:27:44.596448+03:00",
+ "last_run": 7520,
+ "last_job": [
+  {
+   "id": "3e5e17b6-8482-80fc-81a3-ddb04b639d6f",
+   "tid": "TASK-6825",
+   "u": "https://app.notion.com/p/3e5e17b6848280fc81a3ddb04b639d6f",
+   "r": [
+    "39.2026",
+    "40.2026"
+   ],
+   "p": "storages",
+   "d": "Шабунин Игорь",
+   "s": "Failed",
+   "e": null,
+   "t": 41.0,
+   "n": "Отгрузка автомобилей для конечной реализации",
+   "n_full": "Отгрузка автомобилей для конечной реализации",
+   "start": "2026-09-24T16:30:00.000+03:00",
+   "created": "2026-09-24T13:30:00.000Z",
+   "edited": "2026-10-27T08:32:00.000Z",
+   "history": [
+    {
+     "s": "Ready For Dev",
+     "days": 3.7944444444444443,
+     "from": "2026-09-24T14:32:00.000Z",
+     "to": "2026-09-28T09:36:23.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 4.1097222222222225,
+     "from": "2026-09-28T09:36:23.000Z",
+     "to": "2026-10-02T12:14:11.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 3.8513888888888888,
+     "from": "2026-10-02T12:14:11.000Z",
+     "to": "2026-10-06T08:40:22.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 1.9534722222222223,
+     "from": "2026-10-06T08:40:22.000Z",
+     "to": "2026-10-08T07:33:19.000Z"
+    },
+    {
+     "s": "Ready For Release",
+     "days": 0.2986111111111111,
+     "from": "2026-10-08T07:33:19.000Z",
+     "to": "2026-10-08T14:43:41.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 1.0152777777777777,
+     "from": "2026-10-08T14:43:00.000Z",
+     "to": "2026-10-09T15:04:41.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 10.747916666666667,
+     "from": "2026-10-09T15:04:41.000Z",
+     "to": "2026-10-20T09:01:49.000Z"
+    },
+    {
+     "s": "Failed",
+     "days": 1.0340277777777778,
+     "from": "2026-10-20T09:01:49.000Z",
+     "to": "2026-10-21T09:51:07.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 0.9590277777777778,
+     "from": "2026-10-21T09:51:07.000Z",
+     "to": "2026-10-22T08:52:32.000Z"
+    },
+    {
+     "s": "New",
+     "days": 0.041666666666666664
+    },
+    {
+     "s": "Ready For Dev",
+     "days": 3.079861111111111
+    },
+    {
+     "s": "Ready For QA",
+     "days": 1.0145833333333334
+    },
+    {
+     "s": "Ready For QA",
+     "days": 4.986805555555556,
+     "from": "2026-10-22T08:52:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3e5e17b6-8482-81cb-a18a-ed26f88ea8f4",
+  {
+   "object": "page",
+   "id": "3e5e17b6-8482-81cb-a18a-ed26f88ea8f4",
+   "created_time": "2026-09-24T13:32:00.000Z",
+   "last_edited_time": "2026-10-22T08:52:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 6.874305555555556
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3e5e17b6-8482-80fc-81a3-ddb04b639d6f"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "?HwI",
+         "name": "Failed",
+         "color": "red"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Ready For QA",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Ready For QA",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-22T08:52:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": [
+         {
+          "id": "36967cb3-3cb1-4671-a4cd-66e82da4123d",
+          "name": "39.2026",
+          "color": "orange"
+         },
+         {
+          "id": "ca05ad72-fbce-4575-965e-2825433bf65d",
+          "name": "40.2026",
+          "color": "gray"
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 5.88125
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-09-24T14:32:00.000Z\",\"to\":\"2026-09-28T09:36:23.000Z\"},{\"s\":\"Development\",\"from\":\"2026-09-28T09:36:23.000Z\",\"to\":\"2026-10-02T12:14:11.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-02T12:14:11.000Z\",\"to\":\"2026-10-06T08:40:22.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-06T08:40:22.000Z\",\"to\":\"2026-10-08T07:33:19.000Z\"},{\"s\":\"Ready For Release\",\"from\":\"2026-10-08T07:33:19.000Z\",\"to\":\"2026-10-08T14:43:41.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-08T14:43:00.000Z\",\"to\":\"2026-10-09T15:04:41.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-09T15:04:41.000Z\",\"to\":\"2026-10-20T09:01:49.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-10-20T09:01:49.000Z\",\"to\":\"2026-10-21T09:51:07.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-21T09:51:07.000Z\",\"to\":\"2026-10-22T08:52:32.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-09-24T14:32:00.000Z\",\"to\":\"2026-09-28T09:36:23.000Z\"},{\"s\":\"Development\",\"from\":\"2026-09-28T09:36:23.000Z\",\"to\":\"2026-10-02T12:14:11.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-02T12:14:11.000Z\",\"to\":\"2026-10-06T08:40:22.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-06T08:40:22.000Z\",\"to\":\"2026-10-08T07:33:19.000Z\"},{\"s\":\"Ready For Release\",\"from\":\"2026-10-08T07:33:19.000Z\",\"to\":\"2026-10-08T14:43:41.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-08T14:43:00.000Z\",\"to\":\"2026-10-09T15:04:41.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-09T15:04:41.000Z\",\"to\":\"2026-10-20T09:01:49.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-10-20T09:01:49.000Z\",\"to\":\"2026-10-21T09:51:07.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-21T09:51:07.000Z\",\"to\":\"2026-10-22T08:52:32.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0.29930555555555555
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 31.9
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 1.0347222222222223
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 1466
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 6825
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Отгрузка автомобилей для конечной реализации",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Отгрузка автомобилей для конечной реализации",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 5.069444444444445
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "f861b132-c0b7-41f2-a030-118b3b990b73",
+         "name": "Шабунин Игорь",
+         "color": "pink"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0.041666666666666664
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 12.702083333333333
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprit №572(36006308782) 24.09.2026 16:32:43",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprit №572(36006308782) 24.09.2026 16:32:43",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprit-572-36006308782-24-09-2026-16-32-43-3e5e17b6848281cba18aed26f88ea8f4",
+   "public_url": null
+  },
+  1670
+ ],
+ "last_title": "Sprint №7520(40474167873) 27.10.2026 11:32:44",
+ "last_at": "2026-10-27T11:32:44.370538+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 1670,
- "last_duration_s": 8.3,
+ "last_skipped": 1669,
+ "last_duration_s": 10.1,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
- "a19_conflicts": 0,
+ "a19_conflicts": 1,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-27T08:27:34Z",
+ "snapshot_generated_at": "2026-10-27T08:32:33Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 3519,
- "runs_ok": 3490,
+ "runs_total": 3520,
+ "runs_ok": 3491,
  "runs_error": 0,
  "created_total": 78,
- "updated_total": 30,
- "skipped_total": 5749970,
+ "updated_total": 31,
+ "skipped_total": 5751639,
  "failed_total": 0,
- "last_ok_at": "2026-10-27T08:27:52.000Z"
+ "last_ok_at": "2026-10-27T08:32:54.000Z"
 }
