@@ -89,8 +89,8 @@ jobs:
     outputs:
       expected_sprint_generated_at: ${{ steps.expected.outputs.sprint_generated_at }}
       expected_sprint_task_count: ${{ steps.expected.outputs.sprint_task_count }}
-      expected_1c_generated_at: ${{ steps.expected.outputs.1c_generated_at }}
-      expected_1c_task_count: ${{ steps.expected.outputs.1c_task_count }}
+      expected_1c_generated_at: ${{ steps.expected.outputs.onec_generated_at }}
+      expected_1c_task_count: ${{ steps.expected.outputs.onec_task_count }}
     environment: github-pages
     # Board #206 (A28): contents:write for run-state-store.py push — the durable
     # run-state branch must receive the collector metrics (runs_*, *_total,
@@ -216,11 +216,11 @@ jobs:
           from pathlib import Path
           out = Path(os.environ['GITHUB_OUTPUT'])
           with out.open('a') as fh:
-              for tag, p in (('sprint', 'frontend/public/release-data.json'),
-                             ('1c', 'frontend/public/1c/release-data.json')):
+              for key, p in (('sprint', 'frontend/public/release-data.json'),
+                             ('onec', 'frontend/public/1c/release-data.json')):
                   d = json.loads(Path(p).read_text())
-                  fh.write(f"{tag}_generated_at={d.get('generated_at')}\n")
-                  fh.write(f"{tag}_task_count={d.get('task_count')}\n")
+                  fh.write(f"{key}_generated_at={d.get('generated_at')}\n")
+                  fh.write(f"{key}_task_count={d.get('task_count')}\n")
           PY
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -311,8 +311,8 @@ jobs:
     outputs:
       expected_sprint_generated_at: ${{ steps.expected.outputs.sprint_generated_at }}
       expected_sprint_task_count: ${{ steps.expected.outputs.sprint_task_count }}
-      expected_1c_generated_at: ${{ steps.expected.outputs.1c_generated_at }}
-      expected_1c_task_count: ${{ steps.expected.outputs.1c_task_count }}
+      expected_1c_generated_at: ${{ steps.expected.outputs.onec_generated_at }}
+      expected_1c_task_count: ${{ steps.expected.outputs.onec_task_count }}
     steps:
       - uses: actions/checkout@v4
       - name: stage committed HTML+JSON
@@ -336,15 +336,15 @@ jobs:
           from pathlib import Path
           out = Path(os.environ['GITHUB_OUTPUT'])
           with out.open('a') as fh:
-              for tag, p in (('sprint', 'frontend/public/release-data.json'),
-                             ('1c', 'frontend/public/1c/release-data.json')):
+              for key, p in (('sprint', 'frontend/public/release-data.json'),
+                             ('onec', 'frontend/public/1c/release-data.json')):
                   if not Path(p).is_file():
-                      fh.write(f"{tag}_generated_at=\n")
-                      fh.write(f"{tag}_task_count=\n")
+                      fh.write(f"{key}_generated_at=\n")
+                      fh.write(f"{key}_task_count=\n")
                       continue
                   d = json.loads(Path(p).read_text())
-                  fh.write(f"{tag}_generated_at={d.get('generated_at')}\n")
-                  fh.write(f"{tag}_task_count={d.get('task_count')}\n")
+                  fh.write(f"{key}_generated_at={d.get('generated_at')}\n")
+                  fh.write(f"{key}_task_count={d.get('task_count')}\n")
           PY
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
