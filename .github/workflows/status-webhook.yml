@@ -159,6 +159,23 @@ jobs:
         run: QA_WWW="" bash backend/publish-release-widgets.sh
       - name: assert no token in JSON
         run: python3 -c "import json,pathlib; p=pathlib.Path('frontend/public/release-data.json'); d=json.loads(p.read_text()); assert 'token' not in d and d.get('ok') is True"
+      # Board #330: read expected live values (generated_at/task_count) from the
+      # staged JSON BEFORE upload — the verify step after the deploy compares
+      # these against the JSON GitHub Pages actually serves.
+      - name: record expected live values (board #330)
+        id: expected
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ['GITHUB_OUTPUT'])
+          with out.open('a') as fh:
+              for tag, p in (('sprint', 'frontend/public/release-data.json'),
+                             ('1c', 'frontend/public/1c/release-data.json')):
+                  d = json.loads(Path(p).read_text())
+                  fh.write(f"{tag}_generated_at={d.get('generated_at')}\n")
+                  fh.write(f"{tag}_task_count={d.get('task_count')}\n")
+          PY
       - name: upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -166,3 +183,64 @@ jobs:
       - name: deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      # Board #330: post-deploy verification of live Pages content. PAGES_VERIFY_FAIL
+      # line format is a contract with external QA monitoring — do not change.
+      - name: verify-pages-live
+        env:
+          EXPECTED_SPRINT_GENERATED_AT: ${{ steps.expected.outputs.sprint_generated_at }}
+          EXPECTED_SPRINT_TASK_COUNT: ${{ steps.expected.outputs.sprint_task_count }}
+          EXPECTED_1C_GENERATED_AT: ${{ steps.expected.outputs.1c_generated_at }}
+          EXPECTED_1C_TASK_COUNT: ${{ steps.expected.outputs.1c_task_count }}
+          VERIFY_CB: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, time, urllib.request
+
+          base = 'https://romanzhura-crypto.github.io/QA-Notion-Statistics'
+          cb = os.environ['VERIFY_CB']
+          targets = [
+              ('sprint', f'{base}/release-data.json?cb={cb}',
+               os.environ['EXPECTED_SPRINT_GENERATED_AT'], os.environ['EXPECTED_SPRINT_TASK_COUNT']),
+              ('1c', f'{base}/1c/release-data.json?cb={cb}',
+               os.environ['EXPECTED_1C_GENERATED_AT'], os.environ['EXPECTED_1C_TASK_COUNT']),
+          ]
+
+          def fetch(url):
+              with urllib.request.urlopen(url, timeout=30) as r:
+                  return json.loads(r.read().decode())
+
+          def fail(live_sprint, expected_sprint, live_1c, expected_1c):
+              # Contract with external QA monitoring — exact line format:
+              print(f'PAGES_VERIFY_FAIL live_sprint={live_sprint} expected_sprint={expected_sprint} '
+                    f'live_1c={live_1c} expected_1c={expected_1c}')
+              sys.exit(1)
+
+          for attempt in range(1, 7):
+              live = {}
+              try:
+                  for tag, url, _, _ in targets:
+                      d = fetch(url)
+                      live[tag] = (str(d.get('generated_at')), str(d.get('task_count')))
+              except Exception as e:
+                  print(f'attempt {attempt}: fetch error: {e}')
+                  if attempt < 6:
+                      time.sleep(30)
+                      continue
+                  fail('fetch-error', targets[0][2], 'fetch-error', targets[1][2])
+
+              ok = True
+              for tag, _, exp_gen, exp_count in targets:
+                  lg, lc = live[tag]
+                  if lg != exp_gen or lc != exp_count:
+                      ok = False
+              if ok:
+                  print(f'PAGES_VERIFY_PASS sprint_generated_at={live["sprint"][0]} '
+                        f'1c_generated_at={live["1c"][0]} task_counts={live["sprint"][1]}/{live["1c"][1]}')
+                  sys.exit(0)
+              print(f'attempt {attempt}: sprint live={live["sprint"]} expected=({targets[0][2]}, {targets[0][3]}) '
+                    f'1c live={live["1c"]} expected=({targets[1][2]}, {targets[1][3]})')
+              if attempt < 6:
+                  time.sleep(30)
+
+          fail(live['sprint'][0], targets[0][2], live['1c'][0], targets[1][2])
+          PY
