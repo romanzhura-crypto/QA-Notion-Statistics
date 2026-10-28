@@ -1,41 +1,47 @@
 {
- "last_run": 7864,
+ "last_run": 7866,
  "last_job": [
   {
-   "id": "3e5e17b6-8482-80fd-a630-c5bce4c8c1e9",
-   "tid": "APS-1C-313",
-   "u": "https://app.notion.com/p/3e5e17b6848280fda630c5bce4c8c1e9",
+   "id": "3cae17b6-8482-805b-b48e-d612f7d2dc51",
+   "tid": "APS-1C-255",
+   "u": "https://app.notion.com/p/3cae17b68482805bb48ed612f7d2dc51",
    "r": [],
    "p": "1C",
    "d": "Чернявский Дмитрий",
    "s": "Done",
-   "e": 8.0,
-   "t": 8.0,
-   "n": "Перенос кнопки “Добавить перечень отсутствующих функций” из комплектации ТС в модель ТС",
-   "n_full": "Перенос кнопки “Добавить перечень отсутствующих функций” из комплектации ТС в модель ТС",
-   "start": "2026-10-22T16:08:00.000+03:00",
-   "created": "2026-09-24T13:08:00.000Z",
-   "edited": "2026-10-28T12:49:00.000Z",
+   "e": 64.0,
+   "t": 64.0,
+   "n": "Формирование актов сверки за период ",
+   "n_full": "Формирование актов сверки за период ",
+   "start": "2026-10-22T15:58:00.000+03:00",
+   "created": "2026-08-28T12:58:00.000Z",
+   "edited": "2026-10-28T12:55:00.000Z",
    "history": [
     {
-     "s": "Testing",
-     "days": 18.611805555555556,
+     "s": "Development",
+     "days": 13.797222222222222,
      "from": "2026-10-09T16:05:00.000Z",
-     "to": "2026-10-28T06:46:00.000Z"
+     "to": "2026-10-23T11:13:00.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 4.813888888888889,
+     "from": "2026-10-23T11:13:00.000Z",
+     "to": "2026-10-28T06:45:00.000Z"
     },
     {
      "s": "Ready For Dev",
-     "days": 0.2520833333333333,
-     "from": "2026-10-28T06:46:00.000Z",
+     "days": 0.2590277777777778,
+     "from": "2026-10-28T06:45:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "3f4e17b6-8482-8105-a11c-e4c9d5b588dd",
+  "3f4e17b6-8482-81e8-b864-c004b0a758f3",
   {
    "object": "page",
-   "id": "3f4e17b6-8482-8105-a11c-e4c9d5b588dd",
+   "id": "3f4e17b6-8482-81e8-b864-c004b0a758f3",
    "created_time": "2026-10-09T16:11:00.000Z",
    "last_edited_time": "2026-10-28T06:48:00.000Z",
    "created_by": {
@@ -111,18 +117,18 @@
          {
           "type": "text",
           "text": {
-           "content": "Перенос кнопки “Добавить перечень отсутствующих функций” из комплектации ТС в модель ТС",
+           "content": "Формирование актов сверки за период ",
            "link": null
           },
           "annotations": {
            "bold": false,
-           "italic": true,
+           "italic": false,
            "strikethrough": false,
            "underline": false,
            "code": false,
            "color": "default"
           },
-          "plain_text": "Перенос кнопки “Добавить перечень отсутствующих функций” из комплектации ТС в модель ТС",
+          "plain_text": "Формирование актов сверки за период ",
           "href": null
          }
         ]
@@ -168,7 +174,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-10-28T06:46:00.000+00:00",
+      "start": "2026-10-28T06:45:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -185,7 +191,7 @@
       {
        "type": "text",
        "text": {
-        "content": "[{\"s\":\"Testing\",\"from\":\"2026-10-09T16:05:00.000Z\",\"to\":\"2026-10-28T06:46:00.000Z\"}]",
+        "content": "[{\"s\":\"Development\",\"from\":\"2026-10-09T16:05:00.000Z\",\"to\":\"2026-10-23T11:13:00.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-23T11:13:00.000Z\",\"to\":\"2026-10-28T06:45:00.000Z\"}]",
         "link": null
        },
        "annotations": {
@@ -196,7 +202,7 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "[{\"s\":\"Testing\",\"from\":\"2026-10-09T16:05:00.000Z\",\"to\":\"2026-10-28T06:46:00.000Z\"}]",
+       "plain_text": "[{\"s\":\"Development\",\"from\":\"2026-10-09T16:05:00.000Z\",\"to\":\"2026-10-23T11:13:00.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-10-23T11:13:00.000Z\",\"to\":\"2026-10-28T06:45:00.000Z\"}]",
        "href": null
       }
      ]
@@ -211,7 +217,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "APS-1C",
-         "number": 313
+         "number": 255
         }
        }
       ],
@@ -256,7 +262,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "3e5e17b6-8482-80fd-a630-c5bce4c8c1e9"
+       "id": "3cae17b6-8482-805b-b48e-d612f7d2dc51"
       }
      ],
      "has_more": false
@@ -294,13 +300,13 @@
      "type": "unique_id",
      "unique_id": {
       "prefix": null,
-      "number": 258
+      "number": 259
      }
     },
     "Development": {
      "id": "t%3Ctf",
      "type": "number",
-     "number": 0
+     "number": 13.797222222222222
     },
     "New": {
      "id": "vxtn",
@@ -310,7 +316,7 @@
     "Testing": {
      "id": "zSDh",
      "type": "number",
-     "number": 18.611805555555556
+     "number": 4.813888888888889
     },
     "Name": {
      "id": "title",
@@ -319,7 +325,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Sprint: Перенос кнопки “Добавить перечень отсутствующих функций” из комплектации ТС в модель ТС [3e5e17b6-8482-80fd-a630-c5bce4c8c1e9]",
+        "content": "Sprint: Формирование актов сверки за период [3cae17b6-8482-805b-b48e-d612f7d2dc51]",
         "link": null
        },
        "annotations": {
@@ -330,39 +336,39 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Sprint: Перенос кнопки “Добавить перечень отсутствующих функций” из комплектации ТС в модель ТС [3e5e17b6-8482-80fd-a630-c5bce4c8c1e9]",
+       "plain_text": "Sprint: Формирование актов сверки за период [3cae17b6-8482-805b-b48e-d612f7d2dc51]",
        "href": null
       }
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprint-3e5-3f4e17b684828105a11ce4c9d5b588dd",
+   "url": "https://app.notion.com/p/Sprint-3cae17b6-8482-805b-b48e-d612f7d2dc51-3f4e17b6848281e8b864c004b0a758f3",
    "public_url": null
   },
   320
  ],
- "last_title": "Sprint №7864(40690682429) 28.10.2026 15:49:08",
- "last_at": "2026-10-28T15:49:08.648981+03:00",
+ "last_title": "Sprint №7866(40692078847) 28.10.2026 15:58:12",
+ "last_at": "2026-10-28T15:58:12.905652+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 319,
- "last_duration_s": 2.8,
+ "last_duration_s": 2.9,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-28T12:49:06Z",
+ "snapshot_generated_at": "2026-10-28T12:58:10Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 3840,
- "runs_ok": 3803,
+ "runs_total": 3841,
+ "runs_ok": 3804,
  "runs_error": 0,
  "created_total": 46,
- "updated_total": 47,
- "skipped_total": 1158240,
+ "updated_total": 48,
+ "skipped_total": 1158559,
  "failed_total": 0,
- "last_ok_at": "2026-10-28T12:49:11.000Z"
+ "last_ok_at": "2026-10-28T12:58:15.000Z"
 }
