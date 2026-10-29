@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Release — Estimate vs Time tracking</title>
-  <meta name="widget-build" content="20261001-period-filter">
+  <meta name="widget-build" content="20261029-toolbar-row">
   <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
   <style>
     :root {
@@ -43,9 +43,9 @@
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) max-content;
-      gap: 8px 16px;
-      align-items: start;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) max-content;
+      gap: 8px 12px;
+      align-items: end;
     }
     .field { min-width: 0; display: flex; flex-direction: column; }
     .field-control { min-height: 36px; display: flex; align-items: stretch; }
@@ -69,7 +69,7 @@
       text-align: start;
       white-space: pre-line;
     }
-    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
     input[type="text"], button, input[type="color"] {
       font: inherit; color: var(--ink); background: var(--subtle);
       border: 1px solid var(--border); border-radius: 6px;
