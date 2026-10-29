@@ -1,28 +1,344 @@
 {
- "last_run": 8117,
- "last_job": "40849718363",
- "last_title": "Sprint №8117(40849718363) 29.10.2026 12:28:56",
- "last_at": "2026-10-29T12:28:56.919770+03:00",
+ "last_run": 8119,
+ "last_job": [
+  {
+   "id": "3fae17b6-8482-801f-ace5-f77e1371ff4c",
+   "tid": "APS-1C-377",
+   "u": "https://app.notion.com/p/1-3fae17b68482801face5f77e1371ff4c",
+   "r": [],
+   "p": "1C",
+   "d": "Наталья NWP",
+   "s": "Done",
+   "e": null,
+   "t": null,
+   "n": "Проверить по какой причине расходятся суммы в реализациях между ВЭБ и 1С",
+   "n_full": "Проверить по какой причине расходятся суммы в реализациях между ВЭБ и 1С",
+   "start": "2026-10-15T11:11:00.000+03:00",
+   "created": "2026-10-15T08:11:00.000Z",
+   "edited": "2026-10-29T09:31:00.000Z",
+   "history": [
+    {
+     "s": "Development",
+     "days": 14.056944444444444,
+     "from": "2026-10-15T08:18:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3fae17b6-8482-8167-b525-e8727572e40d",
+  {
+   "object": "page",
+   "id": "3fae17b6-8482-8167-b525-e8727572e40d",
+   "created_time": "2026-10-15T08:18:00.000Z",
+   "last_edited_time": "2026-10-15T08:18:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "c98e17b6-8482-820e-9f34-072fdef5db94",
+    "database_id": "3f4e17b6-8482-800b-8a23-d01f8c3aa6b9"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Current Status": {
+     "id": "%3AD%3AE",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "76613324-dc69-4e77-967f-06a86c58b1ff",
+         "name": "Done",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Release": {
+     "id": "BUfx",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "C%5B%3AS",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Проверить по какой причине расходятся суммы в реализациях между ВЭБ и 1С",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Проверить по какой причине расходятся суммы в реализациях между ВЭБ и 1С",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Development",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Development",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-15T08:18:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": []
+    },
+    "ID": {
+     "id": "WzeW",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "APS-1C",
+         "number": 377
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 0
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "g%5Crq",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3fae17b6-8482-801f-ace5-f77e1371ff4c"
+      }
+     ],
+     "has_more": false
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "oDjM",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "b9e74f4d-e83d-451c-bf27-332d032fec6d",
+         "name": "Наталья NWP",
+         "color": "blue"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": null,
+      "number": 280
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Проверить по какой причине расходятся суммы в реализациях между ВЭБ и 1С [3fae17b6-8482-801f-ace5-f77e1371ff4c]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Проверить по какой причине расходятся суммы в реализациях между ВЭБ и 1С [3fae17b6-8482-801f-ace5-f77e1371ff4c]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-1-3fae17b6-8482-801f-3fae17b684828167b525e8727572e40d",
+   "public_url": null
+  },
+  323
+ ],
+ "last_title": "Sprint №8119(40851038341) 29.10.2026 12:40:08",
+ "last_at": "2026-10-29T12:40:08.071425+03:00",
  "last_created": 0,
- "last_updated": 6,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 317,
- "last_duration_s": 6.8,
+ "last_skipped": 322,
+ "last_duration_s": 2.9,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-29T09:28:54Z",
+ "snapshot_generated_at": "2026-10-29T09:40:05Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 4066,
- "runs_ok": 4025,
+ "runs_total": 4067,
+ "runs_ok": 4026,
  "runs_error": 0,
  "created_total": 49,
- "updated_total": 56,
- "skipped_total": 1230994,
+ "updated_total": 57,
+ "skipped_total": 1231316,
  "failed_total": 0,
- "last_ok_at": "2026-10-29T09:29:03.000Z"
+ "last_ok_at": "2026-10-29T09:40:10.000Z"
 }
