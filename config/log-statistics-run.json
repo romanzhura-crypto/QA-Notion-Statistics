@@ -1,35 +1,12 @@
 {
- "last_run": 8092,
- "last_job": [
-  {
-   "id": "b4be17b6-8482-83a2-a0f9-816a0f9a6db7",
-   "tid": "TASK-7093",
-   "u": "https://app.notion.com/p/1-b4be17b6848283a2a0f9816a0f9a6db7",
-   "r": [
-    "44.2026"
-   ],
-   "p": "1C",
-   "d": "Unassigned",
-   "s": "New",
-   "e": null,
-   "t": 0.0,
-   "n": "Доработка условий по отправке данных на вэб по документам Реализация/перемещение товаров (1)",
-   "n_full": "Доработка условий по отправке данных на вэб по документам Реализация/перемещение товаров (1)",
-   "start": "2026-10-27T15:26:00.000+03:00",
-   "created": "2026-10-29T07:31:00.000Z",
-   "edited": "2026-10-29T07:32:00.000Z"
-  },
-  "Sprint: Доработка условий по отправке данных на вэб по документам Реализация/перемещение товаров (1) [b4be17b6-8482-83a2-a0f9-816a0f9a6db7]",
-  null,
-  null,
-  1693
- ],
- "last_title": "Sprint №8091(40836039672) 29.10.2026 10:32:54",
- "last_at": "2026-10-29T10:38:28.548259+03:00",
- "last_created": 1,
+ "last_run": 8094,
+ "last_job": "40837110053",
+ "last_title": "Sprint №8094(40837110053) 29.10.2026 10:43:21",
+ "last_at": "2026-10-29T10:43:21.349266+03:00",
+ "last_created": 0,
  "last_updated": 0,
  "last_failed": 0,
- "last_skipped": 1692,
+ "last_skipped": 1693,
  "last_duration_s": 8.1,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
@@ -37,15 +14,15 @@
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-29T07:38:17Z",
+ "snapshot_generated_at": "2026-10-29T07:43:11Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 4055,
- "runs_ok": 4019,
+ "runs_total": 4056,
+ "runs_ok": 4020,
  "runs_error": 0,
  "created_total": 102,
  "updated_total": 42,
- "skipped_total": 6652273,
+ "skipped_total": 6653966,
  "failed_total": 0,
- "last_ok_at": "2026-10-29T07:38:37.000Z"
+ "last_ok_at": "2026-10-29T07:43:29.000Z"
 }
