@@ -22,9 +22,12 @@ concurrency:
   group: status-webhook-${{ github.event.client_payload.entity_id || 'none' }}
   cancel-in-progress: false
 
-env:
-  LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
-
+# Board #341 (fix): NO workflow-level LOG_STATISTICS_DSID here. It used to be
+# set globally (sprint LOG DS) and leaked into the 1c steps of refresh_pages —
+# those set WIDGET_PROFILE=1c but the env override won, so the 1c snapshot/enrich
+# queried the SPRINT LOG STATISTICS (1693 rows), matched 0 task relations and
+# published 1c/release-data.json with log_history_tasks=0 (no segments in the
+# 1C widget). Every step now resolves LOG DS from its own WIDGET_PROFILE.
 jobs:
   # Fast path: write the exact status segment. Never waits on Pages deploys.
   apply:
@@ -63,6 +66,7 @@ jobs:
       - name: apply status event to LOG STATISTICS
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          LOG_STATISTICS_DSID: 3dee17b6-8482-80a3-9fc4-000bafe19b46
           EVENT_JSON: ${{ toJson(github.event.client_payload) }}
         run: python3 backend/status-webhook-event.py
       # Board #263 (multi-base): the same event is offered to the 1c handler too.

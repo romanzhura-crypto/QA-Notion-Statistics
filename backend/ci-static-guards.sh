@@ -62,6 +62,24 @@ print("html guards ok")
 EOF
 fi
 
+# 6) board #341: no workflow-level LOG_STATISTICS_DSID in workflows. A global
+#    env leaks the sprint LOG DS into per-profile steps (WIDGET_PROFILE=1c loses
+#    to the env override) -> 1c widgets publish log_history_tasks=0. The id may
+#    only live at step level next to its own WIDGET_PROFILE.
+if [ -d .github/workflows ]; then
+  for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+    [ -f "$wf" ] || continue
+    python3 -c '
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+if (d.get("env") or {}).get("LOG_STATISTICS_DSID"):
+    print(f"FAIL: workflow-level LOG_STATISTICS_DSID in {sys.argv[1]} — move it to step level with its WIDGET_PROFILE", file=sys.stderr)
+    sys.exit(1)
+print(f"no workflow-level LOG_STATISTICS_DSID: {sys.argv[1]}")
+' "$wf" || fail=1
+  done
+fi
+
 # 5) cross-tree sync (board #194/A22): workspace scripts/ ↔ repo backend/ are
 #    mirrored BY HAND — diverged copies mean different stats on QA vs Pages with
 #    no symptoms. SYNC_ROOT = root holding the mirrored trees (scripts/ and
