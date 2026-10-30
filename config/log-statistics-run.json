@@ -1,344 +1,49 @@
 {
- "last_run": 8387,
+ "last_run": 8388,
  "last_job": [
   {
-   "id": "409e17b6-8482-8047-811b-f70556160f1e",
-   "tid": "TASK-7106",
-   "u": "https://app.notion.com/p/1-WEB-409e17b684828047811bf70556160f1e",
+   "id": "409e17b6-8482-809c-8459-d373a06be670",
+   "tid": "TASK-7107",
+   "u": "https://app.notion.com/p/409e17b68482809c8459d373a06be670",
    "r": [],
    "p": "",
-   "d": "Юлия NWP",
-   "s": "Ready For Dev",
+   "d": "Unassigned",
+   "s": "New",
    "e": null,
    "t": 0.0,
-   "n": "Техническая поддержка по вопросам интеграции систем 1С - WEB Ноябрь",
-   "n_full": "Техническая поддержка по вопросам интеграции систем 1С - WEB Ноябрь",
-   "start": "2026-10-30T10:35:00.000+03:00",
-   "created": "2026-10-30T07:35:00.000Z",
-   "edited": "2026-10-30T07:52:00.000Z",
-   "history": [
-    {
-     "s": "New",
-     "days": 0.011111111111111112,
-     "from": "2026-10-30T07:37:00.000Z",
-     "to": null
-    }
-   ]
+   "n": "Исправление уникальности клиентов подписок",
+   "n_full": "Исправление уникальности клиентов подписок",
+   "start": "2026-10-30T10:56:00.000+03:00",
+   "created": "2026-10-30T07:56:00.000Z",
+   "edited": "2026-10-30T07:57:00.000Z"
   },
+  "Sprint: Исправление уникальности клиентов подписок [409e17b6-8482-809c-8459-d373a06be670]",
   null,
-  "409e17b6-8482-81eb-b112-e827aa4b77ac",
-  {
-   "object": "page",
-   "id": "409e17b6-8482-81eb-b112-e827aa4b77ac",
-   "created_time": "2026-10-30T07:38:00.000Z",
-   "last_edited_time": "2026-10-30T07:38:00.000Z",
-   "created_by": {
-    "object": "user",
-    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
-   },
-   "last_edited_by": {
-    "object": "user",
-    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
-   },
-   "cover": null,
-   "icon": null,
-   "parent": {
-    "type": "data_source_id",
-    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
-    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
-   },
-   "in_trash": false,
-   "is_archived": false,
-   "is_locked": false,
-   "properties": {
-    "Investigate": {
-     "id": "%3C%7Dg%7B",
-     "type": "number",
-     "number": 0
-    },
-    "Ready For Dev": {
-     "id": "%40MjZ",
-     "type": "number",
-     "number": 0
-    },
-    "Code Review": {
-     "id": "L%5DLc",
-     "type": "number",
-     "number": 0
-    },
-    "Task": {
-     "id": "MVrg",
-     "type": "relation",
-     "relation": [
-      {
-       "id": "409e17b6-8482-8047-811b-f70556160f1e"
-      }
-     ],
-     "has_more": false
-    },
-    "Current Status": {
-     "id": "NuQ%7D",
-     "type": "rollup",
-     "rollup": {
-      "type": "array",
-      "array": [
-       {
-        "type": "status",
-        "status": {
-         "id": "nyv~",
-         "name": "Ready For Dev",
-         "color": "blue"
-        }
-       }
-      ],
-      "function": "show_original"
-     }
-    },
-    "Tech Solution": {
-     "id": "Ofy%60",
-     "type": "number",
-     "number": 0
-    },
-    "Collected Status": {
-     "id": "OsUJ",
-     "type": "rich_text",
-     "rich_text": [
-      {
-       "type": "text",
-       "text": {
-        "content": "New",
-        "link": null
-       },
-       "annotations": {
-        "bold": false,
-        "italic": false,
-        "strikethrough": false,
-        "underline": false,
-        "code": false,
-        "color": "default"
-       },
-       "plain_text": "New",
-       "href": null
-      }
-     ]
-    },
-    "Status since": {
-     "id": "QgrY",
-     "type": "date",
-     "date": {
-      "start": "2026-10-30T07:37:00.000+00:00",
-      "end": null,
-      "time_zone": null
-     }
-    },
-    "Release": {
-     "id": "R%3DD%40",
-     "type": "rollup",
-     "rollup": {
-      "type": "array",
-      "array": [
-       {
-        "type": "multi_select",
-        "multi_select": []
-       }
-      ],
-      "function": "show_original"
-     }
-    },
-    "Ready For QA": {
-     "id": "SY%3D%5C",
-     "type": "number",
-     "number": 0
-    },
-    "Segments": {
-     "id": "W%3DMs",
-     "type": "rich_text",
-     "rich_text": []
-    },
-    "Analysis/Design": {
-     "id": "%5B%3A%3Em",
-     "type": "number",
-     "number": 0
-    },
-    "Ready For Release": {
-     "id": "%5CpS_",
-     "type": "number",
-     "number": 0
-    },
-    "Done at": {
-     "id": "%5C%7BQZ",
-     "type": "date",
-     "date": null
-    },
-    "Total dwell": {
-     "id": "%5E%7BTj",
-     "type": "formula",
-     "formula": {
-      "type": "number",
-      "number": 0
-     }
-    },
-    "Merged": {
-     "id": "dTXX",
-     "type": "number",
-     "number": 0
-    },
-    "ETA": {
-     "id": "djm~",
-     "type": "number",
-     "number": 0
-    },
-    "Product Review": {
-     "id": "is%5DQ",
-     "type": "number",
-     "number": 0
-    },
-    "Failed": {
-     "id": "liiX",
-     "type": "number",
-     "number": 0
-    },
-    "ID 1": {
-     "id": "rf%60%40",
-     "type": "unique_id",
-     "unique_id": {
-      "prefix": "LS",
-      "number": 1765
-     }
-    },
-    "ID": {
-     "id": "s%3Cik",
-     "type": "rollup",
-     "rollup": {
-      "type": "array",
-      "array": [
-       {
-        "type": "unique_id",
-        "unique_id": {
-         "prefix": "TASK",
-         "number": 7106
-        }
-       }
-      ],
-      "function": "show_original"
-     }
-    },
-    "Documentation": {
-     "id": "sUUw",
-     "type": "rollup",
-     "rollup": {
-      "type": "array",
-      "array": [
-       {
-        "type": "title",
-        "title": [
-         {
-          "type": "text",
-          "text": {
-           "content": "Техническая поддержка по вопросам интеграции систем 1С - WEB Ноябрь",
-           "link": null
-          },
-          "annotations": {
-           "bold": false,
-           "italic": false,
-           "strikethrough": false,
-           "underline": false,
-           "code": false,
-           "color": "default"
-          },
-          "plain_text": "Техническая поддержка по вопросам интеграции систем 1С - WEB Ноябрь",
-          "href": null
-         }
-        ]
-       }
-      ],
-      "function": "show_original"
-     }
-    },
-    "Development": {
-     "id": "t%3Ctf",
-     "type": "number",
-     "number": 0
-    },
-    "DEV": {
-     "id": "up_%5E",
-     "type": "rollup",
-     "rollup": {
-      "type": "array",
-      "array": [
-       {
-        "type": "select",
-        "select": {
-         "id": "9c717298-4bb8-4b6c-896a-eb948fb6eb4b",
-         "name": "Юлия NWP",
-         "color": "blue"
-        }
-       }
-      ],
-      "function": "show_original"
-     }
-    },
-    "New": {
-     "id": "vxtn",
-     "type": "number",
-     "number": 0
-    },
-    "Testing": {
-     "id": "zSDh",
-     "type": "number",
-     "number": 0
-    },
-    "Name": {
-     "id": "title",
-     "type": "title",
-     "title": [
-      {
-       "type": "text",
-       "text": {
-        "content": "Sprint: Техническая поддержка по вопросам интеграции систем 1С - WEB Ноябрь [409e17b6-8482-8047-811b-f70556160f1e]",
-        "link": null
-       },
-       "annotations": {
-        "bold": false,
-        "italic": false,
-        "strikethrough": false,
-        "underline": false,
-        "code": false,
-        "color": "default"
-       },
-       "plain_text": "Sprint: Техническая поддержка по вопросам интеграции систем 1С - WEB Ноябрь [409e17b6-8482-8047-811b-f70556160f1e]",
-       "href": null
-      }
-     ]
-    }
-   },
-   "url": "https://app.notion.com/p/Sprint-1-WEB-409e17b6-8482-8047-811b-409e17b6848281ebb112e827aa4b77ac",
-   "public_url": null
-  },
+  null,
   1704
  ],
- "last_title": "Sprint №8387(41022710839) 30.10.2026 10:52:53",
- "last_at": "2026-10-30T10:52:53.472509+03:00",
- "last_created": 0,
- "last_updated": 1,
+ "last_title": "Sprint №8388(41023216645) 30.10.2026 10:58:14",
+ "last_at": "2026-10-30T10:58:14.739372+03:00",
+ "last_created": 1,
+ "last_updated": 0,
  "last_failed": 0,
- "last_skipped": 1703,
- "last_duration_s": 11.5,
+ "last_skipped": 1704,
+ "last_duration_s": 9.5,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-10-30T07:52:39Z",
+ "snapshot_generated_at": "2026-10-30T07:58:03Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 4322,
- "runs_ok": 4284,
+ "runs_total": 4323,
+ "runs_ok": 4285,
  "runs_error": 0,
- "created_total": 113,
+ "created_total": 114,
  "updated_total": 48,
- "skipped_total": 7106188,
+ "skipped_total": 7107892,
  "failed_total": 0,
- "last_ok_at": "2026-10-30T07:53:05.000Z"
+ "last_ok_at": "2026-10-30T07:58:24.000Z"
 }
