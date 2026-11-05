@@ -2,9 +2,9 @@
  "events_total": 3323,
  "events_processed": 534,
  "events_noop": 1415,
- "events_skipped": 1533,
+ "events_skipped": 1534,
  "events_error": 0,
  "events_ping": 551,
  "last_event_at": "2026-11-05T06:30:42.000Z",
- "last_delivery_at": "2026-11-05T06:32:50.000Z"
+ "last_delivery_at": "2026-11-05T06:32:59.000Z"
 }
