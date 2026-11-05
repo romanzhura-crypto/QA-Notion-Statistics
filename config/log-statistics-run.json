@@ -1,28 +1,390 @@
 {
- "last_run": 10150,
- "last_job": "41977728003",
- "last_title": "Sprint №10150(41977728003) 05.11.2026 09:03:32",
- "last_at": "2026-11-05T09:03:32.437904+03:00",
+ "last_run": 10151,
+ "last_job": [
+  {
+   "id": "3f4e17b6-8482-80c0-8145-e1f4cda62d9c",
+   "tid": "TASK-6950",
+   "u": "https://app.notion.com/p/3f4e17b6848280c08145e1f4cda62d9c",
+   "r": [],
+   "p": "Employees",
+   "d": "Dmitry Larionov",
+   "s": "Done",
+   "e": 4.0,
+   "t": 4.0,
+   "n": "Добавить функционал удаления графика в модуле сотрудники",
+   "n_full": "Добавить функционал удаления графика в модуле сотрудники",
+   "start": "2026-10-09T09:52:00.000+03:00",
+   "created": "2026-10-09T06:52:00.000Z",
+   "edited": "2026-11-05T06:06:00.000Z",
+   "history": [
+    {
+     "s": "New",
+     "days": 0.001388888888888889,
+     "from": "2026-10-09T06:52:00.000Z",
+     "to": "2026-10-09T06:54:12.000Z"
+    },
+    {
+     "s": "Ready For Dev",
+     "days": 5.245833333333334,
+     "from": "2026-10-09T06:54:12.000Z",
+     "to": "2026-10-14T12:48:33.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 0.8576388888888888,
+     "from": "2026-10-14T12:48:33.000Z",
+     "to": "2026-10-15T09:23:56.000Z"
+    },
+    {
+     "s": "ETA",
+     "days": 4.196527777777778,
+     "from": "2026-10-15T09:23:56.000Z",
+     "to": "2026-10-19T14:07:06.000Z"
+    },
+    {
+     "s": "Ready For Dev",
+     "days": 5.197222222222222
+    },
+    {
+     "s": "Ready For Release",
+     "days": 16.667361111111113,
+     "from": "2026-10-19T14:07:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3f4e17b6-8482-8165-8070-e9914a79aebe",
+  {
+   "object": "page",
+   "id": "3f4e17b6-8482-8165-8070-e9914a79aebe",
+   "created_time": "2026-10-09T06:52:00.000Z",
+   "last_edited_time": "2026-10-19T14:07:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 10.443055555555556
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3f4e17b6-8482-80c0-8145-e1f4cda62d9c"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "76613324-dc69-4e77-967f-06a86c58b1ff",
+         "name": "Done",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Ready For Release",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Ready For Release",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-10-19T14:07:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"New\",\"from\":\"2026-10-09T06:52:00.000Z\",\"to\":\"2026-10-09T06:54:12.000Z\"},{\"s\":\"Ready For Dev\",\"from\":\"2026-10-09T06:54:12.000Z\",\"to\":\"2026-10-14T12:48:33.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-14T12:48:33.000Z\",\"to\":\"2026-10-15T09:23:56.000Z\"},{\"s\":\"ETA\",\"from\":\"2026-10-15T09:23:56.000Z\",\"to\":\"2026-10-19T14:07:06.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"New\",\"from\":\"2026-10-09T06:52:00.000Z\",\"to\":\"2026-10-09T06:54:12.000Z\"},{\"s\":\"Ready For Dev\",\"from\":\"2026-10-09T06:54:12.000Z\",\"to\":\"2026-10-14T12:48:33.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-14T12:48:33.000Z\",\"to\":\"2026-10-15T09:23:56.000Z\"},{\"s\":\"ETA\",\"from\":\"2026-10-15T09:23:56.000Z\",\"to\":\"2026-10-19T14:07:06.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 15.5
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 4.197222222222222
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 1612
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 6950
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Добавить функционал удаления графика в модуле сотрудники",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Добавить функционал удаления графика в модуле сотрудники",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0.8583333333333333
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "64f1e52c-a492-42fa-bf64-79b16bbc73bb",
+         "name": "Dmitry Larionov",
+         "color": "gray"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0.001388888888888889
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Добавить функционал удаления графика [3f4e17b6-8482-80c0-8145-e1f4cda62d9c]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Добавить функционал удаления графика [3f4e17b6-8482-80c0-8145-e1f4cda62d9c]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-3f4e17b6-8482-80c0-8145-e1f4cda62d9c-3f4e17b6848281658070e9914a79aebe",
+   "public_url": null
+  },
+  1726
+ ],
+ "last_title": "Sprint №10151(41978269814) 05.11.2026 09:07:50",
+ "last_at": "2026-11-05T09:07:50.013695+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 1726,
- "last_duration_s": 8.5,
+ "last_skipped": 1725,
+ "last_duration_s": 9.1,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-05T06:03:22Z",
+ "snapshot_generated_at": "2026-11-05T06:07:39Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 5922,
- "runs_ok": 5877,
+ "runs_total": 5923,
+ "runs_ok": 5878,
  "runs_error": 0,
  "created_total": 140,
- "updated_total": 57,
- "skipped_total": 9843871,
+ "updated_total": 58,
+ "skipped_total": 9845596,
  "failed_total": 0,
- "last_ok_at": "2026-11-05T06:03:40.000Z"
+ "last_ok_at": "2026-11-05T06:07:59.000Z"
 }
