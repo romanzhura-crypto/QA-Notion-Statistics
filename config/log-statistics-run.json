@@ -1,28 +1,414 @@
 {
- "last_run": 11451,
- "last_job": "42633966833",
- "last_title": "Sprint №11451(42633966833) 09.11.2026 17:22:47",
- "last_at": "2026-11-09T17:22:47.336774+03:00",
+ "last_run": 11452,
+ "last_job": [
+  {
+   "id": "3cfe17b6-8482-8009-a92b-dab4fbf54879",
+   "tid": "TASK-6686",
+   "u": "https://app.notion.com/p/SMS-3cfe17b684828009a92bdab4fbf54879",
+   "r": [],
+   "p": "buyers",
+   "d": "Oleg Valahanovich",
+   "s": "Code Review",
+   "e": 16.0,
+   "t": 13.0,
+   "n": "ТЗ ОК формирование задания на SMS опрос",
+   "n_full": "ТЗ ОК формирование задания на SMS опрос",
+   "start": "2026-09-02T18:08:00.000+03:00",
+   "created": "2026-09-02T15:08:00.000Z",
+   "edited": "2026-11-09T14:27:00.000Z",
+   "history": [
+    {
+     "s": "Development",
+     "days": 24.15138888888889,
+     "from": "2026-09-21T08:16:00.000Z",
+     "to": "2026-10-15T11:53:35.000Z"
+    },
+    {
+     "s": "Investigate",
+     "days": 0.05694444444444444,
+     "from": "2026-10-15T11:53:35.000Z",
+     "to": "2026-10-15T13:15:09.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 6.788888888888889,
+     "from": "2026-10-15T13:15:09.000Z",
+     "to": "2026-10-22T08:11:34.000Z"
+    },
+    {
+     "s": "Ready For QA",
+     "days": 13.275694444444444,
+     "from": "2026-10-22T08:11:34.000Z",
+     "to": "2026-11-04T14:48:28.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 0.7027777777777777,
+     "from": "2026-11-04T14:48:28.000Z",
+     "to": "2026-11-05T07:40:24.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 0.23402777777777778,
+     "from": "2026-11-05T07:40:24.000Z",
+     "to": "2026-11-05T13:17:10.000Z"
+    },
+    {
+     "s": "Testing",
+     "days": 0.07291666666666667,
+     "from": "2026-11-05T13:17:00.000Z",
+     "to": "2026-11-05T15:02:00.000Z"
+    },
+    {
+     "s": "Failed",
+     "days": 3.7354166666666666,
+     "from": "2026-11-05T15:02:00.000Z",
+     "to": "2026-11-09T08:40:39.000Z"
+    },
+    {
+     "s": "Investigate",
+     "days": 2.7
+    },
+    {
+     "s": "Development",
+     "days": 0.24166666666666667,
+     "from": "2026-11-09T08:40:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3dee17b6-8482-8114-ab09-f216f575a1cc",
+  {
+   "object": "page",
+   "id": "3dee17b6-8482-8114-ab09-f216f575a1cc",
+   "created_time": "2026-09-17T11:08:00.000Z",
+   "last_edited_time": "2026-11-09T08:41:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 2.7569444444444446
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3cfe17b6-8482-8009-a92b-dab4fbf54879"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "k>|n",
+         "name": "Code Review",
+         "color": "orange"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Development",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Development",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-11-09T08:40:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 13.275694444444444
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Development\",\"from\":\"2026-09-21T08:16:00.000Z\",\"to\":\"2026-10-15T11:53:35.000Z\"},{\"s\":\"Investigate\",\"from\":\"2026-10-15T11:53:35.000Z\",\"to\":\"2026-10-15T13:15:09.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-15T13:15:09.000Z\",\"to\":\"2026-10-22T08:11:34.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-22T08:11:34.000Z\",\"to\":\"2026-11-04T14:48:28.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-11-04T14:48:28.000Z\",\"to\":\"2026-11-05T07:40:24.000Z\"},{\"s\":\"Development\",\"from\":\"2026-11-05T07:40:24.000Z\",\"to\":\"2026-11-05T13:17:10.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-11-05T13:17:00.000Z\",\"to\":\"2026-11-05T15:02:00.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-11-05T15:02:00.000Z\",\"to\":\"2026-11-09T08:40:39.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Development\",\"from\":\"2026-09-21T08:16:00.000Z\",\"to\":\"2026-10-15T11:53:35.000Z\"},{\"s\":\"Investigate\",\"from\":\"2026-10-15T11:53:35.000Z\",\"to\":\"2026-10-15T13:15:09.000Z\"},{\"s\":\"Development\",\"from\":\"2026-10-15T13:15:09.000Z\",\"to\":\"2026-10-22T08:11:34.000Z\"},{\"s\":\"Ready For QA\",\"from\":\"2026-10-22T08:11:34.000Z\",\"to\":\"2026-11-04T14:48:28.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-11-04T14:48:28.000Z\",\"to\":\"2026-11-05T07:40:24.000Z\"},{\"s\":\"Development\",\"from\":\"2026-11-05T07:40:24.000Z\",\"to\":\"2026-11-05T13:17:10.000Z\"},{\"s\":\"Testing\",\"from\":\"2026-11-05T13:17:00.000Z\",\"to\":\"2026-11-05T15:02:00.000Z\"},{\"s\":\"Failed\",\"from\":\"2026-11-05T15:02:00.000Z\",\"to\":\"2026-11-09T08:40:39.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 51.7
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 3.7354166666666666
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 82
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 6686
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "ТЗ ОК формирование задания на SMS опрос",
+           "link": null
+          },
+          "annotations": {
+           "bold": true,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "ТЗ ОК формирование задания на SMS опрос",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 31.175
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "58c08424-416c-4bc1-a369-c4da3495ccee",
+         "name": "Oleg Valahanovich",
+         "color": "yellow"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0.7756944444444445
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprit №132(35324682107) 18.09.2026 11:30:46",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprit №132(35324682107) 18.09.2026 11:30:46",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprit-132-35324682107-18-09-2026-11-30-46-3dee17b684828114ab09f216f575a1cc",
+   "public_url": null
+  },
+  1747
+ ],
+ "last_title": "Sprint №11452(42634788184) 09.11.2026 17:27:46",
+ "last_at": "2026-11-09T17:27:46.792174+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 1747,
- "last_duration_s": 8.7,
+ "last_skipped": 1746,
+ "last_duration_s": 12.5,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-09T14:22:35Z",
+ "snapshot_generated_at": "2026-11-09T14:27:36Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 7097,
- "runs_ok": 7046,
+ "runs_total": 7098,
+ "runs_ok": 7047,
  "runs_error": 0,
  "created_total": 166,
- "updated_total": 70,
- "skipped_total": 11884440,
+ "updated_total": 71,
+ "skipped_total": 11886186,
  "failed_total": 0,
- "last_ok_at": "2026-11-09T14:22:56.000Z"
+ "last_ok_at": "2026-11-09T14:27:59.000Z"
 }
