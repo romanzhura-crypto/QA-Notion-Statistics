@@ -1,7 +1,7 @@
 {
  "last_run": 12312,
- "last_job": "44270676184",
- "last_title": "Sprint №12312(44270676184) 18.11.2026 11:52:54",
+ "last_job": "44269965879",
+ "last_title": "Sprint №12311(44269965879) 18.11.2026 11:48:23",
  "last_at": "2026-11-18T11:52:54.321549+03:00",
  "last_created": 0,
  "last_updated": 0,
@@ -18,7 +18,7 @@
  "resumed": false,
  "resume_skipped": 0,
  "runs_total": 7870,
- "runs_ok": 7798,
+ "runs_ok": 7797,
  "runs_error": 0,
  "created_total": 247,
  "updated_total": 77,
