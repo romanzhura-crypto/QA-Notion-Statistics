@@ -1,37 +1,37 @@
 {
- "last_run": 12365,
+ "last_run": 12366,
  "last_job": [
   {
-   "id": "41ce17b6-8482-8077-a953-ffb1d77c9191",
-   "tid": "APS-1C-471",
-   "u": "https://app.notion.com/p/41ce17b684828077a953ffb1d77c9191",
+   "id": "41ce17b6-8482-807f-bb04-c07ac870f3b2",
+   "tid": "APS-1C-468",
+   "u": "https://app.notion.com/p/XML-41ce17b68482807fbb04c07ac870f3b2",
    "r": [],
    "p": "1C",
-   "d": "Владимир Чернявский",
-   "s": "Ready For Dev",
+   "d": "Евгений Мазай",
+   "s": "Development",
    "e": null,
    "t": null,
-   "n": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
-   "n_full": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
-   "start": "2026-11-18T12:18:00.000+03:00",
-   "created": "2026-11-18T09:18:00.000Z",
-   "edited": "2026-11-18T13:27:00.000Z",
+   "n": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
+   "n_full": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
+   "start": "2026-11-18T10:54:00.000+03:00",
+   "created": "2026-11-18T07:54:00.000Z",
+   "edited": "2026-11-18T13:30:00.000Z",
    "history": [
     {
      "s": "Analysis/Design",
-     "days": 0.1701388888888889,
-     "from": "2026-11-18T09:23:00.000Z",
+     "days": 0.23472222222222222,
+     "from": "2026-11-18T07:58:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "41ce17b6-8482-814b-aaa3-e41fcbbd4be2",
+  "41ce17b6-8482-8105-9582-ede413e31df1",
   {
    "object": "page",
-   "id": "41ce17b6-8482-814b-aaa3-e41fcbbd4be2",
-   "created_time": "2026-11-18T09:23:00.000Z",
-   "last_edited_time": "2026-11-18T09:23:00.000Z",
+   "id": "41ce17b6-8482-8105-9582-ede413e31df1",
+   "created_time": "2026-11-18T07:58:00.000Z",
+   "last_edited_time": "2026-11-18T07:58:00.000Z",
    "created_by": {
     "object": "user",
     "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
@@ -60,9 +60,9 @@
        {
         "type": "status",
         "status": {
-         "id": "nyv~",
-         "name": "Ready For Dev",
-         "color": "blue"
+         "id": "6d859979-73bd-4a35-b446-5a362009acdc",
+         "name": "Development",
+         "color": "green"
         }
        }
       ],
@@ -105,7 +105,7 @@
          {
           "type": "text",
           "text": {
-           "content": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
+           "content": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
            "link": null
           },
           "annotations": {
@@ -116,7 +116,7 @@
            "code": false,
            "color": "default"
           },
-          "plain_text": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
+          "plain_text": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
           "href": null
          }
         ]
@@ -162,7 +162,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-11-18T09:23:00.000+00:00",
+      "start": "2026-11-18T07:58:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -187,7 +187,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "APS-1C",
-         "number": 471
+         "number": 468
         }
        }
       ],
@@ -232,7 +232,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "41ce17b6-8482-8077-a953-ffb1d77c9191"
+       "id": "41ce17b6-8482-807f-bb04-c07ac870f3b2"
       }
      ],
      "has_more": false
@@ -256,9 +256,9 @@
        {
         "type": "select",
         "select": {
-         "id": "eafc859f-98c0-4cf7-9035-ac1e9b672c4b",
-         "name": "Владимир Чернявский",
-         "color": "yellow"
+         "id": "2f53a7c9-60b5-4acc-9e1d-3489ee243c1a",
+         "name": "Евгений Мазай",
+         "color": "blue"
         }
        }
       ],
@@ -270,7 +270,7 @@
      "type": "unique_id",
      "unique_id": {
       "prefix": null,
-      "number": 361
+      "number": 358
      }
     },
     "Development": {
@@ -295,7 +295,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Sprint: Ограничение печати ДКП для клиентов с документом \"Вид на жительство\" [41ce17b6-8482-8077-a953-ffb1d77c9191]",
+        "content": "Sprint: Изменение источника даты из XML в документе \"Поступление автомобилей\" [41ce17b6-8482-807f-bb04-c07ac870f3b2]",
         "link": null
        },
        "annotations": {
@@ -306,19 +306,19 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Sprint: Ограничение печати ДКП для клиентов с документом \"Вид на жительство\" [41ce17b6-8482-8077-a953-ffb1d77c9191]",
+       "plain_text": "Sprint: Изменение источника даты из XML в документе \"Поступление автомобилей\" [41ce17b6-8482-807f-bb04-c07ac870f3b2]",
        "href": null
       }
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprint-41ce17b6-8482-8077-a95-41ce17b68482814baaa3e41fcbbd4be2",
+   "url": "https://app.notion.com/p/Sprint-XML-41ce17b6-8482-807f-bb-41ce17b6848281059582ede413e31df1",
    "public_url": null
   },
   353
  ],
- "last_title": "Sprint №12365(44313828439) 18.11.2026 16:28:16",
- "last_at": "2026-11-18T16:28:16.375274+03:00",
+ "last_title": "Sprint №12366(44314670679) 18.11.2026 16:35:53",
+ "last_at": "2026-11-18T16:35:53.173180+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
@@ -330,15 +330,15 @@
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-18T13:28:14Z",
+ "snapshot_generated_at": "2026-11-18T13:35:51Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 7903,
- "runs_ok": 7824,
+ "runs_total": 7904,
+ "runs_ok": 7825,
  "runs_error": 0,
  "created_total": 82,
- "updated_total": 127,
- "skipped_total": 2519083,
+ "updated_total": 128,
+ "skipped_total": 2519435,
  "failed_total": 0,
- "last_ok_at": "2026-11-18T13:28:19.000Z"
+ "last_ok_at": "2026-11-18T13:35:55.000Z"
 }
