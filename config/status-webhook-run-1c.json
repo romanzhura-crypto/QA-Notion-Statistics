@@ -1,10 +1,10 @@
 {
- "events_total": 5328,
+ "events_total": 5329,
  "events_processed": 0,
  "events_noop": 865,
- "events_skipped": 4483,
+ "events_skipped": 4484,
  "events_error": 0,
  "events_ping": 865,
  "last_event_at": null,
- "last_delivery_at": "2026-11-18T08:53:16.000Z"
+ "last_delivery_at": "2026-11-18T08:53:33.000Z"
 }
