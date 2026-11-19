@@ -1,43 +1,37 @@
 {
- "last_run": 12592,
+ "last_run": 12593,
  "last_job": [
   {
-   "id": "41ce17b6-8482-807f-bb04-c07ac870f3b2",
-   "tid": "APS-1C-468",
-   "u": "https://app.notion.com/p/XML-41ce17b68482807fbb04c07ac870f3b2",
+   "id": "3f2e17b6-8482-8046-904e-c870f1e9392d",
+   "tid": "APS-1C-361",
+   "u": "https://app.notion.com/p/3f2e17b684828046904ec870f1e9392d",
    "r": [],
    "p": "1C",
-   "d": "Евгений Мазай",
-   "s": "Ready For Release",
+   "d": "Смоляков Павел",
+   "s": "Testing",
    "e": null,
-   "t": 6.0,
-   "n": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
-   "n_full": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
-   "start": "2026-11-18T10:54:00.000+03:00",
-   "created": "2026-11-18T07:54:00.000Z",
-   "edited": "2026-11-19T08:54:00.000Z",
+   "t": 0.5,
+   "n": "Доработка обработки \"Создание актов на услуги на основании заказ-нарядов\"",
+   "n_full": "Доработка обработки \"Создание актов на услуги на основании заказ-нарядов\"",
+   "start": "2026-10-07T15:29:00.000+03:00",
+   "created": "2026-10-07T12:29:00.000Z",
+   "edited": "2026-11-19T09:01:00.000Z",
    "history": [
     {
-     "s": "Analysis/Design",
-     "days": 0.23055555555555557,
-     "from": "2026-11-18T07:58:00.000Z",
-     "to": "2026-11-18T13:30:00.000Z"
-    },
-    {
-     "s": "Development",
-     "days": 0.8111111111111111,
-     "from": "2026-11-18T13:30:00.000Z",
+     "s": "Ready For Dev",
+     "days": 40.70763888888889,
+     "from": "2026-10-09T16:05:00.000Z",
      "to": null
     }
    ]
   },
   null,
-  "41ce17b6-8482-8105-9582-ede413e31df1",
+  "3f4e17b6-8482-81c4-a379-e244a75beb76",
   {
    "object": "page",
-   "id": "41ce17b6-8482-8105-9582-ede413e31df1",
-   "created_time": "2026-11-18T07:58:00.000Z",
-   "last_edited_time": "2026-11-18T13:35:00.000Z",
+   "id": "3f4e17b6-8482-81c4-a379-e244a75beb76",
+   "created_time": "2026-10-09T16:11:00.000Z",
+   "last_edited_time": "2026-10-09T16:11:00.000Z",
    "created_by": {
     "object": "user",
     "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
@@ -66,9 +60,9 @@
        {
         "type": "status",
         "status": {
-         "id": "z}o]",
-         "name": "Ready For Release",
-         "color": "green"
+         "id": "ICib",
+         "name": "Testing",
+         "color": "pink"
         }
        }
       ],
@@ -111,18 +105,18 @@
          {
           "type": "text",
           "text": {
-           "content": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
+           "content": "Доработка обработки \"Создание актов на услуги на основании заказ-нарядов\"",
            "link": null
           },
           "annotations": {
-           "bold": false,
-           "italic": true,
+           "bold": true,
+           "italic": false,
            "strikethrough": false,
            "underline": false,
            "code": false,
            "color": "default"
           },
-          "plain_text": "Изменение источника даты из XML в документе \"Поступление автомобилей\"",
+          "plain_text": "Доработка обработки \"Создание актов на услуги на основании заказ-нарядов\"",
           "href": null
          }
         ]
@@ -148,7 +142,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Development",
+        "content": "Ready For Dev",
         "link": null
        },
        "annotations": {
@@ -159,7 +153,7 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Development",
+       "plain_text": "Ready For Dev",
        "href": null
       }
      ]
@@ -168,7 +162,7 @@
      "id": "QgrY",
      "type": "date",
      "date": {
-      "start": "2026-11-18T13:30:00.000+00:00",
+      "start": "2026-10-09T16:05:00.000+00:00",
       "end": null,
       "time_zone": null
      }
@@ -181,25 +175,7 @@
     "Segments": {
      "id": "W%3DMs",
      "type": "rich_text",
-     "rich_text": [
-      {
-       "type": "text",
-       "text": {
-        "content": "[{\"s\":\"Analysis/Design\",\"from\":\"2026-11-18T07:58:00.000Z\",\"to\":\"2026-11-18T13:30:00.000Z\"}]",
-        "link": null
-       },
-       "annotations": {
-        "bold": false,
-        "italic": false,
-        "strikethrough": false,
-        "underline": false,
-        "code": false,
-        "color": "default"
-       },
-       "plain_text": "[{\"s\":\"Analysis/Design\",\"from\":\"2026-11-18T07:58:00.000Z\",\"to\":\"2026-11-18T13:30:00.000Z\"}]",
-       "href": null
-      }
-     ]
+     "rich_text": []
     },
     "ID": {
      "id": "WzeW",
@@ -211,7 +187,7 @@
         "type": "unique_id",
         "unique_id": {
          "prefix": "APS-1C",
-         "number": 468
+         "number": 361
         }
        }
       ],
@@ -221,7 +197,7 @@
     "Analysis/Design": {
      "id": "%5B%3A%3Em",
      "type": "number",
-     "number": 0.23055555555555557
+     "number": 0
     },
     "Ready For Release": {
      "id": "%5CpS_",
@@ -238,7 +214,7 @@
      "type": "formula",
      "formula": {
       "type": "number",
-      "number": 0.2
+      "number": 0
      }
     },
     "Merged": {
@@ -256,7 +232,7 @@
      "type": "relation",
      "relation": [
       {
-       "id": "41ce17b6-8482-807f-bb04-c07ac870f3b2"
+       "id": "3f2e17b6-8482-8046-904e-c870f1e9392d"
       }
      ],
      "has_more": false
@@ -280,9 +256,9 @@
        {
         "type": "select",
         "select": {
-         "id": "2f53a7c9-60b5-4acc-9e1d-3489ee243c1a",
-         "name": "Евгений Мазай",
-         "color": "blue"
+         "id": "d1bd362b-48fc-414c-9593-8279ee28aaa4",
+         "name": "Смоляков Павел",
+         "color": "green"
         }
        }
       ],
@@ -294,7 +270,7 @@
      "type": "unique_id",
      "unique_id": {
       "prefix": null,
-      "number": 358
+      "number": 260
      }
     },
     "Development": {
@@ -319,7 +295,7 @@
       {
        "type": "text",
        "text": {
-        "content": "Sprint: Изменение источника даты из XML в документе \"Поступление автомобилей\" [41ce17b6-8482-807f-bb04-c07ac870f3b2]",
+        "content": "Sprint: Доработка обработки \"Создание актов на услуги на основании заказ-нарядов\" [3f2e17b6-8482-8046-904e-c870f1e9392d]",
         "link": null
        },
        "annotations": {
@@ -330,39 +306,39 @@
         "code": false,
         "color": "default"
        },
-       "plain_text": "Sprint: Изменение источника даты из XML в документе \"Поступление автомобилей\" [41ce17b6-8482-807f-bb04-c07ac870f3b2]",
+       "plain_text": "Sprint: Доработка обработки \"Создание актов на услуги на основании заказ-нарядов\" [3f2e17b6-8482-8046-904e-c870f1e9392d]",
        "href": null
       }
      ]
     }
    },
-   "url": "https://app.notion.com/p/Sprint-XML-41ce17b6-8482-807f-bb-41ce17b6848281059582ede413e31df1",
+   "url": "https://app.notion.com/p/Sprint-3f2e17b6-8482-804-3f4e17b6848281c4a379e244a75beb76",
    "public_url": null
   },
   353
  ],
- "last_title": "Sprint №12592(44491981487) 19.11.2026 11:58:14",
- "last_at": "2026-11-19T11:58:14.236584+03:00",
+ "last_title": "Sprint №12593(44492705879) 19.11.2026 12:03:49",
+ "last_at": "2026-11-19T12:03:49.783746+03:00",
  "last_created": 0,
  "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 352,
- "last_duration_s": 3.0,
+ "last_duration_s": 3.6,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-19T08:58:11Z",
+ "snapshot_generated_at": "2026-11-19T09:03:47Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 8125,
- "runs_ok": 8044,
+ "runs_total": 8126,
+ "runs_ok": 8045,
  "runs_error": 0,
  "created_total": 82,
- "updated_total": 134,
- "skipped_total": 2597442,
+ "updated_total": 135,
+ "skipped_total": 2597794,
  "failed_total": 0,
- "last_ok_at": "2026-11-19T08:58:17.000Z"
+ "last_ok_at": "2026-11-19T09:03:53.000Z"
 }
