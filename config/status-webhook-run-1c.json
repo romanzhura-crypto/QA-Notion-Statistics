@@ -2,7 +2,7 @@
  "events_total": 5573,
  "events_processed": 0,
  "events_noop": 893,
- "events_skipped": 4701,
+ "events_skipped": 4702,
  "events_error": 0,
  "events_ping": 893,
  "last_event_at": null,
