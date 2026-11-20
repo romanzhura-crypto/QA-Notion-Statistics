@@ -1,13 +1,353 @@
 {
  "last_run": 12850,
- "last_job": "44697507829",
- "last_title": "Sprint №12850(44697507829) 20.11.2026 10:48:42",
+ "last_job": [
+  {
+   "id": "41ce17b6-8482-8077-a953-ffb1d77c9191",
+   "tid": "APS-1C-471",
+   "u": "https://app.notion.com/p/41ce17b684828077a953ffb1d77c9191",
+   "r": [],
+   "p": "1C",
+   "d": "Владимир Чернявский",
+   "s": "Development",
+   "e": null,
+   "t": null,
+   "n": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
+   "n_full": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
+   "start": "2026-11-18T12:18:00.000+03:00",
+   "created": "2026-11-18T09:18:00.000Z",
+   "edited": "2026-11-20T07:42:00.000Z",
+   "history": [
+    {
+     "s": "Analysis/Design",
+     "days": 0.16944444444444445,
+     "from": "2026-11-18T09:23:00.000Z",
+     "to": "2026-11-18T13:27:00.000Z"
+    },
+    {
+     "s": "Ready For Dev",
+     "days": 1.761111111111111,
+     "from": "2026-11-18T13:27:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "41ce17b6-8482-814b-aaa3-e41fcbbd4be2",
+  {
+   "object": "page",
+   "id": "41ce17b6-8482-814b-aaa3-e41fcbbd4be2",
+   "created_time": "2026-11-18T09:23:00.000Z",
+   "last_edited_time": "2026-11-18T13:28:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "c98e17b6-8482-820e-9f34-072fdef5db94",
+    "database_id": "3f4e17b6-8482-800b-8a23-d01f8c3aa6b9"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Current Status": {
+     "id": "%3AD%3AE",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "6d859979-73bd-4a35-b446-5a362009acdc",
+         "name": "Development",
+         "color": "green"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Release": {
+     "id": "BUfx",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "C%5B%3AS",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": true,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Ограничение печати ДКП для клиентов с документом, удостоверяющим личность \"Вид на жительство\"",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Ready For Dev",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Ready For Dev",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-11-18T13:27:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Analysis/Design\",\"from\":\"2026-11-18T09:23:00.000Z\",\"to\":\"2026-11-18T13:27:00.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Analysis/Design\",\"from\":\"2026-11-18T09:23:00.000Z\",\"to\":\"2026-11-18T13:27:00.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "ID": {
+     "id": "WzeW",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "APS-1C",
+         "number": 471
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0.16944444444444445
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 0.2
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "g%5Crq",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "41ce17b6-8482-8077-a953-ffb1d77c9191"
+      }
+     ],
+     "has_more": false
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "oDjM",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "eafc859f-98c0-4cf7-9035-ac1e9b672c4b",
+         "name": "Владимир Чернявский",
+         "color": "yellow"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": null,
+      "number": 361
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Ограничение печати ДКП для клиентов с документом \"Вид на жительство\" [41ce17b6-8482-8077-a953-ffb1d77c9191]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Ограничение печати ДКП для клиентов с документом \"Вид на жительство\" [41ce17b6-8482-8077-a953-ffb1d77c9191]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-41ce17b6-8482-8077-a95-41ce17b68482814baaa3e41fcbbd4be2",
+   "public_url": null
+  },
+  357
+ ],
+ "last_title": "Sprint №12849(44696888308) 20.11.2026 10:43:11",
  "last_at": "2026-11-20T10:48:42.951265+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 357,
- "last_duration_s": 1.9,
+ "last_skipped": 356,
+ "last_duration_s": 2.7,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
@@ -18,7 +358,7 @@
  "resumed": false,
  "resume_skipped": 0,
  "runs_total": 8369,
- "runs_ok": 8282,
+ "runs_ok": 8281,
  "runs_error": 0,
  "created_total": 87,
  "updated_total": 150,
