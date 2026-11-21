@@ -1,8 +1,8 @@
 {
- "last_run": 13257,
- "last_job": "44933735721",
- "last_title": "Sprint №13257(44933735721) 21.11.2026 21:08:16",
- "last_at": "2026-11-21T21:08:16.360329+03:00",
+ "last_run": 13258,
+ "last_job": "44934196929",
+ "last_title": "Sprint №13258(44934196929) 21.11.2026 21:13:16",
+ "last_at": "2026-11-21T21:13:16.272894+03:00",
  "last_created": 0,
  "last_updated": 0,
  "last_failed": 0,
@@ -14,15 +14,15 @@
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-21T18:08:14Z",
+ "snapshot_generated_at": "2026-11-21T18:13:13Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 8758,
- "runs_ok": 8668,
+ "runs_total": 8759,
+ "runs_ok": 8669,
  "runs_error": 0,
  "created_total": 87,
  "updated_total": 152,
- "skipped_total": 2823024,
+ "skipped_total": 2823381,
  "failed_total": 0,
- "last_ok_at": "2026-11-21T18:08:18.000Z"
+ "last_ok_at": "2026-11-21T18:13:18.000Z"
 }
