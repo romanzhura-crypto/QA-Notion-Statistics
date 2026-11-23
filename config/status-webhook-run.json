@@ -1,7 +1,7 @@
 {
  "events_total": 6029,
  "events_processed": 897,
- "events_noop": 2514,
+ "events_noop": 2515,
  "events_skipped": 2905,
  "events_error": 0,
  "events_ping": 985,
