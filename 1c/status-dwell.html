@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Задачи — время в статусе</title>
+  <meta name="widget-build" content="20261002-period-events-a">
+  <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --subtle: #f7f6f3;
+      --ink: #37352f;
+      --muted: rgba(55,53,47,.65);
+      --border: rgba(55,53,47,.16);
+      --blue: #2383e2;
+      --red: #eb5757;
+      --hover: rgba(55,53,47,.08);
+      --focus: #2383e2;
+      --shadow: rgba(15,15,15,.05) 0 0 0 1px, rgba(15,15,15,.05) 0 3px 6px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --radius: 10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #191919; --panel: #202020; --subtle: #2f2f2f;
+        --ink: rgba(255,255,255,.81); --muted: rgba(255,255,255,.46);
+        --border: rgba(255,255,255,.13); --blue: #529cca;
+        --red: #e03e3e; --hover: rgba(255,255,255,.08); --focus: #529cca;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; max-width: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+    main { width: 100%; max-width: none; margin: 0; padding: 12px; display: grid; gap: 12px; }
+    h2 { font-size: 1rem; font-weight: 650; margin: 0 0 8px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .err { color: var(--red); font-size: 13px; font-weight: 600; margin: 8px 0 0; min-height: 1.2em; }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      gap: 8px 16px;
+      align-items: start;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px 16px;
+      min-width: 0;
+    }
+    /* Период (board #239): two native date inputs + reset («×»). */
+    .period-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 36px;
+      gap: 4px;
+      align-items: center;
+      min-height: 36px;
+    }
+    input[type="date"] {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+      width: 100%; min-height: 36px; padding: 6px 8px;
+    }
+    .period-clear {
+      min-width: 36px; min-height: 36px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .period-clear svg { width: 12px; height: 12px; fill: currentColor; }
+    .field.is-off { opacity: .55; }
+    .field { min-width: 0; display: flex; flex-direction: column; }
+    .field-control { min-height: 36px; display: flex; align-items: stretch; }
+    .sync-actions { justify-self: end; }
+    .sync-status {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+      white-space: pre-line;
+      min-height: 1.2em;
+    }
+    .sync-time {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: start;
+      white-space: pre-line;
+    }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], button {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    input[type="text"] { width: 100%; min-height: 36px; padding: 6px 10px; }
+    button { min-height: 36px; padding: 6px 14px; cursor: pointer; background: var(--bg); }
+    button:hover { background: var(--hover); }
+    button.primary { background: var(--blue); color: #fff; border-color: transparent; white-space: nowrap; padding: 6px 16px; }
+    button:disabled { opacity: .55; cursor: wait; }
+    input:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink); }
+    .swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 10px; }
+    .swatch-hatch {
+      background: repeating-linear-gradient(45deg, var(--muted) 0 2px, transparent 2px 4px);
+      border: 1px solid var(--border);
+    }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .kpis div { background: var(--subtle); border-radius: 8px; padding: 10px 12px; }
+    .kpis dt { font-size: 11px; color: var(--muted); }
+    .kpis dd { margin: 3px 0 0; font-size: 1.2rem; font-weight: 700; }
+    .scroll { overflow: auto; width: 100%; max-height: 560px; }
+    .chart-wrap { position: relative; width: 100%; overflow: visible; }
+    .scroll.chart-scroll { overflow-x: auto; overflow-y: visible; max-height: none; }
+    svg { display: block; width: 100%; height: auto; max-width: 100%; }
+    .tip {
+      position: absolute;
+      z-index: 8;
+      display: none;
+      transform: translate(-50%, calc(-100% - 8px));
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 5px 8px;
+      border-radius: 6px;
+      white-space: pre-line;
+      width: max-content;
+      max-width: 460px;
+      pointer-events: none;
+      box-shadow: var(--shadow);
+    }
+    rect.hl {
+      stroke: var(--ink);
+      stroke-width: 2;
+    }
+    /* Board #234: chart rows (svg#chart) are activators like table rows —
+       pointer cursor, hover tint over the row band, focus ring around it. */
+    #chart .chart-row { cursor: pointer; }
+    #chart .chart-row .row-hit { fill: none; }
+    #chart .chart-row:hover .row-hit { fill: var(--hover); }
+    #chart .chart-row:focus { outline: none; }
+    #chart .chart-row:focus .row-hit,
+    #chart .chart-row:focus-visible .row-hit { stroke: var(--focus); stroke-width: 2; }
+    .tip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -5px;
+      width: 8px;
+      height: 8px;
+      margin-left: -4px;
+      background: var(--ink);
+      transform: rotate(45deg);
+    }
+    .tip.show { display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 550;
+    }
+    .seg-list { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tbl-wrap { width: 100%; max-width: 100%; overflow-x: hidden; margin-top: 12px; }
+    table.tbl-tasks { table-layout: fixed; width: 100%; }
+    .tbl-tasks th, .tbl-tasks td { overflow-wrap: break-word; word-break: break-word; }
+    .tbl-tasks thead th[data-key] { cursor: pointer; user-select: none; }
+    .tbl-tasks thead th[data-key]:hover { color: var(--ink); }
+    .tbl-tasks thead th[data-key]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    .sort-ind { display: inline-block; min-width: 11px; margin-left: 2px; font-size: 9px; color: var(--muted); }
+    .tbl-tasks .c-id { width: 9%; }
+    .tbl-tasks .c-name { width: 26%; }
+    .tbl-tasks .c-dev { width: 13%; }
+    .tbl-tasks .c-status { width: 12%; }
+    .tbl-tasks .c-sum { width: 15%; }
+    .tbl-tasks .c-created { width: 12.5%; }
+    .tbl-tasks .c-done { width: 12.5%; }
+    #tbl tr[data-task] { cursor: pointer; }
+    #tbl tr[data-task]:hover td { background: var(--hover); }
+    #tbl tr[data-task]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    #tbl td .task-open { color: var(--ink); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 2px; }
+    #tbl td .task-open:hover { text-decoration-color: currentColor; }
+    #tbl td .task-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    @media (max-width: 640px) {
+      table.tbl-tasks { font-size: 11px; }
+      .tbl-tasks th, .tbl-tasks td { padding: 6px 3px; }
+    }
+    @media (max-width: 768px) {
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      main { padding: 10px; }
+      .sync-actions { justify-self: stretch; }
+      button.primary { width: 100%; }
+    }
+    .combo { position: relative; width: 100%; }
+    .combo-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--subtle);
+      overflow: hidden;
+    }
+    .combo-control:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .combo-control input[type="text"] { border: 0; border-radius: 0; min-height: 36px; background: transparent; }
+    .combo-toggle {
+      min-height: 36px; min-width: 36px; padding: 0; border: 0; border-left: 1px solid var(--border);
+      border-radius: 0; background: transparent; color: var(--ink); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .combo-toggle:hover { background: var(--hover); }
+    .combo-clear {
+      min-height: 36px; min-width: 36px; padding: 0; border: 0; border-left: 1px solid var(--border);
+      border-radius: 0; background: transparent; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .combo-clear[hidden] { display: none; }
+    .combo-clear:hover { background: var(--hover); color: var(--ink); }
+    .combo-clear:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+    .combo-clear svg { width: 11px; height: 11px; fill: currentColor; }
+    #task-combo .combo-control { grid-template-columns: minmax(0, 1fr) 36px 36px; }
+    .combo-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .combo-toggle svg { width: 12px; height: 12px; fill: currentColor; transition: transform .15s; }
+    .combo-menu {
+      display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+      max-height: calc(10 * 32px + 8px); overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow);
+    }
+    .combo-menu.open { display: block; }
+    .combo-menu li { margin: 0; }
+    .combo-option {
+      width: 100%; text-align: left; min-height: 32px; padding: 6px 10px; border: 0; border-radius: 6px;
+      background: transparent; color: var(--ink); cursor: pointer;
+    }
+    .combo-option:hover, .combo-option.active { background: var(--hover); }
+    .combo-empty { padding: 8px 10px; color: var(--muted); font-size: 12px; }
+    @media (prefers-reduced-motion: reduce) { .combo-toggle svg { transition: none; } }
+    @media (max-width: 320px) { .kpis { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="toolbar">
+        <div class="filters">
+        <div class="field">
+          <label for="period-from">Период</label>
+          <div class="period-control">
+            <input id="period-from" type="date" aria-label="Период с" title="Начало периода (включительно)">
+            <span aria-hidden="true">–</span>
+            <input id="period-to" type="date" aria-label="Период по" title="Конец периода (включительно)">
+            <button type="button" class="period-clear" id="period-clear" aria-label="Сбросить период" title="Сбросить период и вернуться к фильтру «Релиз»" hidden>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.4 1 6 4.6 9.6 1 11 2.4 7.4 6l3.6 3.6-1.4 1.4L6 7.4 2.4 11 1 9.6 4.6 6 1 2.4z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="release">Релиз</label>
+          <div class="combo" id="release-combo">
+            <div class="combo-control">
+              <input id="release" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="release-menu" autocomplete="off" placeholder="Начните ввод, например 28.2026">
+              <button type="button" class="combo-toggle" id="release-toggle" aria-label="Открыть список релизов" aria-expanded="false" aria-controls="release-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="release-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="release-err" hidden>Такого релиза не существует.</p>
+        </div>
+        <div class="field">
+          <label for="project">Проект</label>
+          <div class="combo" id="project-combo">
+            <div class="combo-control">
+              <input id="project" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="project-menu" autocomplete="off" placeholder="Все проекты">
+              <button type="button" class="combo-toggle" id="project-toggle" aria-label="Открыть список проектов" aria-expanded="false" aria-controls="project-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="project-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="project-err" hidden>Такого проекта не существует.</p>
+        </div>
+        <div class="field">
+          <label for="task-filter">Задача</label>
+          <div class="combo" id="task-combo">
+            <div class="combo-control">
+              <input id="task-filter" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="task-menu" autocomplete="off" placeholder="Все задачи">
+              <button type="button" class="combo-toggle" id="task-toggle" aria-label="Открыть список задач" aria-expanded="false" aria-controls="task-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+              <button type="button" class="combo-clear" id="task-clear" aria-label="Сбросить фильтр «Задача»" title="Сбросить выбор задачи (Esc)" hidden>
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.4 1 6 4.6 9.6 1 11 2.4 7.4 6l3.6 3.6-1.4 1.4L6 7.4 2.4 11 1 9.6 4.6 6 1 2.4z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="task-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="task-err" hidden>Такой задачи не существует.</p>
+        </div>
+        </div>
+        <div class="field sync-actions">
+          <label for="sync">Sync Notion</label>
+          <div class="field-control">
+            <button type="button" class="primary" id="sync">Обновить данные</button>
+          </div>
+        </div>
+        <p class="sync-time" id="sync-time" aria-live="polite">Данные от —<br>История от —</p>
+        <p class="sync-status" id="sync-msg" aria-live="polite"></p>
+      </div>
+    </section>
+    <section class="kpis" aria-label="Сводка релиза">
+      <div><dt>Задач</dt><dd id="k-n">—</dd></div>
+      <div><dt>Статусов</dt><dd id="k-s">—</dd></div>
+      <div><dt>Медиана</dt><dd id="k-m">—</dd></div>
+      <div><dt>Макс</dt><dd id="k-x">—</dd></div>
+    </section>
+    <section class="card">
+      <h2>Время в каждом Status</h2>
+      <p class="muted">Done — только момент получения статуса, без длительности. Наведите на отрезок: общая информация по статусу и по каждому участку отдельно. Клик по строке таблицы (или Enter/Space) — детальный график одной задачи; название со ссылкой открывает задачу в Notion.</p>
+      <p class="muted" id="period-note" hidden></p>
+      <div class="legend" id="legend"></div>
+      <div class="scroll chart-scroll">
+        <div class="chart-wrap">
+          <svg id="chart" role="img" aria-labelledby="chart-title">
+            <title id="chart-title">Время задач релиза в каждом статусе</title>
+          </svg>
+          <div class="tip" id="tip" role="tooltip"></div>
+        </div>
+      </div>
+      <p class="muted" id="empty" hidden>В этом релизе нет задач.</p>
+      <div class="tbl-wrap">
+        <table class="tbl-tasks">
+          <colgroup>
+            <col class="c-id"><col class="c-name"><col class="c-dev"><col class="c-status"><col class="c-sum"><col class="c-created"><col class="c-done">
+          </colgroup>
+          <thead>
+            <tr>
+              <th data-key="id" tabindex="0" aria-sort="none" title="Сортировать">ID<span class="sort-ind"></span></th>
+              <th data-key="n" tabindex="0" aria-sort="none" title="Сортировать">Задача<span class="sort-ind"></span></th>
+              <th data-key="d" tabindex="0" aria-sort="none" title="Сортировать">DEV<span class="sort-ind"></span></th>
+              <th data-key="s" tabindex="0" aria-sort="none" title="Сортировать">Текущий статус<span class="sort-ind"></span></th>
+              <th data-key="sum" tabindex="0" aria-sort="none" title="Сортировать">Сумма до Done (дн/ч/мин)<span class="sort-ind"></span></th>
+              <th data-key="created" tabindex="0" aria-sort="none" title="Сортировать">Создана<span class="sort-ind"></span></th>
+              <th data-key="done" tabindex="0" aria-sort="none" title="Сортировать">Done<span class="sort-ind"></span></th>
+            </tr>
+          </thead>
+          <tbody id="tbl"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script>
+    let DATA = { releases: [], tasks: [], generated_at: "", generated_at_local: "", enriched_at: "", task_count: 0, status_meta: [], status_dwell_note: "" };
+    const NOTION_STATUS = {
+      default: "#787774", gray: "#9b9a97", brown: "#64473a", orange: "#d9730d",
+      yellow: "#dfab01", green: "#0f7b6c", blue: "#2383e2", purple: "#6940a5",
+      pink: "#ad1a72", red: "#e03e3e"
+    };
+    const syncBtn = document.getElementById("sync");
+    const syncMsg = document.getElementById("sync-msg");
+    const tipEl = document.getElementById("tip");
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function css(name, fb) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
+    }
+    function statusColor(name) {
+      const meta = (DATA.status_meta || []).find(s => s.name === name);
+      return NOTION_STATUS[(meta && meta.color) || "default"] || NOTION_STATUS.default;
+    }
+    function isDoneName(name) {
+      return String(name || "").toLowerCase() === "done";
+    }
+    const PUBLIC_BASE = "";
+    function assetUrl(name) {
+      const n = String(name || "").replace(/^\/+/, "");
+      if (PUBLIC_BASE) return String(PUBLIC_BASE).replace(/\/+$/, "") + "/" + n;
+      try { return new URL(n, window.location.href).toString(); }
+      catch (e) { return n; }
+    }
+    function dataUrl() { return assetUrl("release-data.json"); }
+    function parseTs(v) {
+      if (!v) return null;
+      let s = String(v);
+      // Date-only = midnight Europe/Minsk (UTC+3), not midnight UTC (day-boundary fix).
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00+03:00";
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    function daysInStatus(t) {
+      const start = parseTs(t.start) || parseTs(t.created);
+      if (!start) return 0;
+      const done = isDoneName(t.s);
+      const end = done ? (parseTs(t.edited) || new Date()) : new Date();
+      const ms = Math.max(0, end.getTime() - start.getTime());
+      // A9 (board #213): store at minute precision; display rounding lives only
+      // in fmtDur/round1 — no hour/day quantization here anymore.
+      return Math.round(ms / 60000) / 1440;
+    }
+    // ---- Период (board #239) ----------------------------------------------
+    // Период [с; по] — локальные сутки браузера, «по» включительно. When the
+    // period is active (at least one bound set) the «Релиз» (sprint) filter is
+    // disabled and IGNORED — the period scopes across releases (requirement 1).
+    // «Проект»/«Задача» keep working on top of the period (requirement 2) and
+    // every aggregate is recalculated over the resulting selection
+    // (requirement 3). Вариант А (2026-10-01): the period selects the TASK SET
+    // by lifecycle EVENTS (status change / created / Done inside the dates) AND
+    // every displayed duration is CLIPPED to the period bounds — the chart and
+    // all fields show only time INSIDE the period (see clipSegments).
+    function periodRange() {
+      let a = document.getElementById("period-from").value;
+      let b = document.getElementById("period-to").value;
+      if (!a && !b) return null;
+      if (a && b && a > b) { const sw = a; a = b; b = sw; } // inverted bounds = swapped silently
+      return {
+        fromTs: a ? new Date(a + "T00:00:00").getTime() : -Infinity,
+        toTs: b ? new Date(b + "T23:59:59.999").getTime() : Infinity
+      };
+    }
+    // Вариант А (board #247): отбор по СОБЫТИЯМ жизненного цикла — задача
+    // попадает в период, только если внутри дат случилось событие: смена
+    // статуса (from или to сегмента), момент Done (at), создание (created) или
+    // Start date. Сам факт «висит в статусе через весь период» событием НЕ
+    // является — без событий в датах задача не показывается (fail-visible,
+    // совпадает с текстом empty-state). edited учитывается как точка события
+    // только для задач без истории (mirroring segmentsFor).
+    function taskHitsPeriod(t, range) {
+      if (!range) return true;
+      const hit = (x) => x >= range.fromTs && x <= range.toTs;
+      const h = (t && (t.history || t.segments)) || [];
+      for (let i = 0; i < h.length; i++) {
+        const x = h[i];
+        if (!x) continue;
+        const at = parseTs(x.at);
+        if (at && hit(at.getTime())) return true;
+        const from = parseTs(x.from);
+        if (from && hit(from.getTime())) return true;
+        const to = x.to ? parseTs(x.to) : null;
+        if (to && hit(to.getTime())) return true;
+      }
+      const pts = [];
+      const created = parseTs(t && t.created);
+      const start = parseTs(t && t.start);
+      if (created) pts.push(created.getTime());
+      if (start) pts.push(start.getTime());
+      if (!h.length) {
+        const edited = parseTs(t && t.edited);
+        if (edited) pts.push(edited.getTime());
+      }
+      return pts.some(hit);
+    }
+    // ---- Вариант А (2026-10-01): обрезка к границам периода -----------------
+    // from' = max(from, periodStart), to' = min(to ?? now, periodEnd).
+    // Интервалы целиком вне периода отбрасываются; открытые обрезаются к
+    // periodEnd (или к now, если now раньше). Длительности пересчитываются
+    // по обрезанным границам. Done — момент: виден только если попал в период.
+    // Legacy-сегменты {s, days} без таймстампов: время нельзя отнести к
+    // периоду → в режиме периода исключаются из подсчёта и графика (решено
+    // 2026-10-01). Fallback без истории (approxFromTs) обрезается от основания.
+    function clipSegments(segs, range) {
+      if (!range) return segs;
+      const out = [];
+      (segs || []).forEach(seg => {
+        if (!seg) return;
+        if (seg.kind === "done") {
+          const at = parseTs(seg.at);
+          if (at && at.getTime() >= range.fromTs && at.getTime() <= range.toTs) out.push(seg);
+          return;
+        }
+        const base = parseTs(seg.from) || (seg.approxFromTs ? parseTs(seg.approxFromTs) : null);
+        if (!base) return; // чистый legacy без таймстампов — вне подсчёта периода
+        const rawEnd = seg.to ? parseTs(seg.to) : null;
+        const endTs = rawEnd ? rawEnd.getTime() : Math.max(base.getTime(), Date.now());
+        const f2 = Math.max(base.getTime(), range.fromTs);
+        const t2 = Math.min(endTs, range.toTs);
+        if (t2 <= f2) return; // целиком вне периода
+        const days = Math.round((t2 - f2) / 60000) / 1440;
+        if (!(days > 0)) return;
+        // открытым остаётся только необрезанный конец («по сейчас»);
+        // обрезанный закрывается границей периода и помечается clipped.
+        const endClipped = t2 < endTs;
+        out.push(Object.assign({}, seg, {
+          days: days,
+          from: new Date(f2).toISOString(),
+          to: (seg.to || endClipped) ? new Date(t2).toISOString() : null,
+          open: !!seg.open && !endClipped,
+          clipped: f2 > base.getTime() || endClipped
+        }));
+      });
+      return out;
+    }
+    function fmtDate(v) {
+      const d = v instanceof Date ? v : parseTs(v);
+      if (!d) return "—";
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric"
+      }).formatToParts(d);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year");
+    }
+    function fmtDateTime(v) {
+      const d = v instanceof Date ? v : parseTs(v);
+      if (!d) return "—";
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: false
+      }).formatToParts(d);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    // A9 (board #213): one display-rounding policy for both widgets:
+    // minutes → whole, hours → 0.1, days → 0.1 (round1).
+    function round1(n) { return Math.round((Number(n) || 0) * 10) / 10; }
+    function fmtDur(days) {
+      const n = Number(days) || 0;
+      if (n <= 0) return "0 мин";
+      if (n < 1 / 24) return Math.max(1, Math.round(n * 1440)) + " мин";
+      if (n < 1) return round1(n * 24) + " ч";
+      return round1(n) + " дн";
+    }
+    function fmtDurParts(ms) {
+      if (ms == null || isNaN(ms)) return "—";
+      const totalMin = Math.max(0, Math.round(ms / 60000));
+      const d = Math.floor(totalMin / 1440);
+      const h = Math.floor((totalMin % 1440) / 60);
+      const m = totalMin % 60;
+      const parts = [];
+      if (d) parts.push(d + " дн");
+      if (h) parts.push(h + " ч");
+      if (m || !parts.length) parts.push(m + " мин");
+      return parts.join(" ");
+    }
+    function historyOf(t) {
+      return (t && (t.history || t.segments)) || [];
+    }
+    function segRange(seg) {
+      if (!seg.from) {
+        // A7 (board #208): the no-history fallback is an OPEN interval measured
+        // from Start date/created to now — say so, never pretend it is closed.
+        if (seg.open && seg.approxFromTs) {
+          return "≈ от " + seg.approxBasis + " " + fmtDateTime(seg.approxFromTs) +
+            " → сейчас (открыт: fallback без истории, точка входа в статус неизвестна)";
+        }
+        if (seg.open) return "открытый интервал без истории: основание неизвестно (fallback)";
+        return "получение статуса неизвестно (учтён агрегатом без таймстампа)";
+      }
+      const from = "получен " + fmtDateTime(seg.from);
+      let s = seg.to ? (from + " → ушёл " + fmtDateTime(seg.to)) : (from + " → сейчас (открыт)");
+      if (seg.approxFromTs) s += " (≈ от " + seg.approxBasis + ": точка входа в статус неизвестна)";
+      if (seg.clipped) s += " · обрезано по границам периода";
+      return s;
+    }
+    function tipFor(seg, same) {
+      const dur = (s) => fmtDurParts((Number(s.days) || 0) * 86400000);
+      // A7/A9: open intervals always carry an explicit marker — the end «сейчас»
+      // is never substituted silently; «(< 1 ч)» flags micro durations.
+      const durLine = (s) => (s.open ? "≈ " : "") + dur(s) +
+        (s.open ? " (открыт, по сейчас)" : "") +
+        ((Number(s.days) || 0) > 0 && s.days < 1 / 24 ? " (< 1 ч)" : "");
+      const lines = [];
+      if (same.length > 1) {
+        let totalMs = 0;
+        same.forEach(s => { totalMs += (Number(s.days) || 0) * 86400000; });
+        const anyOpen = same.some(s => s.open);
+        lines.push(seg.s + " · участков: " + same.length + " · всего " + (anyOpen ? "≈ " : "") +
+          fmtDurParts(totalMs) + (anyOpen ? " (по сейчас)" : ""));
+        same.forEach((s, i) => {
+          lines.push((i + 1) + ") " + segRange(s) + " · " + durLine(s));
+        });
+      } else {
+        lines.push(seg.s + " · " + durLine(seg));
+        lines.push(segRange(seg));
+      }
+      return lines.join("\n");
+    }
+    function segmentsFor(t) {
+      const raw = historyOf(t);
+      if (raw.length) {
+        return raw.map(h => {
+          if (isDoneName(h.s)) {
+            return { s: h.s || "Done", kind: "done", days: 0, at: h.at || h.start || h.end || null };
+          }
+          return {
+            s: h.s || "Unknown",
+            kind: "dwell",
+            days: Number(h.days) || 0,
+            at: null,
+            from: h.from || null,
+            to: h.to || null,
+            legacy: !h.from,
+            // A7 (board #208): to === null with a known from = OPEN interval.
+            // Legacy remainders ({s, days} only) are closed aggregates without
+            // timestamps — never open, never measured to «now».
+            open: !!h.from && !h.to
+          };
+        });
+      }
+      if (isDoneName(t.s)) {
+        return [{ s: t.s || "Done", kind: "done", days: 0, at: t.edited || t.start || t.created || null }];
+      }
+      // A7 (board #208): no-history fallback = open interval from Start date
+      // (else created) to now. Marked honestly everywhere it is displayed.
+      const approxFromTs = t.start || t.created || null;
+      return [{
+        s: t.s || "Unknown", kind: "dwell", days: daysInStatus(t),
+        at: null, from: null, to: null, legacy: true, open: true,
+        approxFromTs: approxFromTs, approxBasis: t.start ? "Start date" : "создания"
+      }];
+    }
+    function dwellTotal(segs) {
+      return segs.filter(s => s.kind === "dwell").reduce((sum, s) => sum + (s.days || 0), 0);
+    }
+    // A9 (board #213): standard median — mean of the two central values for an
+    // even count (the old floor((n-1)/2) lower-median bias is gone).
+    function medianDays(vals) {
+      if (!vals.length) return 0;
+      const s = vals.slice().sort((a, b) => a - b);
+      const mid = s.length >> 1;
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    }
+    function doneAt(segs) {
+      const d = segs.find(s => s.kind === "done");
+      return d ? d.at : null;
+    }
+
+    function createCombo(cfg) {
+      const inputEl = document.getElementById(cfg.input);
+      const menuEl = document.getElementById(cfg.menu);
+      const toggleEl = document.getElementById(cfg.toggle);
+      const errEl = cfg.err ? document.getElementById(cfg.err) : null;
+      const rootSel = "#" + cfg.root;
+      let activeIdx = -1;
+      let filterOnType = false;
+      function items() { return cfg.items() || []; }
+      function listItems() {
+        const all = items();
+        const q = (inputEl.value || "").trim().toLowerCase();
+        if (!filterOnType || !q) return all.slice();
+        const exact = all.some(it => it.label.toLowerCase() === q || String(it.value).toLowerCase() === q);
+        if (exact) return all.slice();
+        return all.filter(it => it.label.toLowerCase().indexOf(q) !== -1 || String(it.value).toLowerCase().indexOf(q) !== -1);
+      }
+      function fill() {
+        const list = listItems();
+        if (!list.length) {
+          menuEl.innerHTML = "<li class=\"combo-empty\">Нет совпадений</li>";
+          activeIdx = -1;
+          return;
+        }
+        menuEl.innerHTML = list.map((it, i) =>
+          "<li><button type=\"button\" class=\"combo-option" + (i === activeIdx ? " active" : "") + "\" role=\"option\" data-value=\"" + esc(it.value) + "\">" + esc(it.label) + "</button></li>"
+        ).join("");
+      }
+      function highlight() {
+        const opts = menuEl.querySelectorAll(".combo-option");
+        opts.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+        if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+      }
+      function setExpanded(open, fromType) {
+        if (open && !fromType) filterOnType = false;
+        menuEl.classList.toggle("open", open);
+        menuEl.hidden = !open;
+        inputEl.setAttribute("aria-expanded", open ? "true" : "false");
+        toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          const cur = (inputEl.value || "").trim().toLowerCase();
+          const list = listItems();
+          activeIdx = Math.max(0, list.findIndex(it => it.label.toLowerCase() === cur || String(it.value).toLowerCase() === cur));
+          fill();
+          highlight();
+        }
+      }
+      function pick(value) {
+        const it = items().find(x => String(x.value) === value) || null;
+        inputEl.value = it ? it.label : (value || "");
+        setExpanded(false);
+        cfg.onPick(it);
+      }
+      function match() {
+        const v = (inputEl.value || "").trim();
+        if (!v) return { ok: !!cfg.emptyMeansAll, empty: true, item: null };
+        const low = v.toLowerCase();
+        const it = items().find(x => x.label.toLowerCase() === low || String(x.value).toLowerCase() === low) || null;
+        return it ? { ok: true, empty: false, item: it } : { ok: false, empty: false, item: null };
+      }
+      function setErr(m) { if (errEl) errEl.hidden = m.ok || m.empty; }
+      function clear() { inputEl.value = ""; }
+
+      inputEl.addEventListener("input", () => { filterOnType = true; activeIdx = 0; setExpanded(true, true); cfg.onInput(); });
+      inputEl.addEventListener("focus", () => setExpanded(true, false));
+      inputEl.addEventListener("keydown", (e) => {
+        const open = menuEl.classList.contains("open");
+        const list = listItems();
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (!open) setExpanded(true);
+          else { activeIdx = Math.min(list.length - 1, activeIdx + 1); highlight(); }
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!open) setExpanded(true);
+          else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
+        } else if (e.key === "Enter") {
+          if (open && list[activeIdx]) { e.preventDefault(); pick(String(list[activeIdx].value)); }
+        } else if (e.key === "Escape") {
+          // Board #233: swallow Esc while the menu is open (close the menu only) —
+          // the global Esc handler must not reset the task filter on this press.
+          if (menuEl.classList.contains("open")) { e.preventDefault(); e.stopPropagation(); setExpanded(false); }
+        }
+      });
+      toggleEl.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        setExpanded(!menuEl.classList.contains("open"));
+        if (menuEl.classList.contains("open")) inputEl.focus();
+      });
+      menuEl.addEventListener("mousedown", (e) => {
+        const btn = e.target.closest(".combo-option");
+        if (!btn) return;
+        e.preventDefault();
+        pick(btn.getAttribute("data-value"));
+      });
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(rootSel)) setExpanded(false);
+      });
+      return {
+        input: inputEl, match, setErr, clear,
+        setValue: (v) => { inputEl.value = v || ""; },
+        pick: (v) => pick(String(v == null ? "" : v)),
+        close: () => setExpanded(false),
+        menuOpen: () => menuEl.classList.contains("open")
+      };
+    }
+
+    function releaseItems() {
+      return (DATA.releases || []).map(r => ({ value: r, label: r }));
+    }
+    const releaseCombo = createCombo({
+      root: "release-combo", input: "release", menu: "release-menu", toggle: "release-toggle", err: "release-err",
+      emptyMeansAll: false,
+      items: releaseItems,
+      onInput: () => render(),
+      onPick: () => { cascadeReset(); render(); }
+    });
+    function releaseTasks() {
+      // Board #239 requirement 1: with a period selected the sprint/release
+      // filter is NOT taken into account — the period scopes across releases.
+      const range = periodRange();
+      if (range) {
+        return (DATA.tasks || []).filter(t => taskHitsPeriod(t, range));
+      }
+      const m = releaseCombo.match();
+      if (!m.ok || !m.item) return [];
+      return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.item.value) !== -1);
+    }
+    function projectItems() {
+      const names = [];
+      let none = false;
+      releaseTasks().forEach(t => {
+        const v = String(t.p || "");
+        if (!v) { none = true; return; }
+        if (names.indexOf(v) === -1) names.push(v);
+      });
+      names.sort((a, b) => a.localeCompare(b, "ru"));
+      const out = names.map(v => ({ value: v, label: v }));
+      if (none) out.push({ value: "__none__", label: "Без проекта" });
+      return out;
+    }
+    const projectCombo = createCombo({
+      root: "project-combo", input: "project", menu: "project-menu", toggle: "project-toggle", err: "project-err",
+      emptyMeansAll: true,
+      items: projectItems,
+      onInput: () => render(),
+      onPick: () => { cascadeReset(); render(); }
+    });
+    function projectTasks() {
+      const m = projectCombo.match();
+      let rows = releaseTasks();
+      if (m.ok && m.item) {
+        rows = rows.filter(t => m.item.value === "__none__" ? !t.p : String(t.p || "") === m.item.value);
+      }
+      return rows;
+    }
+    function selected() {
+      const m = taskCombo.match();
+      let rows = projectTasks();
+      if (m.ok && m.item) {
+        rows = rows.filter(t => String(t.id) === m.item.value);
+      }
+      return rows;
+    }
+    function taskItems() {
+      return projectTasks()
+        .slice()
+        .sort((a, b) => String(a.tid || "").localeCompare(String(b.tid || ""), "ru", { numeric: true }) || String(a.n || "").localeCompare(String(b.n || ""), "ru"))
+        .map(t => ({
+          value: String(t.id),
+          label: (t.tid ? t.tid + " · " : "") + (t.n || "Без названия")
+        }));
+    }
+    const taskCombo = createCombo({
+      root: "task-combo", input: "task-filter", menu: "task-menu", toggle: "task-toggle", err: "task-err",
+      emptyMeansAll: true,
+      items: taskItems,
+      onInput: () => render(),
+      onPick: () => { cascadeReset(); render(); }
+    });
+    // Board #233: exit detail mode — «×» next to the «Задача» filter or Esc.
+    const taskClearBtn = document.getElementById("task-clear");
+    function resetTaskFilter(focusInput) {
+      taskCombo.clear();
+      taskCombo.close();
+      render();
+      if (focusInput) taskCombo.input.focus();
+    }
+    taskClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      resetTaskFilter(true);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (taskCombo.menuOpen()) return;
+      const mt = taskCombo.match();
+      if (mt.ok && mt.item) {
+        e.preventDefault();
+        resetTaskFilter(false);
+      }
+    });
+    function cascadeReset() {
+      const mp = projectCombo.match();
+      if (!mp.ok && !mp.empty) projectCombo.clear();
+      const mt = taskCombo.match();
+      if (!mt.ok && !mt.empty) taskCombo.clear();
+    }
+
+    // ---- Период (board #239): UI wiring ------------------------------------
+    const periodFromEl = document.getElementById("period-from");
+    const periodToEl = document.getElementById("period-to");
+    const periodClearBtn = document.getElementById("period-clear");
+    function applyPeriodUi(on) {
+      periodClearBtn.hidden = !on;
+      const relInput = document.getElementById("release");
+      const relToggle = document.getElementById("release-toggle");
+      relInput.disabled = on;
+      relToggle.disabled = on;
+      const field = relInput.closest(".field");
+      if (field) field.classList.toggle("is-off", on);
+      relInput.title = on
+        ? "Спринт не учитывается: выбран период (очистите период, чтобы вернуться к выбору релиза)"
+        : "";
+    }
+    function onPeriodChange() { cascadeReset(); render(); }
+    periodFromEl.addEventListener("input", onPeriodChange);
+    periodToEl.addEventListener("input", onPeriodChange);
+    periodFromEl.addEventListener("change", onPeriodChange);
+    periodToEl.addEventListener("change", onPeriodChange);
+    periodClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      periodFromEl.value = "";
+      periodToEl.value = "";
+      cascadeReset();
+      render();
+      periodFromEl.focus();
+    });
+
+    function hideTip() {
+      tipEl.classList.remove("show");
+    }
+    function showTip(evt, text) {
+      const wrap = tipEl.parentElement;
+      if (!wrap) return;
+      const box = wrap.getBoundingClientRect();
+      const t = evt.currentTarget;
+      const r = t.getBoundingClientRect();
+      tipEl.textContent = text;
+      let left = r.left - box.left + r.width / 2;
+      let top = r.top - box.top;
+      tipEl.classList.add("show");
+      const tw = tipEl.offsetWidth || 0;
+      const th = tipEl.offsetHeight || 0;
+      const minX = tw / 2 + 4;
+      const maxX = Math.max(minX, box.width - tw / 2 - 4);
+      left = Math.min(maxX, Math.max(minX, left));
+      if (top - th - 10 < 0) top = th + 10;
+      tipEl.style.left = left + "px";
+      tipEl.style.top = top + "px";
+    }
+    function bindTips(svg) {
+      svg.querySelectorAll("[data-tip]").forEach(el => {
+        const text = el.getAttribute("data-tip") || "";
+        const group = el.getAttribute("data-group") || "";
+        const setHl = (on) => {
+          if (!group) return;
+          svg.querySelectorAll("[data-group]").forEach(gEl => {
+            if (gEl.getAttribute("data-group") === group) gEl.classList.toggle("hl", on);
+          });
+        };
+        el.addEventListener("mouseenter", (evt) => { setHl(true); showTip(evt, text); });
+        el.addEventListener("mousemove", (evt) => showTip(evt, text));
+        el.addEventListener("mouseleave", () => { setHl(false); hideTip(); });
+        el.addEventListener("focus", (evt) => { setHl(true); showTip(evt, text); });
+        el.addEventListener("blur", () => { setHl(false); hideTip(); });
+      });
+    }
+
+    // Board #233: row click/Enter/Space = apply the «Задача» filter for this task
+    // (detail chart mode). The title link keeps «open in Notion» alive and must
+    // never trigger the filter (stopPropagation).
+    function applyTaskFromRow(value) {
+      if (!value) return;
+      taskCombo.pick(value);
+    }
+    // Shared activator wiring (board #233 + #234): click / Enter / Space runs
+    // applyTaskFromRow. `skip(event)` may veto an event (Notion link in a table
+    // row). One implementation for table rows and chart rows — no duplicates.
+    function bindRowActivator(el, value, skip) {
+      el.addEventListener("click", (e) => { if (!(skip && skip(e))) applyTaskFromRow(value); });
+      el.addEventListener("keydown", (e) => {
+        if (skip && skip(e)) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); applyTaskFromRow(value); }
+      });
+    }
+    function bindRowActions() {
+      document.querySelectorAll("#tbl tr[data-task]").forEach(tr => {
+        const value = tr.getAttribute("data-task") || "";
+        const inLink = (e) => e.target && e.target.closest && e.target.closest("a");
+        bindRowActivator(tr, value, inLink);
+        const a = tr.querySelector("td .task-open");
+        if (a) {
+          a.addEventListener("click", (e) => e.stopPropagation());
+          a.addEventListener("keydown", (e) => e.stopPropagation());
+        }
+      });
+    }
+    // Board #234: chart rows (svg#chart) act exactly like table rows — click /
+    // Enter / Space anywhere in the row band (bar, segments, Done diamond, micro
+    // dots, empty row space) applies the «Задача» filter (detail mode). Segment
+    // clicks bubble up to the row group, so tooltips and highlighting stay as
+    // they were (bindTips) and the click still enters detail mode.
+    function bindChartRowActions(svg) {
+      svg.querySelectorAll("g.chart-row[data-task]").forEach(gEl => {
+        bindRowActivator(gEl, gEl.getAttribute("data-task") || "", null);
+      });
+    }
+
+    let sortKey = null, sortDir = 1, lastRows = [];
+    function tidNum(r) {
+      const m = /(\d+)\s*$/.exec(String(r.tid || ""));
+      return m ? parseInt(m[1], 10) : null;
+    }
+    function statusOrderMap() {
+      const map = {};
+      (DATA.status_meta || []).forEach((s, i) => { if (s && s.name) map[String(s.name).toLowerCase()] = i; });
+      return map;
+    }
+    function sortRows(rows) {
+      if (!sortKey) return rows.slice();
+      const ord = statusOrderMap();
+      const val = (r) => {
+        if (sortKey === "id") return tidNum(r);
+        if (sortKey === "n") return String(r.n || "").toLowerCase();
+        if (sortKey === "d") return String(r.d || "").toLowerCase();
+        if (sortKey === "s") {
+          const i = ord[String(r.s || "").toLowerCase()];
+          return i == null ? 9999 : i;
+        }
+        if (sortKey === "sum") return r.sumDoneMs == null ? null : r.sumDoneMs;
+        const d = parseTs(sortKey === "created" ? r.created : r.doneAt);
+        return d ? d.getTime() : null;
+      };
+      return rows.slice().sort((a, b) => {
+        const va = val(a), vb = val(b);
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        let c;
+        if (typeof va === "string") c = va.localeCompare(vb, "ru");
+        else c = va < vb ? -1 : (va > vb ? 1 : 0);
+        return c * sortDir;
+      });
+    }
+    function updateSortIndicators() {
+      document.querySelectorAll(".tbl-tasks thead th[data-key]").forEach(th => {
+        const active = th.getAttribute("data-key") === sortKey;
+        th.setAttribute("aria-sort", active ? (sortDir === 1 ? "ascending" : "descending") : "none");
+        const ind = th.querySelector(".sort-ind");
+        if (ind) ind.textContent = active ? (sortDir === 1 ? "▲" : "▼") : "";
+      });
+    }
+    function renderTable(list) {
+      document.getElementById("tbl").innerHTML = list.map(r => {
+        const sumCell = r.sumDoneMs != null
+          ? (r.sumOpen ? "≈ " + fmtDurParts(r.sumDoneMs) + " (по сейчас)" : fmtDurParts(r.sumDoneMs))
+          : "—";
+        const createdCell = fmtDateTime(r.created);
+        const doneCell = r.doneAt ? fmtDateTime(r.doneAt) : "—";
+        // Board #233: the whole row is keyboard/click-activatable and applies the
+        // task filter; the title stays an explicit Notion link (target=_blank).
+        const nameCell = r.href
+          ? "<a class=\"task-open\" href=\"" + esc(r.href) + "\" target=\"_blank\" rel=\"noopener\">" + esc(r.n) + "</a>"
+          : esc(r.n);
+        const rowAttr = " data-task=\"" + esc(r.id) + "\" tabindex=\"0\" role=\"button\" aria-label=\"" +
+          esc("Показать на графике только задачу " + (r.tid ? r.tid + " " : "") + r.n) + "\"";
+        return "<tr" + rowAttr + "><td>" + esc(r.tid || "—") + "</td><td>" + nameCell + "</td><td>" + esc(r.d || "—") + "</td><td><span class=\"pill\" style=\"background:" + statusColor(r.s) + "22;color:" + statusColor(r.s) + "\">" +
+          esc(r.s) + "</span></td><td>" + esc(sumCell) + "</td><td>" + esc(createdCell) + "</td><td>" + esc(doneCell) + "</td></tr>";
+      }).join("");
+      bindRowActions();
+    }
+
+    function draw(rows, detail) {
+      const svg = document.getElementById("chart");
+      const empty = document.getElementById("empty");
+      hideTip();
+      empty.hidden = rows.length > 0;
+      if (!rows.length) {
+        svg.removeAttribute("viewBox");
+        svg.innerHTML = "";
+        lastRows = [];
+        document.getElementById("tbl").innerHTML = "";
+        document.getElementById("legend").innerHTML = "";
+        return;
+      }
+      const host = svg.parentElement || svg;
+      const hostW = Math.floor(host.getBoundingClientRect().width || host.clientWidth || 0);
+      // Board #233: detail mode = the «Задача» filter picks ONE task (row click
+      // or task combo). The timeline bar stretches across the full width with a
+      // thick body so every status segment is clearly visible. A release that
+      // simply has one task stays in the ordinary mode.
+      const rowH = detail ? 64 : 32;
+      const pad = detail ? { l: 16, r: 28, t: 32, b: 34 } : { l: 220, r: 72, t: 28, b: 28 };
+      const w = Math.max(hostW || 0, 640);
+      const h = pad.t + pad.b + rows.length * rowH;
+      const innerW = w - pad.l - pad.r;
+      const maxX = detail
+        ? Math.max(1e-9, ...rows.map(r => r.totalDays || 0))
+        : Math.max(1, ...rows.map(r => r.totalDays || 0));
+      const ink = css("--ink", "#37352f");
+      const muted = css("--muted", "#787774");
+      const border = css("--border", "#e3e2de");
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
+      let g = [];
+      // A7 (board #208): open intervals get a hatch overlay (plus «открыт» in the
+      // tooltip and a legend entry) — the «сейчас» end is visually flagged.
+      g.push('<defs><pattern id="hatch-open" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+        '<line x1="0" y1="0" x2="0" y2="6" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" /></pattern></defs>');
+      for (let i = 0; i <= 4; i++) {
+        const x = pad.l + innerW * (i / 4);
+        const val = maxX * (i / 4);
+        g.push('<line x1="' + x + '" x2="' + x + '" y1="' + pad.t + '" y2="' + (h - pad.b) + '" stroke="' + border + '" />');
+        g.push('<text x="' + x + '" y="' + (h - 8) + '" font-size="11" fill="' + muted + '" text-anchor="middle">' + ((detail || maxX < 1) ? fmtDur(val) : round1(val)) + "</text>");
+      }
+      if (detail) {
+        // Board #233: explicit time axis line in detail mode (ticks above).
+        g.push('<line x1="' + pad.l + '" x2="' + (w - pad.r) + '" y1="' + (h - pad.b) + '" y2="' + (h - pad.b) + '" stroke="' + border + '" />');
+      }
+      rows.forEach((r, i) => {
+        const y = pad.t + i * rowH + (detail ? 4 : 6);
+        const bh = detail ? 48 : 18;
+        // Board #234: the whole chart row is one activator group. The
+        // transparent row-hit makes the empty part of the band clickable;
+        // segments/diamond/dots are drawn ON TOP so their hover tooltips
+        // (bindTips) keep working and their clicks bubble up to the group.
+        const rowLabel = "Показать на графике только задачу " + (r.tid ? r.tid + " " : "") + r.n;
+        g.push('<g class="chart-row" data-task="' + esc(r.id) + '" tabindex="0" role="button" aria-label="' + esc(rowLabel) + '">');
+        g.push('<rect class="row-hit" pointer-events="all" fill="none" x="0" y="' + (pad.t + i * rowH) + '" width="' + w + '" height="' + rowH + '" rx="4" />');
+        if (detail) {
+          const full = (r.tid ? r.tid + " · " : "") + r.n;
+          const label = full.length > 60 ? full.slice(0, 59) + "…" : full;
+          g.push('<text x="8" y="' + (pad.t - 10) + '" font-size="12" font-weight="650" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
+        } else {
+          const label = r.n.length > 34 ? r.n.slice(0, 33) + "…" : r.n;
+          g.push('<text x="8" y="' + (y + 13) + '" font-size="11" fill="' + ink + '" text-anchor="start">' + esc(label) + "</text>");
+        }
+        let x = pad.l;
+        const byStatus = {};
+        r.segs.forEach(seg => { (byStatus[seg.s] = byStatus[seg.s] || []).push(seg); });
+        r.segs.forEach(seg => {
+          if (seg.kind === "done") {
+            const dr = detail ? 10 : 7;
+            const cx = x + 8;
+            const cy = y + bh / 2;
+            const tip = "Done · " + fmtDateTime(seg.at) + "\nмомент получения статуса (без длительности)";
+            g.push('<polygon tabindex="0" data-tip="' + esc(tip) + '" points="' +
+              cx + "," + (cy - dr) + " " + (cx + dr) + "," + cy + " " + cx + "," + (cy + dr) + " " + (cx - dr) + "," + cy +
+              '" fill="' + statusColor(seg.s) + '" stroke="' + ink + '" stroke-width="0.6" />');
+            return;
+          }
+          const same = byStatus[seg.s] || [seg];
+          // A9 (board #213): proportional width only — no 4px min-width
+          // inflation. A micro segment (< 2px) stays truthful and gets a dot
+          // marker; the tooltip flags durations below an hour («< 1 ч»).
+          const bw = (seg.days / maxX) * innerW;
+          const tip = tipFor(seg, same);
+          const grp = same.length > 1 ? ' data-group="' + i + "::" + esc(seg.s) + '"' : "";
+          const openAttr = seg.open ? ' data-open="1"' : "";
+          const cls = "seg" + (seg.open ? " open-seg" : "");
+          g.push('<rect class="' + cls + '" tabindex="0" data-tip="' + esc(tip) + '"' + grp + openAttr + ' x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + statusColor(seg.s) + '" />');
+          if (seg.open) {
+            g.push('<rect class="open-hatch" pointer-events="none" x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="3" fill="url(#hatch-open)" />');
+          }
+          if (seg.days > 0 && bw < 2) {
+            g.push('<circle class="micro-dot" data-tip="' + esc(tip) + '"' + grp + openAttr + ' cx="' + (x + 1) + '" cy="' + (y + bh / 2) + '" r="2.5" fill="' + statusColor(seg.s) + '" />');
+          }
+          // Board #233: detail mode — status name + duration ON the segment when
+          // they fit; otherwise the tooltip (bindTips) remains the only source.
+          // Micro segments (< 2px) stay truthful: dot marker only, never inflated.
+          if (detail && bw >= 40) {
+            const durTxt = (seg.open ? "≈ " : "") + fmtDur(seg.days) + (seg.open ? " · по сейчас" : "");
+            const withDur = bw >= 64;
+            const nameChars = Math.max(1, Math.floor((bw - 10) / 6.6));
+            const nm = String(seg.s);
+            const nameShown = nm.length > nameChars
+              ? (nameChars > 1 ? nm.slice(0, nameChars - 1) + "…" : nm.slice(0, 1))
+              : nm;
+            const durChars = Math.max(1, Math.floor((bw - 10) / 6.0));
+            const durShown = durTxt.length > durChars
+              ? (durChars > 3 ? durTxt.slice(0, durChars - 1) + "…" : durTxt.slice(0, durChars))
+              : durTxt;
+            g.push('<text x="' + (x + 5) + '" y="' + (y + (withDur ? 20 : bh / 2 + 4)) + '" font-size="' + (withDur ? 12 : 11) + '"' +
+              (withDur ? ' font-weight="650"' : "") + ' fill="#ffffff" stroke="rgba(0,0,0,0.5)" stroke-width="2.5" paint-order="stroke" text-anchor="start">' +
+              esc(nameShown) + "</text>");
+            if (withDur) {
+              g.push('<text x="' + (x + 5) + '" y="' + (y + 38) + '" font-size="11" fill="#ffffff" stroke="rgba(0,0,0,0.5)" stroke-width="2" paint-order="stroke" text-anchor="start">' +
+                esc(durShown) + "</text>");
+            }
+          }
+          x += bw;
+        });
+        if (!r.doneAt) {
+          const anyOpen = r.segs.some(s => s.open);
+          const lbl = (anyOpen ? "≈ " : "") + fmtDur(r.totalDays) + (anyOpen ? " (по сейчас)" : "");
+          if (detail) {
+            g.push('<text x="' + (w - 8) + '" y="' + (pad.t - 10) + '" font-size="11" fill="' + muted + '" text-anchor="end">' + esc(lbl) + "</text>");
+          } else {
+            g.push('<text x="' + (Math.max(x, pad.l) + 14) + '" y="' + (y + 13) + '" font-size="11" fill="' + muted + '">' + esc(lbl) + "</text>");
+          }
+        }
+        g.push("</g>");
+      });
+      svg.innerHTML = g.join("");
+      bindTips(svg);
+      bindChartRowActions(svg);
+      const used = {};
+      rows.forEach(r => r.segs.forEach(seg => { used[seg.s] = true; }));
+      const metaOrder = (DATA.status_meta || []).map(s => s.name).filter(Boolean);
+      const seen = [];
+      metaOrder.forEach(s => { if (used[s] && seen.indexOf(s) === -1) seen.push(s); });
+      Object.keys(used).forEach(s => { if (seen.indexOf(s) === -1) seen.push(s); });
+      const anyOpen = rows.some(r => r.segs.some(s => s.open));
+      let legendHtml = seen.map(s =>
+        "<span><i class=\"swatch\" style=\"background:" + statusColor(s) + "\"></i>" + esc(s) + (isDoneName(s) ? " (момент)" : "") + "</span>"
+      ).join("");
+      if (anyOpen) {
+        legendHtml += "<span><i class=\"swatch swatch-hatch\"></i>открытый интервал (по сейчас)</span>";
+      }
+      document.getElementById("legend").innerHTML = legendHtml;
+      lastRows = rows;
+      renderTable(sortRows(rows));
+    }
+
+    function toRow(t) {
+      const range = periodRange();
+      // Вариант А: в режиме периода каждый отрезок обрезается к границам.
+      const segs = clipSegments(segmentsFor(t), range);
+      const doneRaw = doneAt(segs);
+      const doneDate = parseTs(doneRaw);
+      const firstDate = parseTs(t.created) || parseTs(t.start);
+      let sumDoneMs = null;
+      let sumOpen = false;
+      if (range) {
+        // «Сумма до Done» в режиме периода = только время внутри периода:
+        // отрезок [created→done] обрезается к границам как и сегменты.
+        const f2 = firstDate ? Math.max(firstDate.getTime(), range.fromTs) : range.fromTs;
+        if (doneDate) {
+          const t2 = Math.min(doneDate.getTime(), range.toTs);
+          sumDoneMs = Math.max(0, t2 - f2);
+        } else if (isDoneName(t.s)) {
+          sumDoneMs = Math.round(dwellTotal(segs) * 86400000);
+          sumOpen = segs.some(s => s.open);
+        } else {
+          const endTs = Math.max(f2, Date.now());
+          const t2 = Math.min(endTs, range.toTs);
+          sumDoneMs = Math.max(0, t2 - f2);
+          sumOpen = t2 >= Date.now();
+        }
+      } else if (doneDate && firstDate && doneDate.getTime() >= firstDate.getTime()) {
+        sumDoneMs = doneDate.getTime() - firstDate.getTime();
+      } else if (isDoneName(t.s)) {
+        const dwellMs = dwellTotal(segs) * 86400000;
+        if (dwellMs > 0) sumDoneMs = dwellMs;
+      } else if (firstDate) {
+        // A7 (board #208): the sum of a not-yet-Done task ends at «now» — that is
+        // marked (sumOpen), never shown as a closed number.
+        sumDoneMs = Math.max(0, Date.now() - firstDate.getTime());
+        sumOpen = true;
+      }
+      const idStr = String(t.id || "");
+      const href = t.u ? String(t.u) :
+        (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(idStr)
+          ? "https://app.notion.com/p/" + idStr.replace(/-/g, "") : "");
+      return {
+        n: t.n || "Без названия",
+        s: t.s || "Unknown",
+        d: t.d || "Unassigned",
+        start: t.start,
+        created: t.created,
+        segs: segs,
+        totalDays: dwellTotal(segs),
+        period: !!range,
+        doneAt: doneRaw,
+        tid: t.tid || "",
+        id: idStr,
+        href: href,
+        sumDoneMs: sumDoneMs,
+        sumOpen: sumOpen
+      };
+    }
+
+    function render() {
+      const range = periodRange();
+      applyPeriodUi(!!range);
+      {
+        const note = document.getElementById("period-note");
+        if (range) {
+          const f = fmtDate(new Date(range.fromTs === -Infinity ? Date.now() : range.fromTs));
+          const t = range.toTs === Infinity ? "сейчас" : fmtDate(new Date(range.toTs));
+          note.hidden = false;
+          note.textContent = "Период «за»: показаны задачи с событиями " + f + " – " + t +
+            ". Все отрезки и длительности обрезаны по границам периода (время вне периода не считается).";
+        } else {
+          note.hidden = true;
+          note.textContent = "";
+        }
+      }
+      const m = releaseCombo.match();
+      const mp = projectCombo.match();
+      const mt = taskCombo.match();
+      // Board #239: in period mode the «Релиз» (sprint) filter is disabled and
+      // ignored — no «unknown release» error, no requirement to pick one.
+      if (range) document.getElementById("release-err").hidden = true;
+      else releaseCombo.setErr(m);
+      projectCombo.setErr(mp);
+      taskCombo.setErr(mt);
+      // Board #233: the «Задача» reset (×) appears exactly when a task filter is set.
+      taskClearBtn.hidden = !(mt.ok && mt.item);
+      const ok = (range ? true : m.ok) && mp.ok && mt.ok;
+      document.getElementById("empty").textContent = range
+        ? "В этом периоде нет задач с событиями (смена статуса / создание / Done) в выбранных датах."
+        : "В этом релизе нет задач.";
+      const live = ok ? selected() : [];
+      const rows = live.map(toRow).sort((a, b) => b.totalDays - a.totalDays);
+      const days = rows.map(r => r.totalDays);
+      const med = medianDays(days);
+      // A7 (board #208): aggregates that include open intervals (their end is
+      // «now») are flagged with «≈ … (по сейчас)» — never a silent substitution.
+      const anyOpen = rows.some(r => r.segs.some(s => s.open));
+      const approx = anyOpen ? "≈ " : "";
+      const openNote = anyOpen ? "включая открытые интервалы (по сейчас)" : "";
+      const uniq = new Set();
+      rows.forEach(r => r.segs.forEach(seg => uniq.add(seg.s)));
+      document.getElementById("k-n").textContent = ok ? String(rows.length) : "—";
+      document.getElementById("k-s").textContent = ok ? String(uniq.size) : "—";
+      const km = document.getElementById("k-m");
+      const kx = document.getElementById("k-x");
+      km.textContent = ok && days.length ? approx + fmtDur(med) : "—";
+      kx.textContent = ok && days.length ? approx + fmtDur(Math.max(0, ...days)) : "—";
+      km.title = openNote;
+      kx.title = openNote;
+      updateSyncTime();
+      if (ok) draw(rows, !!(mt.ok && mt.item) && rows.length === 1);
+      else {
+        document.getElementById("chart").innerHTML = "";
+        document.getElementById("tbl").innerHTML = "";
+        document.getElementById("legend").innerHTML = "";
+        document.getElementById("empty").hidden = true;
+        hideTip();
+      }
+    }
+
+    function formatSyncTime(iso) {
+      const d = iso ? new Date(iso) : new Date();
+      const src = isNaN(d.getTime()) ? new Date() : d;
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: false
+      }).formatToParts(src);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    // Board #218: freshness hint. «Данные от …» = generated_at (Sprint data
+    // moment, board #196) rendered in Europe/Minsk == generated_at_local;
+    // «История от …» = enriched_at (LOG-history merge moment). Missing field → «—».
+    function updateSyncTime() {
+      const el = document.getElementById("sync-time");
+      const gen = DATA.generated_at || DATA.generated_at_local || "";
+      const hist = DATA.enriched_at || "";
+      el.textContent =
+        "Данные от " + (gen ? formatSyncTime(gen) : "—") + "\n" +
+        "История от " + (hist ? formatSyncTime(hist) : "—");
+      el.title = "generated_at: " + (DATA.generated_at || "—") +
+        " · generated_at_local: " + (DATA.generated_at_local || "—") +
+        " · enriched_at: " + (DATA.enriched_at || "—") +
+        " · timezone: " + "Europe/Minsk";
+    }
+    function applyPayload(p, keepRelease) {
+      const prev = keepRelease ? releaseCombo.input.value : "";
+      DATA = {
+        source: p.source || DATA.source,
+        generated_at: p.generated_at,
+        generated_at_local: p.generated_at_local,
+        enriched_at: p.enriched_at,
+        task_count: p.task_count || (p.tasks || []).length,
+        releases: p.releases || [],
+        tasks: p.tasks || [],
+        status_meta: p.status_meta || DATA.status_meta || [],
+        status_dwell_note: p.status_dwell_note || DATA.status_dwell_note || ""
+      };
+      if (prev && (DATA.releases || []).some(r => r.toLowerCase() === prev.toLowerCase())) {
+        releaseCombo.setValue((DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase()));
+      } else {
+        const firstNum = (DATA.releases || []).find(r => r !== "Backlog");
+        releaseCombo.setValue(firstNum || (DATA.releases || [])[0] || "");
+      }
+      cascadeReset();
+      render();
+    }
+    async function loadCached() {
+      try {
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        applyPayload(await res.json(), false);
+      } catch (e) {
+        syncMsg.textContent = "Нет release-data.json рядом с HTML. Снимок делает backend (release-widget-sync.py), затем publish.";
+      }
+    }
+    const SYNC_NOTION_URL = "https://notion-status-webhook.romanzhura.workers.dev/sync-notion";
+    // Multi-base (board #263): which Notion base this widget instance updates.
+    // Derived from the serving path — /1c/ copies send target "1c", root = "sprint".
+    const WIDGET_TARGET = (function () {
+      try {
+        return /\/1c\//.test(window.location.pathname) ? "1c" : "sprint";
+      } catch (e) { return "sprint"; }
+    })();
+    let syncBusy = false;
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    async function fetchSync(url, opts) {
+      const res = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
+      let body = null;
+      try { body = await res.json(); } catch (e) { body = null; }
+      if (!body || body.ok === false) {
+        throw new Error((body && (body.error || body.message)) || ("HTTP " + res.status));
+      }
+      return body;
+    }
+    async function waitForSyncNotion(started) {
+      let runId = started && started.run_id;
+      let last = started || {};
+      const deadline = Date.now() + 8 * 60 * 1000;
+      while (Date.now() < deadline) {
+        const st = String(last.status || "").toLowerCase();
+        if (st === "completed") return last;
+        syncMsg.textContent = last.reused
+          ? "Sync Notion уже выполняется — жду (второй job не запущен)."
+          : ("Sync Notion: " + (st || "queued") + "…");
+        await sleep(4000);
+        const q = runId ? ("?run_id=" + encodeURIComponent(runId)) : "";
+        last = await fetchSync(SYNC_NOTION_URL + q);
+        if (last.run_id) runId = last.run_id;
+      }
+      throw new Error("timeout waiting for Sync Notion");
+    }
+    async function syncNow() {
+      if (syncBusy) return;
+      syncBusy = true;
+      syncBtn.disabled = true;
+      try {
+        syncMsg.textContent = "Запуск Sync Notion…";
+        const started = await fetchSync(SYNC_NOTION_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: WIDGET_TARGET }) });
+        const done = await waitForSyncNotion(started);
+        if (done.conclusion && done.conclusion !== "success") {
+          throw new Error("job " + (done.conclusion || "failed"));
+        }
+        await sleep(2500);
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        const p = await res.json();
+        if (p && p.ok === false) throw new Error(p.error || "snapshot error");
+        applyPayload(p, true);
+        const reused = started.reused ? " (повторный клик: job не дублирован)" : "";
+        syncMsg.textContent = "Sync Notion готов" + reused + ". JSON " + formatSyncTime(p.generated_at);
+      } catch (e) {
+        syncMsg.textContent = "Ошибка Sync Notion: " + e.message;
+      } finally {
+        syncBusy = false;
+        syncBtn.disabled = false;
+      }
+    }
+
+    syncBtn.addEventListener("click", syncNow);
+    document.querySelectorAll(".tbl-tasks thead th[data-key]").forEach(th => {
+      const key = th.getAttribute("data-key");
+      const apply = () => {
+        if (sortKey === key) {
+          sortDir = -sortDir;
+        } else {
+          sortKey = key;
+          sortDir = (key === "sum" || key === "created" || key === "done") ? -1 : 1;
+        }
+        updateSortIndicators();
+        renderTable(sortRows(lastRows));
+      };
+      th.addEventListener("click", apply);
+      th.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); apply(); }
+      });
+    });
+    let resizeTimer = 0;
+    window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 80); });
+    loadCached();
+  </script>
+</body>
+</html>

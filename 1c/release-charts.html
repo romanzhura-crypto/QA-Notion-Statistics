@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Release — Estimate vs Time tracking</title>
+  <meta name="widget-build" content="20261029-toolbar-row">
+  <!-- Static HTML+JSON. Refresh button POSTs public /sync-notion proxy (no token in iframe). -->
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --subtle: #f7f6f3;
+      --ink: #37352f;
+      --muted: rgba(55,53,47,.65);
+      --border: rgba(55,53,47,.16);
+      --blue: #2383e2;
+      --orange: #d9730d;
+      --red: #eb5757;
+      --hover: rgba(55,53,47,.08);
+      --focus: #2383e2;
+      --shadow: rgba(15,15,15,.05) 0 0 0 1px, rgba(15,15,15,.05) 0 3px 6px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --radius: 10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #191919; --panel: #202020; --subtle: #2f2f2f;
+        --ink: rgba(255,255,255,.81); --muted: rgba(255,255,255,.46);
+        --border: rgba(255,255,255,.13); --blue: #529cca; --orange: #c77d48;
+        --red: #e03e3e; --hover: rgba(255,255,255,.08); --focus: #529cca;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; max-width: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+    main { width: 100%; max-width: none; margin: 0; padding: 12px; display: grid; gap: 12px; }
+    h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+    h2 { font-size: 1rem; font-weight: 650; margin: 0 0 10px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .err { color: var(--red); font-size: 13px; font-weight: 600; margin: 8px 0 0; min-height: 1.2em; }
+    .ok { color: var(--blue); font-size: 12px; margin: 0; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) max-content;
+      gap: 8px 12px;
+      align-items: end;
+    }
+    .field { min-width: 0; display: flex; flex-direction: column; }
+    .field-control { min-height: 36px; display: flex; align-items: stretch; }
+    .sync-actions { justify-self: end; }
+    .sync-actions .field-control { justify-content: flex-end; }
+    .sync-status {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+      white-space: pre-line;
+      min-height: 1.2em;
+    }
+    .sync-status.is-ok { color: var(--blue); }
+    .sync-time {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: start;
+      white-space: pre-line;
+    }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+    input[type="text"], button, input[type="color"] {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    input[type="text"] { width: 100%; min-height: 36px; padding: 6px 10px; }
+    /* Период (board #239): two native date inputs + reset («×»). */
+    .period-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 36px;
+      gap: 4px;
+      align-items: center;
+      min-height: 36px;
+    }
+    input[type="date"] {
+      font: inherit; color: var(--ink); background: var(--subtle);
+      border: 1px solid var(--border); border-radius: 6px;
+      width: 100%; min-height: 36px; padding: 6px 8px;
+    }
+    .period-clear {
+      min-width: 36px; min-height: 36px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .period-clear svg { width: 12px; height: 12px; fill: currentColor; }
+    .field.is-off { opacity: .55; }
+    button { min-height: 36px; padding: 6px 14px; cursor: pointer; background: var(--bg); }
+    button:hover { background: var(--hover); }
+    button.primary { background: var(--blue); color: #fff; border-color: transparent; white-space: nowrap; padding: 6px 16px; }
+    button:disabled { opacity: .55; cursor: wait; }
+    input:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .series { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 10px 0 12px; }
+    .series label.inline { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--ink); font-weight: 500; font-size: 13px; }
+    input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
+    input[type="color"] { width: 32px; height: 28px; padding: 2px; cursor: pointer; border: 1px solid var(--border); }
+    .kpis { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; }
+    .kpis div { background: var(--subtle); border-radius: 8px; padding: 10px 12px; }
+    .kpis dt { font-size: 11px; color: var(--muted); }
+    .kpis dd { margin: 3px 0 0; font-size: 1.2rem; font-weight: 700; }
+    .scroll { overflow-x: auto; width: 100%; }
+    svg { display: block; width: 100%; height: auto; max-width: 100%; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-size: 11px; font-weight: 600; }
+    @media (max-width: 768px) {
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      main { padding: 10px; }
+      .sync-actions { justify-self: stretch; }
+      button.primary { width: 100%; }
+    }
+    .combo { position: relative; width: 100%; }
+    .combo-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--subtle);
+      overflow: hidden;
+    }
+    .combo-control:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .combo-control input[type="text"] {
+      border: 0;
+      border-radius: 0;
+      min-height: 36px;
+      background: transparent;
+    }
+    .combo-toggle {
+      min-height: 36px;
+      min-width: 36px;
+      padding: 0;
+      border: 0;
+      border-left: 1px solid var(--border);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .combo-toggle:hover { background: var(--hover); }
+    .combo-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .combo-toggle svg { width: 12px; height: 12px; fill: currentColor; transition: transform .15s; }
+    .combo-menu {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 20;
+      max-height: calc(10 * 32px + 8px);
+      overflow-y: auto;
+      margin: 0;
+      padding: 4px;
+      list-style: none;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .combo-menu.open { display: block; }
+    .combo-menu li { margin: 0; }
+    .combo-option {
+      width: 100%;
+      text-align: left;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .combo-option:hover, .combo-option.active { background: var(--hover); }
+    .combo-empty { padding: 8px 10px; color: var(--muted); font-size: 12px; }
+    @media (prefers-reduced-motion: reduce) { .combo-toggle svg { transition: none; } }
+    @media (max-width: 320px) { .kpis { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="toolbar">
+        <div class="field">
+          <label for="period-from">Период</label>
+          <div class="period-control">
+            <input id="period-from" type="date" aria-label="Период с" title="Начало периода (включительно)">
+            <span aria-hidden="true">–</span>
+            <input id="period-to" type="date" aria-label="Период по" title="Конец периода (включительно)">
+            <button type="button" class="period-clear" id="period-clear" aria-label="Сбросить период" title="Сбросить период и вернуться к фильтру «Релиз»" hidden>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.4 1 6 4.6 9.6 1 11 2.4 7.4 6l3.6 3.6-1.4 1.4L6 7.4 2.4 11 1 9.6 4.6 6 1 2.4z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="release">Релиз</label>
+          <div class="combo" id="release-combo">
+            <div class="combo-control">
+              <input id="release" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="release-menu" autocomplete="off" placeholder="Начните ввод, например 37.2026">
+              <button type="button" class="combo-toggle" id="release-toggle" aria-label="Открыть список релизов" aria-expanded="false" aria-controls="release-menu">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.2 6 8l3.8-3.8-1-1L6 6.1 3.2 3.2z"/></svg>
+              </button>
+            </div>
+            <ul class="combo-menu" id="release-menu" role="listbox" hidden></ul>
+          </div>
+          <p class="err" id="release-err" hidden>Такого релиза не существует.</p>
+        </div>
+        <div class="field sync-actions">
+          <label for="sync">Sync Notion</label>
+          <div class="field-control">
+            <button type="button" class="primary" id="sync">Обновить данные</button>
+          </div>
+        </div>
+        <p class="sync-time" id="sync-time" aria-live="polite">Данные от —<br>История от —</p>
+        <p class="sync-status" id="sync-msg" aria-live="polite"></p>
+      </div>
+    </section>
+    <section class="kpis" aria-label="Сводка релиза">
+      <div><dt id="k-n-label">Задач в релизе</dt><dd id="k-n">—</dd></div>
+      <div><dt>Estimate, ч</dt><dd id="k-e">—</dd></div>
+      <div><dt>Time tracking, ч</dt><dd id="k-t">—</dd></div>
+      <div><dt>DEV с данными</dt><dd id="k-d">—</dd></div>
+      <div><dt>Медиана dwell</dt><dd id="k-md" title="Медиана времени в статусах по задачам с историей">—</dd></div>
+    </section>
+    <p class="muted" id="share-note">Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.</p>
+    <section class="card">
+      <h2>По DEV</h2>
+      <p class="muted">Ось X — DEV. Ось Y — часы. Столбцы Estimate и Time tracking стоят над своим DEV.</p>
+      <div class="series">
+        <label class="inline"><input type="checkbox" id="show-est" checked> Estimate <input type="color" id="col-est" value="#2383e2" aria-label="Цвет Estimate"></label>
+        <label class="inline"><input type="checkbox" id="show-spent" checked> Time tracking <input type="color" id="col-spent" value="#d9730d" aria-label="Цвет Time tracking"></label>
+      </div>
+      <div class="scroll">
+        <svg id="dev-chart" role="img" aria-labelledby="dev-title">
+          <title id="dev-title">Вертикальные столбцы Estimate и Time tracking по DEV</title>
+        </svg>
+      </div>
+      <p class="muted" id="dev-empty" hidden>В этом релизе нет Estimate и Time tracking.</p>
+      <div class="scroll" style="margin-top:12px">
+        <table>
+          <thead>
+            <tr><th>DEV</th><th>Estimate, ч</th><th>Time tracking, ч</th><th>Δ</th></tr>
+          </thead>
+          <tbody id="dev-table"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <button type="button" id="download">Скачать HTML</button>
+    </section>
+  </main>
+  <script>
+    let DATA = { releases: [], tasks: [], generated_at: "", generated_at_local: "", enriched_at: "", task_count: 0, source: "Estimate vs Time tracking" };
+    const releaseEl = document.getElementById("release");
+    const menuEl = document.getElementById("release-menu");
+    const toggleEl = document.getElementById("release-toggle");
+    const errEl = document.getElementById("release-err");
+    const showEst = document.getElementById("show-est");
+    const showSpent = document.getElementById("show-spent");
+    const colEst = document.getElementById("col-est");
+    const colSpent = document.getElementById("col-spent");
+    const syncBtn = document.getElementById("sync");
+    const syncMsg = document.getElementById("sync-msg");
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function round1(n) { return Math.round((n || 0) * 10) / 10; }
+    // A9 (board #213): one display-rounding policy for both widgets:
+    // minutes → whole, hours → 0.1, days → 0.1 (round1).
+    function fmtDur(days) {
+      const n = Number(days) || 0;
+      if (n <= 0) return "0 мин";
+      if (n < 1 / 24) return Math.max(1, Math.round(n * 1440)) + " мин";
+      if (n < 1) return round1(n * 24) + " ч";
+      return round1(n) + " дн";
+    }
+    // A9 (board #213): standard median — mean of the two central values for an
+    // even count (the old floor((n-1)/2) lower-median bias is gone).
+    function medianDays(vals) {
+      if (!vals.length) return 0;
+      const s = vals.slice().sort((a, b) => a - b);
+      const mid = s.length >> 1;
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    }
+    // Dwell total of a task = sum of its history interval days (Done diamonds
+    // carry no days). Tasks without history yield null — excluded from the
+    // median instead of being counted as zero.
+    function taskDwellDays(t) {
+      const h = (t && (t.history || t.segments)) || [];
+      if (!h.length) return null;
+      return h.reduce((sum, x) => sum + (Number(x && x.days) || 0), 0);
+    }
+    // A7 (board #208): an interval with a known from and to === null is OPEN —
+    // its end is «now» and any aggregate including it must say so («≈»).
+    function hasOpenInterval(t) {
+      const h = (t && (t.history || t.segments)) || [];
+      return h.some(x => x && x.from && !x.to);
+    }
+    function css(name, fb) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
+    }
+    // Public static origin for HTML+JSON. Empty = same directory as this file (file://, Pages, any CDN).
+    // Do not point PUBLIC_BASE at the OpenClaw sync endpoint. Token never belongs in the iframe.
+    const PUBLIC_BASE = "";
+    function assetUrl(name) {
+      const n = String(name || "").replace(/^\/+/, "");
+      if (PUBLIC_BASE) return String(PUBLIC_BASE).replace(/\/+$/, "") + "/" + n;
+      try { return new URL(n, window.location.href).toString(); }
+      catch (e) { return n; }
+    }
+    function dataUrl() { return assetUrl("release-data.json"); }
+    function parseTs(v) {
+      if (!v) return null;
+      let s = String(v);
+      // Date-only = midnight Europe/Minsk (UTC+3), not midnight UTC (day-boundary fix).
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00+03:00";
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // ---- Период (board #239) ----------------------------------------------
+    // Период [с; по] — локальные сутки браузера, «по» включительно. When the
+    // period is active (at least one bound set) the «Релиз» (sprint) filter is
+    // disabled and IGNORED — the period scopes across releases (requirement 1)
+    // — and every aggregate (Задач/Estimate/Time tracking/DEV/Медиана dwell) is
+    // recalculated over the resulting selection (requirement 3). The period
+    // selects the TASK SET by lifecycle overlap; task totals stay full-task.
+    function periodRange() {
+      let a = document.getElementById("period-from").value;
+      let b = document.getElementById("period-to").value;
+      if (!a && !b) return null;
+      if (a && b && a > b) { const sw = a; a = b; b = sw; } // inverted bounds = swapped silently
+      return {
+        fromTs: a ? new Date(a + "T00:00:00").getTime() : -Infinity,
+        toTs: b ? new Date(b + "T23:59:59.999").getTime() : Infinity
+      };
+    }
+    // A task hits the period when any lifecycle piece intersects it: history
+    // intervals (from→to; to:null = open → «now»), Done moments (at), created/
+    // Start date points, and the no-history fallback interval start→«now»
+    // (edited counts as the Done point only for no-history tasks). A task
+    // without ANY parseable timestamp is never selected by a period.
+    function taskHitsPeriod(t, range) {
+      if (!range) return true;
+      const hit = (x, y) => x <= range.toTs && y >= range.fromTs;
+      const h = (t && (t.history || t.segments)) || [];
+      for (let i = 0; i < h.length; i++) {
+        const x = h[i];
+        if (!x) continue;
+        const at = parseTs(x.at);
+        if (at && hit(at.getTime(), at.getTime())) return true;
+        const from = parseTs(x.from);
+        if (from) {
+          const to = x.to ? parseTs(x.to) : null;
+          // open interval end = «now», never BEFORE its start (future-dated data)
+          const endTs = to ? to.getTime() : Math.max(from.getTime(), Date.now());
+          if (hit(from.getTime(), endTs)) return true;
+        }
+      }
+      const pts = [];
+      const created = parseTs(t && t.created);
+      const start = parseTs(t && t.start);
+      if (created) pts.push(created.getTime());
+      if (start) pts.push(start.getTime());
+      if (!h.length) {
+        const edited = parseTs(t && t.edited);
+        if (edited) pts.push(edited.getTime());
+      }
+      for (let j = 0; j < pts.length; j++) {
+        if (hit(pts[j], pts[j])) return true;
+      }
+      if (!h.length && pts.length && !isDoneName(t.s)) {
+        const first = Math.min.apply(null, pts);
+        if (hit(first, Math.max(first, Date.now()))) return true;
+      }
+      return false;
+    }
+    function isDoneName(name) {
+      return String(name || "").toLowerCase() === "done";
+    }
+    const SHARE_NOTE_DEFAULT = "Часы задач, попавших в несколько релизов, разделены поровну между этими релизами (методика board #214: часы / число релизов) — итоги по релизам без двойного счёта.";
+    function applyPeriodUi(on) {
+      document.getElementById("period-clear").hidden = !on;
+      releaseEl.disabled = on;
+      toggleEl.disabled = on;
+      const field = releaseEl.closest(".field");
+      if (field) field.classList.toggle("is-off", on);
+      releaseEl.title = on
+        ? "Спринт не учитывается: выбран период (очистите период, чтобы вернуться к выбору релиза)"
+        : "";
+      document.getElementById("k-n-label").textContent = on ? "Задач в периоде" : "Задач в релизе";
+      document.getElementById("share-note").textContent = on
+        ? "Период: спринт не учитывается — отбор задач по активности в периоде; часы показаны полностью, без деления между релизами."
+        : SHARE_NOTE_DEFAULT;
+    }
+
+    let activeIdx = -1;
+    let filterOnType = false;
+    function listReleases() {
+      const all = DATA.releases || [];
+      const q = (releaseEl.value || "").trim().toLowerCase();
+      if (!filterOnType || !q) return all.slice();
+      const exact = all.some(r => r.toLowerCase() === q);
+      if (exact) return all.slice();
+      return all.filter(r => r.toLowerCase().indexOf(q) !== -1);
+    }
+    function fillList() {
+      const items = listReleases();
+      if (!items.length) {
+        menuEl.innerHTML = "<li class=\"combo-empty\">Нет совпадений</li>";
+        activeIdx = -1;
+        return;
+      }
+      menuEl.innerHTML = items.map((r, i) =>
+        "<li><button type=\"button\" class=\"combo-option" + (i === activeIdx ? " active" : "") + "\" role=\"option\" data-value=\"" + esc(r) + "\">" + esc(r) + "</button></li>"
+      ).join("");
+    }
+    function setExpanded(open, fromType) {
+      if (open && !fromType) filterOnType = false;
+      menuEl.classList.toggle("open", open);
+      menuEl.hidden = !open;
+      releaseEl.setAttribute("aria-expanded", open ? "true" : "false");
+      toggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        const cur = (releaseEl.value || "").trim().toLowerCase();
+        const items = listReleases();
+        activeIdx = Math.max(0, items.findIndex(r => r.toLowerCase() === cur));
+        fillList();
+        highlight();
+      }
+    }
+    function highlight() {
+      const opts = menuEl.querySelectorAll(".combo-option");
+      opts.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+      if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+    }
+    function pickRelease(val) {
+      releaseEl.value = val;
+      setExpanded(false);
+      render();
+    }
+
+    function matchRelease(raw) {
+      const v = (raw || "").trim();
+      if (!v) return { ok: false, empty: true };
+      const exact = (DATA.releases || []).find(r => r.toLowerCase() === v.toLowerCase());
+      if (exact) return { ok: true, value: exact };
+      return { ok: false, empty: false };
+    }
+
+    function selected() {
+      // Board #239 requirement 1: with a period selected the sprint/release
+      // filter is NOT taken into account — the period scopes across releases.
+      const range = periodRange();
+      if (range) {
+        return (DATA.tasks || []).filter(t => taskHitsPeriod(t, range));
+      }
+      const m = matchRelease(releaseEl.value);
+      if (!m.ok) return [];
+      return (DATA.tasks || []).filter(t => (t.r || []).indexOf(m.value) !== -1);
+    }
+
+    // A11 (board #214): multi-release hours accounting — variant B (even
+    // split, owner decision 2026-09-30). A task in N releases contributes
+    // hours/N to EACH release, so per-release totals summed across releases
+    // equal the true total — no double counting. e/t stay FULL task hours in
+    // the payload; the split is an aggregation rule (docs/release-data-contract.md).
+    // N = max(1, len(r)); sums use full precision, rounding is display-only.
+    function taskShare(t) {
+      // Board #239: period mode has NO release dimension — hours count IN FULL.
+      // The even split (board #214) is per-release accounting only.
+      if (periodRange()) return { est: (t.e || 0), spent: (t.t || 0) };
+      const n = Math.max(1, (t.r || []).length);
+      return { est: (t.e || 0) / n, spent: (t.t || 0) / n };
+    }
+
+    function byDev(tasks) {
+      const m = {};
+      tasks.forEach(t => {
+        const d = t.d || "Unassigned";
+        if (!m[d]) m[d] = { name: d, est: 0, spent: 0 };
+        const sh = taskShare(t);
+        m[d].est += sh.est;
+        m[d].spent += sh.spent;
+      });
+      return Object.values(m)
+        .filter(x => x.est || x.spent)
+        .sort((a,b) => (b.spent - a.spent) || (b.est - a.est));
+    }
+
+    function drawDev(rows) {
+      const svg = document.getElementById("dev-chart");
+      const empty = document.getElementById("dev-empty");
+      empty.hidden = rows.length > 0;
+      if (!rows.length) {
+        svg.removeAttribute("viewBox");
+        svg.innerHTML = "";
+        document.getElementById("dev-table").innerHTML = "";
+        return;
+      }
+      const showE = showEst.checked;
+      const showT = showSpent.checked;
+      const series = (showE ? 1 : 0) + (showT ? 1 : 0);
+      const host = svg.parentElement || svg;
+      const hostW = Math.floor(host.getBoundingClientRect().width || host.clientWidth || 0);
+      const colW = 92;
+      const minForBars = 72 + rows.length * colW;
+      const w = Math.max(hostW || 0, minForBars, 320);
+      const h = 480, pad = { l: 56, r: 20, t: 24, b: 110 };
+      const innerW = w - pad.l - pad.r;
+      const innerH = h - pad.t - pad.b;
+      const maxY = Math.max(1, ...rows.map(r => Math.max(showE ? r.est : 0, showT ? r.spent : 0)));
+      const ink = css("--ink", "#37352f");
+      const muted = css("--muted", "#787774");
+      const border = css("--border", "#e3e2de");
+      const cE = colEst.value || "#2383e2";
+      const cT = colSpent.value || "#d9730d";
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
+      let g = [];
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + innerH * (i / 4);
+        const val = round1(maxY * (1 - i / 4));
+        g.push('<line x1="' + pad.l + '" x2="' + (w - pad.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + border + '" />');
+        g.push('<text x="10" y="' + (y + 4) + '" font-size="12" fill="' + muted + '">' + val + '</text>');
+      }
+      const slot = innerW / rows.length;
+      rows.forEach((r, i) => {
+        const x0 = pad.l + i * slot;
+        const cx = x0 + slot / 2;
+        const barW = series === 2 ? 22 : 28;
+        const gap = 6;
+        function bar(val, color, ox, label) {
+          const bh = (val / maxY) * innerH;
+          const x = cx + ox - barW / 2;
+          const y = pad.t + innerH - bh;
+          g.push('<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(bh, val ? 3 : 0) + '" rx="3" fill="' + color + '"><title>' + esc(r.name) + " " + label + " " + round1(val) + "h</title></rect>");
+        }
+        if (series === 2) {
+          if (showE) bar(r.est, cE, -(barW + gap) / 2, "Estimate");
+          if (showT) bar(r.spent, cT, (barW + gap) / 2, "Time tracking");
+        } else if (showE) bar(r.est, cE, 0, "Estimate");
+        else if (showT) bar(r.spent, cT, 0, "Time tracking");
+        const lines = String(r.name).split(" ");
+        const yBase = h - 78;
+        lines.forEach((ln, li) => {
+          g.push('<text x="' + cx + '" y="' + (yBase + li * 15) + '" font-size="12" fill="' + ink + '" text-anchor="middle">' + esc(ln) + "</text>");
+        });
+      });
+      if (!series) {
+        g.push('<text x="' + (w / 2) + '" y="' + (h / 2) + '" text-anchor="middle" fill="' + muted + '">Включите Estimate и/или Time tracking</text>');
+      }
+      svg.innerHTML = g.join("");
+      document.getElementById("dev-table").innerHTML = rows.map(r => {
+        const d = round1(r.spent - r.est);
+        return "<tr><td>" + esc(r.name) + "</td><td>" + round1(r.est) + "</td><td>" + round1(r.spent) + "</td><td>" + (d > 0 ? "+" : "") + d + "</td></tr>";
+      }).join("");
+    }
+
+    function render() {
+      updateSyncTime();
+      const range = periodRange();
+      applyPeriodUi(!!range);
+      const m = matchRelease(releaseEl.value);
+      // Board #239: in period mode the «Релиз» (sprint) filter is disabled and
+      // ignored — no «unknown release» error, no requirement to pick one.
+      errEl.hidden = range ? true : (m.ok || m.empty);
+      const ok = range ? true : m.ok;
+      const tasks = ok ? selected() : [];
+      const rows = byDev(tasks);
+      const est = tasks.reduce((s, t) => s + taskShare(t).est, 0);
+      const spent = tasks.reduce((s, t) => s + taskShare(t).spent, 0);
+      const dwells = tasks.map(taskDwellDays).filter(v => v != null);
+      const anyOpen = tasks.some(hasOpenInterval);
+      document.getElementById("k-n").textContent = ok ? String(tasks.length) : "—";
+      document.getElementById("k-e").textContent = ok ? String(round1(est)) : "—";
+      document.getElementById("k-t").textContent = ok ? String(round1(spent)) : "—";
+      document.getElementById("k-d").textContent = ok ? String(rows.length) : "—";
+      const kmd = document.getElementById("k-md");
+      kmd.textContent = ok && dwells.length
+        ? (anyOpen ? "≈ " : "") + fmtDur(medianDays(dwells))
+        : "—";
+      kmd.title = "Медиана времени в статусах по задачам с историей" +
+        (anyOpen ? "; открытые интервалы посчитаны по сейчас" : "");
+      if (ok) drawDev(rows);
+      else {
+        document.getElementById("dev-chart").innerHTML = "";
+        document.getElementById("dev-table").innerHTML = "";
+        document.getElementById("dev-empty").hidden = true;
+      }
+    }
+
+    function formatSyncTime(iso) {
+      const d = iso ? new Date(iso) : new Date();
+      const src = isNaN(d.getTime()) ? new Date() : d;
+      const parts = new Intl.DateTimeFormat("ru-BY", {
+        timeZone: "Europe/Minsk",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).formatToParts(src);
+      const get = (type) => (parts.find(p => p.type === type) || {}).value || "";
+      return get("day") + "." + get("month") + "." + get("year") + " " + get("hour") + ":" + get("minute");
+    }
+    // Board #218: freshness hint. «Данные от …» = generated_at (Sprint data
+    // moment, board #196) rendered in Europe/Minsk == generated_at_local;
+    // «История от …» = enriched_at (LOG-history merge moment). Missing field → «—».
+    function updateSyncTime() {
+      const el = document.getElementById("sync-time");
+      const gen = DATA.generated_at || DATA.generated_at_local || "";
+      const hist = DATA.enriched_at || "";
+      el.textContent =
+        "Данные от " + (gen ? formatSyncTime(gen) : "—") + "\n" +
+        "История от " + (hist ? formatSyncTime(hist) : "—");
+      el.title = "generated_at: " + (DATA.generated_at || "—") +
+        " · generated_at_local: " + (DATA.generated_at_local || "—") +
+        " · enriched_at: " + (DATA.enriched_at || "—") +
+        " · timezone: " + "Europe/Minsk";
+    }
+    // A10 (board #197): the diff keys tasks by Notion page id ONLY. The old
+    // n|d|r fallback is gone by design — titles are stored truncated (n), so
+    // two different tasks can share n|d|r and would falsely match. A task
+    // without an id counts as added (fail-visible), never silently matched.
+    function taskKey(t) {
+      return t && t.id ? "id:" + t.id : null;
+    }
+    function diffAdded(prevData, nextData) {
+      const prevRel = new Set((prevData && prevData.releases) || []);
+      const addedRel = ((nextData && nextData.releases) || []).filter(r => !prevRel.has(r));
+      const prevTasks = (prevData && prevData.tasks) || [];
+      const nextTasks = (nextData && nextData.tasks) || [];
+      const hadPrev = prevTasks.length > 0 || prevRel.size > 0;
+      const prevSet = new Set(prevTasks.map(t => taskKey(t)).filter(Boolean));
+      let addedTasks = 0;
+      if (hadPrev) {
+        nextTasks.forEach(t => {
+          const k = taskKey(t);
+          if (!k || !prevSet.has(k)) addedTasks += 1;
+        });
+      }
+      return { addedRel: hadPrev ? addedRel : [], addedTasks: hadPrev ? addedTasks : 0, first: !hadPrev };
+    }
+    function applyPayload(p, keepRelease) {
+      const prev = keepRelease ? releaseEl.value : "";
+      DATA = {
+        source: p.source || DATA.source,
+        generated_at: p.generated_at,
+        generated_at_local: p.generated_at_local,
+        enriched_at: p.enriched_at,
+        task_count: p.task_count || (p.tasks || []).length,
+        releases: p.releases || [],
+        tasks: p.tasks || []
+      };
+      fillList();
+      if (prev && (DATA.releases || []).some(r => r.toLowerCase() === prev.toLowerCase())) {
+        releaseEl.value = (DATA.releases || []).find(r => r.toLowerCase() === prev.toLowerCase());
+      } else if (!prev) {
+        const firstNum = (DATA.releases || []).find(r => r !== "Backlog");
+        releaseEl.value = firstNum || (DATA.releases || [])[0] || "";
+      }
+      render();
+    }
+
+    async function loadCached() {
+      try {
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        applyPayload(await res.json(), false);
+      } catch (e) {
+        syncMsg.textContent = "Нет release-data.json рядом с HTML. Снимок делает backend (release-widget-sync.py), затем publish.";
+      }
+    }
+
+    const SYNC_NOTION_URL = "https://notion-status-webhook.romanzhura.workers.dev/sync-notion";
+    // Multi-base (board #263): which Notion base this widget instance updates.
+    // Derived from the serving path — /1c/ copies send target "1c", root = "sprint".
+    const WIDGET_TARGET = (function () {
+      try {
+        return /\/1c\//.test(window.location.pathname) ? "1c" : "sprint";
+      } catch (e) { return "sprint"; }
+    })();
+    let syncBusy = false;
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    async function fetchSync(url, opts) {
+      const res = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
+      let body = null;
+      try { body = await res.json(); } catch (e) { body = null; }
+      if (!body || body.ok === false) {
+        throw new Error((body && (body.error || body.message)) || ("HTTP " + res.status));
+      }
+      return body;
+    }
+    async function waitForSyncNotion(started) {
+      let runId = started && started.run_id;
+      let last = started || {};
+      const deadline = Date.now() + 8 * 60 * 1000;
+      while (Date.now() < deadline) {
+        const st = String(last.status || "").toLowerCase();
+        if (st === "completed") return last;
+        syncMsg.textContent = last.reused
+          ? "Sync Notion уже выполняется — жду (второй job не запущен)."
+          : ("Sync Notion: " + (st || "queued") + "…");
+        await sleep(4000);
+        const q = runId ? ("?run_id=" + encodeURIComponent(runId)) : "";
+        last = await fetchSync(SYNC_NOTION_URL + q);
+        if (last.run_id) runId = last.run_id;
+      }
+      throw new Error("timeout waiting for Sync Notion");
+    }
+    async function syncNow() {
+      if (syncBusy) return;
+      syncBusy = true;
+      syncBtn.disabled = true;
+      const prevSnap = {
+        releases: (DATA.releases || []).slice(),
+        tasks: (DATA.tasks || []).slice()
+      };
+      try {
+        syncMsg.textContent = "Запуск Sync Notion…";
+        const started = await fetchSync(SYNC_NOTION_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: WIDGET_TARGET }) });
+        const done = await waitForSyncNotion(started);
+        if (done.conclusion && done.conclusion !== "success") {
+          throw new Error("job " + (done.conclusion || "failed"));
+        }
+        await sleep(2500);
+        const res = await fetch(dataUrl() + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("data " + res.status);
+        const p = await res.json();
+        if (p && p.ok === false) throw new Error(p.error || "snapshot error");
+        const diff = diffAdded(prevSnap, p);
+        applyPayload(p, true);
+        const relTxt = diff.addedRel.length ? diff.addedRel.join(", ") : "нет";
+        const reused = started.reused ? " (повторный клик: job не дублирован)" : "";
+        syncMsg.textContent =
+          "Sync Notion готов" + reused + ". JSON " + formatSyncTime(p.generated_at) + "\n" +
+          "Добавлены новые данные:\n" +
+          "1) Релизы: " + relTxt + "\n" +
+          "2) Задачи: " + diff.addedTasks;
+      } catch (e) {
+        syncMsg.textContent = "Ошибка Sync Notion: " + e.message;
+      } finally {
+        syncBusy = false;
+        syncBtn.disabled = false;
+      }
+    }
+
+    // ---- Период (board #239): UI wiring ------------------------------------
+    const periodFromEl = document.getElementById("period-from");
+    const periodToEl = document.getElementById("period-to");
+    const periodClearBtn = document.getElementById("period-clear");
+    function onPeriodChange() { render(); }
+    periodFromEl.addEventListener("input", onPeriodChange);
+    periodToEl.addEventListener("input", onPeriodChange);
+    periodFromEl.addEventListener("change", onPeriodChange);
+    periodToEl.addEventListener("change", onPeriodChange);
+    periodClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      periodFromEl.value = "";
+      periodToEl.value = "";
+      render();
+      periodFromEl.focus();
+    });
+
+    releaseEl.addEventListener("input", () => {
+      filterOnType = true;
+      activeIdx = 0;
+      setExpanded(true, true);
+      render();
+    });
+    releaseEl.addEventListener("focus", () => setExpanded(true, false));
+    releaseEl.addEventListener("keydown", (e) => {
+      const open = menuEl.classList.contains("open");
+      const items = listReleases();
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!open) setExpanded(true);
+        else { activeIdx = Math.min(items.length - 1, activeIdx + 1); highlight(); }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!open) setExpanded(true);
+        else { activeIdx = Math.max(0, activeIdx - 1); highlight(); }
+      } else if (e.key === "Enter") {
+        if (open && items[activeIdx]) { e.preventDefault(); pickRelease(items[activeIdx]); }
+      } else if (e.key === "Escape") {
+        setExpanded(false);
+      }
+    });
+    toggleEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setExpanded(!menuEl.classList.contains("open"));
+      if (menuEl.classList.contains("open")) releaseEl.focus();
+    });
+    menuEl.addEventListener("mousedown", (e) => {
+      const btn = e.target.closest(".combo-option");
+      if (!btn) return;
+      e.preventDefault();
+      pickRelease(btn.getAttribute("data-value"));
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#release-combo")) setExpanded(false);
+    });
+    ["change", "input"].forEach(ev => {
+      showEst.addEventListener(ev, render);
+      showSpent.addEventListener(ev, render);
+      colEst.addEventListener(ev, render);
+      colSpent.addEventListener(ev, render);
+    });
+    syncBtn.addEventListener("click", syncNow);
+    let resizeTimer = 0;
+    function scheduleDraw() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, 80);
+    }
+    window.addEventListener("resize", scheduleDraw);
+    if (typeof ResizeObserver !== "undefined") {
+      const chartHost = document.getElementById("dev-chart") && document.getElementById("dev-chart").parentElement;
+      if (chartHost) new ResizeObserver(scheduleDraw).observe(chartHost);
+    }
+    document.getElementById("download").addEventListener("click", () => {
+      const src = "<!DOCTYPE html>\\n" + document.documentElement.outerHTML;
+      const blob = new Blob([src], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "release-charts.html";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    loadCached();
+  </script>
+</body>
+</html>
