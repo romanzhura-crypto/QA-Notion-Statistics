@@ -1,49 +1,368 @@
 {
- "last_run": 13999,
+ "last_run": 14001,
  "last_job": [
   {
-   "id": "422e17b6-8482-8091-a076-fb671e407ceb",
-   "tid": "TASK-7303",
-   "u": "https://app.notion.com/p/422e17b684828091a076fb671e407ceb",
+   "id": "413e17b6-8482-8019-bd90-edcc6913526e",
+   "tid": "TASK-7160",
+   "u": "https://app.notion.com/p/telegram-id-413e17b684828019bd90edcc6913526e",
    "r": [],
-   "p": "subscriptions-backend",
-   "d": "Illia matsiushkou",
-   "s": "New",
+   "p": "discuss",
+   "d": "Шабунин Игорь",
+   "s": "Ready For QA",
    "e": null,
    "t": 0.0,
-   "n": "Синхронизировать модели ТС скриптом",
-   "n_full": "Синхронизировать модели ТС скриптом",
-   "start": "2026-11-24T10:55:00.000+03:00",
-   "created": "2026-11-24T07:55:00.000Z",
-   "edited": "2026-11-24T07:57:00.000Z"
+   "n": "Удалять из “обсуждения” telegram id уволенных сотрудников",
+   "n_full": "Удалять из “обсуждения” telegram id уволенных сотрудников",
+   "start": "2026-11-09T14:33:00.000+03:00",
+   "created": "2026-11-09T11:33:00.000Z",
+   "edited": "2026-11-24T08:07:00.000Z",
+   "history": [
+    {
+     "s": "Ready For Dev",
+     "days": 14.119444444444444,
+     "from": "2026-11-09T11:37:00.000Z",
+     "to": "2026-11-23T14:28:53.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 0.7361111111111112,
+     "from": "2026-11-23T14:28:00.000Z",
+     "to": null
+    }
+   ]
   },
-  "Sprint: Синхронизировать модели ТС скриптом [422e17b6-8482-8091-a076-fb671e407ceb]",
   null,
-  null,
+  "413e17b6-8482-816f-b981-e699577de03e",
+  {
+   "object": "page",
+   "id": "413e17b6-8482-816f-b981-e699577de03e",
+   "created_time": "2026-11-09T11:38:00.000Z",
+   "last_edited_time": "2026-11-23T14:29:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "3dee17b6-8482-80a3-9fc4-000bafe19b46",
+    "database_id": "3dee17b6-8482-809f-b688-e89182385a15"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 14.119444444444444
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "MVrg",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "413e17b6-8482-8019-bd90-edcc6913526e"
+      }
+     ],
+     "has_more": false
+    },
+    "Current Status": {
+     "id": "NuQ%7D",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "dd6aa78c-28cc-4fe4-877b-bf22a1e1aac1",
+         "name": "Ready For QA",
+         "color": "purple"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Development",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Development",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-11-23T14:28:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Release": {
+     "id": "R%3DD%40",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-11-09T11:37:00.000Z\",\"to\":\"2026-11-23T14:28:53.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Ready For Dev\",\"from\":\"2026-11-09T11:37:00.000Z\",\"to\":\"2026-11-23T14:28:53.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 14.1
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": "LS",
+      "number": 1816
+     }
+    },
+    "ID": {
+     "id": "s%3Cik",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "TASK",
+         "number": 7160
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "sUUw",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Удалять из “обсуждения” telegram id уволенных сотрудников",
+           "link": null
+          },
+          "annotations": {
+           "bold": false,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Удалять из “обсуждения” telegram id уволенных сотрудников",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "up_%5E",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "f861b132-c0b7-41f2-a030-118b3b990b73",
+         "name": "Шабунин Игорь",
+         "color": "pink"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Удалять из “обсуждения” telegram id уволенных сотрудников [413e17b6-8482-8019-bd90-edcc6913526e]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Удалять из “обсуждения” telegram id уволенных сотрудников [413e17b6-8482-8019-bd90-edcc6913526e]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-telegram-id-413e17b6-8482-8019-bd90-edcc69135-413e17b68482816fb981e699577de03e",
+   "public_url": null
+  },
   1875
  ],
- "last_title": "Sprint №13999(45351959164) 24.11.2026 10:57:51",
- "last_at": "2026-11-24T10:57:51.317500+03:00",
- "last_created": 1,
- "last_updated": 0,
+ "last_title": "Sprint №14001(45353326426) 24.11.2026 11:07:52",
+ "last_at": "2026-11-24T11:07:52.277530+03:00",
+ "last_created": 0,
+ "last_updated": 1,
  "last_failed": 0,
  "last_skipped": 1874,
- "last_duration_s": 9.7,
+ "last_duration_s": 10.1,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
- "a19_conflicts": 0,
+ "a19_conflicts": 1,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-24T07:57:39Z",
+ "snapshot_generated_at": "2026-11-24T08:07:42Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 9478,
- "runs_ok": 9381,
+ "runs_total": 9479,
+ "runs_ok": 9382,
  "runs_error": 0,
  "created_total": 297,
- "updated_total": 82,
- "skipped_total": 16251653,
+ "updated_total": 83,
+ "skipped_total": 16253527,
  "failed_total": 0,
- "last_ok_at": "2026-11-24T07:58:01.000Z"
+ "last_ok_at": "2026-11-24T08:08:02.000Z"
 }
