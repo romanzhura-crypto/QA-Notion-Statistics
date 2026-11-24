@@ -32,7 +32,7 @@ on:
     - cron: "*/10 * * * *"
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -222,9 +222,10 @@ jobs:
                   fh.write(f"{key}_generated_at={d.get('generated_at')}\n")
                   fh.write(f"{key}_task_count={d.get('task_count')}\n")
           PY
-      - name: upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: upload site artifact (board #943: branch-based Pages)
+        uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: frontend/public
 
   deploy:
@@ -235,8 +236,33 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: site
+      # Board #943 (вариант A): Pages теперь branch-based (build_type=legacy,
+      # source gh-pages). Вместо actions/deploy-pages (артефакт-канал, известный
+      # вектор wedge: deploy success, serving layer не переключает контент)
+      # публикуем готовый сайт пушем в ветку gh-pages — классический движок
+      # раздачи. Содержимое site/ полностью заменяет ветку (rsync --delete).
+      - name: publish to gh-pages branch
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          git worktree add /tmp/gh-pages-wt origin/gh-pages
+          rsync -a --delete --exclude=.git site/ /tmp/gh-pages-wt/
+          cd /tmp/gh-pages-wt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B gh-pages
+          git add -A
+          if git diff --cached --quiet; then
+            echo "gh-pages: no content change"
+          else
+            git commit -m "deploy run ${{ github.run_id }} attempt ${{ github.run_attempt }} (${{ github.sha }})"
+            git push origin gh-pages
+          fi
       # Board #330: post-deploy verification of live Pages content. PAGES_VERIFY_FAIL
       # line format is a contract with external QA monitoring — do not change.
       - name: verify-pages-live
@@ -346,9 +372,10 @@ jobs:
                   fh.write(f"{key}_generated_at={d.get('generated_at')}\n")
                   fh.write(f"{key}_task_count={d.get('task_count')}\n")
           PY
-      - name: upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: upload site artifact (board #943: branch-based Pages)
+        uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: frontend/public
 
   deploy_committed:
@@ -359,8 +386,33 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: site
+      # Board #943 (вариант A): Pages теперь branch-based (build_type=legacy,
+      # source gh-pages). Вместо actions/deploy-pages (артефакт-канал, известный
+      # вектор wedge: deploy success, serving layer не переключает контент)
+      # публикуем готовый сайт пушем в ветку gh-pages — классический движок
+      # раздачи. Содержимое site/ полностью заменяет ветку (rsync --delete).
+      - name: publish to gh-pages branch
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          git worktree add /tmp/gh-pages-wt origin/gh-pages
+          rsync -a --delete --exclude=.git site/ /tmp/gh-pages-wt/
+          cd /tmp/gh-pages-wt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B gh-pages
+          git add -A
+          if git diff --cached --quiet; then
+            echo "gh-pages: no content change"
+          else
+            git commit -m "deploy run ${{ github.run_id }} attempt ${{ github.run_attempt }} (${{ github.sha }})"
+            git push origin gh-pages
+          fi
       # Board #330: post-deploy verification of live Pages content. PAGES_VERIFY_FAIL
       # line format is a contract with external QA monitoring — do not change.
       - name: verify-pages-live
