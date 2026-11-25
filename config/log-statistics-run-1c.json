@@ -1,28 +1,374 @@
 {
- "last_run": 14293,
- "last_job": "45576364739",
- "last_title": "Sprint №14293(45576364739) 25.11.2026 11:28:50",
- "last_at": "2026-11-25T11:28:50.738248+03:00",
+ "last_run": 14295,
+ "last_job": [
+  {
+   "id": "3aae17b6-8482-8017-90d9-f89ec95654e3",
+   "tid": "APS-1C-199",
+   "u": "https://app.notion.com/p/1-1-3aae17b68482801790d9f89ec95654e3",
+   "r": [],
+   "p": "1С_ЗУП",
+   "d": "Чернявский Дмитрий",
+   "s": "Testing",
+   "e": null,
+   "t": 56.0,
+   "n": "Перенос карточки сотрудника из 1С:Альфа в 1С:ЗУП",
+   "n_full": "Перенос карточки сотрудника из 1С:Альфа в 1С:ЗУП",
+   "start": "2026-07-27T11:30:00.000+03:00",
+   "created": "2026-07-27T08:30:00.000Z",
+   "edited": "2026-11-25T08:31:00.000Z",
+   "history": [
+    {
+     "s": "Development",
+     "days": 9.745833333333334,
+     "from": "2026-10-09T16:05:00.000Z",
+     "to": "2026-10-19T09:59:00.000Z"
+    },
+    {
+     "s": "Analysis/Design",
+     "days": 25.069444444444443,
+     "from": "2026-10-19T09:59:00.000Z",
+     "to": "2026-11-13T11:39:00.000Z"
+    },
+    {
+     "s": "Development",
+     "days": 11.875694444444445,
+     "from": "2026-11-13T11:39:00.000Z",
+     "to": null
+    }
+   ]
+  },
+  null,
+  "3f4e17b6-8482-8179-9f79-e248472571a6",
+  {
+   "object": "page",
+   "id": "3f4e17b6-8482-8179-9f79-e248472571a6",
+   "created_time": "2026-10-09T16:07:00.000Z",
+   "last_edited_time": "2026-11-13T14:23:00.000Z",
+   "created_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "last_edited_by": {
+    "object": "user",
+    "id": "3d4e17b6-8482-81db-83e8-00272b3a57ee"
+   },
+   "cover": null,
+   "icon": null,
+   "parent": {
+    "type": "data_source_id",
+    "data_source_id": "c98e17b6-8482-820e-9f34-072fdef5db94",
+    "database_id": "3f4e17b6-8482-800b-8a23-d01f8c3aa6b9"
+   },
+   "in_trash": false,
+   "is_archived": false,
+   "is_locked": false,
+   "properties": {
+    "Current Status": {
+     "id": "%3AD%3AE",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "status",
+        "status": {
+         "id": "ICib",
+         "name": "Testing",
+         "color": "pink"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Investigate": {
+     "id": "%3C%7Dg%7B",
+     "type": "number",
+     "number": 0
+    },
+    "Ready For Dev": {
+     "id": "%40MjZ",
+     "type": "number",
+     "number": 0
+    },
+    "Release": {
+     "id": "BUfx",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "multi_select",
+        "multi_select": []
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Documentation": {
+     "id": "C%5B%3AS",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "title",
+        "title": [
+         {
+          "type": "text",
+          "text": {
+           "content": "Перенос карточки сотрудника из 1С:Альфа в 1С:ЗУП",
+           "link": null
+          },
+          "annotations": {
+           "bold": true,
+           "italic": false,
+           "strikethrough": false,
+           "underline": false,
+           "code": false,
+           "color": "default"
+          },
+          "plain_text": "Перенос карточки сотрудника из 1С:Альфа в 1С:ЗУП",
+          "href": null
+         }
+        ]
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Code Review": {
+     "id": "L%5DLc",
+     "type": "number",
+     "number": 0
+    },
+    "Tech Solution": {
+     "id": "Ofy%60",
+     "type": "number",
+     "number": 0
+    },
+    "Collected Status": {
+     "id": "OsUJ",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Development",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Development",
+       "href": null
+      }
+     ]
+    },
+    "Status since": {
+     "id": "QgrY",
+     "type": "date",
+     "date": {
+      "start": "2026-11-13T11:39:00.000+00:00",
+      "end": null,
+      "time_zone": null
+     }
+    },
+    "Ready For QA": {
+     "id": "SY%3D%5C",
+     "type": "number",
+     "number": 0
+    },
+    "Segments": {
+     "id": "W%3DMs",
+     "type": "rich_text",
+     "rich_text": [
+      {
+       "type": "text",
+       "text": {
+        "content": "[{\"s\":\"Development\",\"from\":\"2026-10-09T16:05:00.000Z\",\"to\":\"2026-10-19T09:59:00.000Z\"},{\"s\":\"Analysis/Design\",\"from\":\"2026-10-19T09:59:00.000Z\",\"to\":\"2026-11-13T11:39:00.000Z\"}]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "[{\"s\":\"Development\",\"from\":\"2026-10-09T16:05:00.000Z\",\"to\":\"2026-10-19T09:59:00.000Z\"},{\"s\":\"Analysis/Design\",\"from\":\"2026-10-19T09:59:00.000Z\",\"to\":\"2026-11-13T11:39:00.000Z\"}]",
+       "href": null
+      }
+     ]
+    },
+    "ID": {
+     "id": "WzeW",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "unique_id",
+        "unique_id": {
+         "prefix": "APS-1C",
+         "number": 199
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "Analysis/Design": {
+     "id": "%5B%3A%3Em",
+     "type": "number",
+     "number": 25.069444444444443
+    },
+    "Ready For Release": {
+     "id": "%5CpS_",
+     "type": "number",
+     "number": 0
+    },
+    "Done at": {
+     "id": "%5C%7BQZ",
+     "type": "date",
+     "date": null
+    },
+    "Total dwell": {
+     "id": "%5E%7BTj",
+     "type": "formula",
+     "formula": {
+      "type": "number",
+      "number": 34.8
+     }
+    },
+    "Merged": {
+     "id": "dTXX",
+     "type": "number",
+     "number": 0
+    },
+    "ETA": {
+     "id": "djm~",
+     "type": "number",
+     "number": 0
+    },
+    "Task": {
+     "id": "g%5Crq",
+     "type": "relation",
+     "relation": [
+      {
+       "id": "3aae17b6-8482-8017-90d9-f89ec95654e3"
+      }
+     ],
+     "has_more": false
+    },
+    "Product Review": {
+     "id": "is%5DQ",
+     "type": "number",
+     "number": 0
+    },
+    "Failed": {
+     "id": "liiX",
+     "type": "number",
+     "number": 0
+    },
+    "DEV": {
+     "id": "oDjM",
+     "type": "rollup",
+     "rollup": {
+      "type": "array",
+      "array": [
+       {
+        "type": "select",
+        "select": {
+         "id": "870a6038-c02e-4811-ab60-8f4262d20b6d",
+         "name": "Чернявский Дмитрий",
+         "color": "purple"
+        }
+       }
+      ],
+      "function": "show_original"
+     }
+    },
+    "ID 1": {
+     "id": "rf%60%40",
+     "type": "unique_id",
+     "unique_id": {
+      "prefix": null,
+      "number": 117
+     }
+    },
+    "Development": {
+     "id": "t%3Ctf",
+     "type": "number",
+     "number": 9.745833333333334
+    },
+    "New": {
+     "id": "vxtn",
+     "type": "number",
+     "number": 0
+    },
+    "Testing": {
+     "id": "zSDh",
+     "type": "number",
+     "number": 0
+    },
+    "Name": {
+     "id": "title",
+     "type": "title",
+     "title": [
+      {
+       "type": "text",
+       "text": {
+        "content": "Sprint: Перенос карточки сотрудника из 1С:Альфа в 1С:ЗУП [3aae17b6-8482-8017-90d9-f89ec95654e3]",
+        "link": null
+       },
+       "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+       },
+       "plain_text": "Sprint: Перенос карточки сотрудника из 1С:Альфа в 1С:ЗУП [3aae17b6-8482-8017-90d9-f89ec95654e3]",
+       "href": null
+      }
+     ]
+    }
+   },
+   "url": "https://app.notion.com/p/Sprint-1-1-3aae17b6-8482-8017-90d9-f89ec95654e3-3f4e17b6848281799f79e248472571a6",
+   "public_url": null
+  },
+  363
+ ],
+ "last_title": "Sprint №14295(45577856584) 25.11.2026 11:39:45",
+ "last_at": "2026-11-25T11:39:45.784157+03:00",
  "last_created": 0,
- "last_updated": 0,
+ "last_updated": 1,
  "last_failed": 0,
- "last_skipped": 363,
- "last_duration_s": 2.0,
+ "last_skipped": 362,
+ "last_duration_s": 3.0,
  "last_archived_empty": 0,
  "last_archived_dup": 0,
  "last_archived_unlinked": 0,
  "last_unknown_statuses": [],
  "a19_conflicts": 0,
  "mode": "incremental",
- "snapshot_generated_at": "2026-11-25T08:28:48Z",
+ "snapshot_generated_at": "2026-11-25T08:39:43Z",
  "resumed": false,
  "resume_skipped": 0,
- "runs_total": 9743,
- "runs_ok": 9630,
+ "runs_total": 9744,
+ "runs_ok": 9631,
  "runs_error": 0,
  "created_total": 93,
- "updated_total": 168,
- "skipped_total": 3176168,
+ "updated_total": 169,
+ "skipped_total": 3176530,
  "failed_total": 0,
- "last_ok_at": "2026-11-25T08:28:52.000Z"
+ "last_ok_at": "2026-11-25T08:39:48.000Z"
 }
